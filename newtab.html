@@ -3,20 +3,20 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>主页</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div class="bookmark-column" data-level="0"></div>
-    <div id="headerImage" class="header-image">
-        <img src="/img/bilbil.avif" alt="Bilibili Image" class="header-bg-image">
-        <div class="header-controls">
+    <header class="page-header">
+        <div id="headerImage" class="header-image">
+            <img src="/img/bilbil.avif" alt="Bilibili Image" class="header-bg-image">
         </div>
-    </div>
+        <div class="bookmark-column" data-level="0"></div>
+    </header>
 
-    <div class="main-container">
+    <main class="main-container">
         <div id="bookmarkContainer" class="bookmark-container"></div>
 
         <div class="vertical-modules" style="display: none;">
@@ -29,7 +29,7 @@
                 <ul class="module-content"></ul>
             </section>
         </div>
-    </div>
+    </main>
 
     <div id="contextMenu" class="context-menu"></div>
 
