@@ -11,9 +11,12 @@
 <body>
     <header class="page-header">
         <div id="headerImage" class="header-image">
-            <img src="/img/bilbil.avif" alt="Bilibili Image" class="header-bg-image">
+            <img src="/img/bilbil.avif" alt="Header Image" class="header-bg-image">
         </div>
-        <div class="bookmark-column" data-level="0"></div>
+        <div id="topSitesBar" class="top-sites-bar">
+            <div id="topSitesContent" class="top-sites-content">
+                </div>
+        </div>
     </header>
 
     <main class="main-container">
@@ -24,15 +27,10 @@
                 <label class="module-header">最近添加的书签</label>
                 <ul class="module-content"></ul>
             </section>
-            <section class="module" id="topSitesModule">
-                <label class="module-header">经常访问的网站</label>
-                <ul class="module-content"></ul>
-            </section>
         </div>
     </main>
 
     <div id="contextMenu" class="context-menu"></div>
-
     <div id="toast" class="toast"></div>
 
     <div id="moveDialog" class="move-dialog">

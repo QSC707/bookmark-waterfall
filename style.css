@@ -1,490 +1,246 @@
-/* 设置全局样式 */
+/* ================================================================== */
+/* --- 最终修复与美化版样式 (Final Fix & Polish) --- */
+/* ================================================================== */
+
+/* --- 1. 变量与色彩体系 --- */
 :root {
-    --bg-color: #3C3C3C;
+    --bg-color: #2a2734;
     --text-color: #dcdcdc;
-    --header-border-color: #2b2b2b;
+    --header-bg: rgba(42, 39, 52, 0.7);
+    --header-border: rgba(255, 255, 255, 0.1);
+    --card-bg: rgba(42, 39, 52, 0.5);
+    --link-color: #e2e2e2;
+    --highlighted-bg: rgba(255, 255, 255, 0.08);
+    --hover-bg: rgba(255, 255, 255, 0.1);
+    --dialog-bg: rgba(44, 44, 44, 0.7);
+    --dialog-primary-bg: #3772ff;
+    --dialog-delete-bg: #f44336;
+    --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
     --module-bg-color: #353535;
-    --module-header-color: #8e8e8e;
-    --module-header-border-color: #4a4a4a;
-    --module-item-hover-bg: #2c2c2c;
-    --link-color: #dadada;
-    --bookmark-container-bg: #3C3C3C;
-    --bookmark-container-border: #272727;
-    --highlighted-bg: #2c2c2c;
-    --bookmark-item-hover-bg: #323232;
-    --context-menu-bg: #2c2c2c;
-    --context-menu-shadow: #2e2e2e;
-    --context-menu-hr: #515151;
-    --context-menu-text: #f1f1f1;
-    --context-menu-hover-bg: #4a4a4a;
-    --highlgg-outline: rgba(131, 132, 131, 0.7);
-    --dialog-bg: #2c2c2c;
-    --dialog-header-border: #404040;
-    --dialog-header-text: #e8e8e8;
-    --dialog-body-text: #ddd;
-    --dialog-button-bg: #3c3c3c;
-    --dialog-button-text: #ddd;
-    --dialog-button-hover-bg: #4a4a4a;
-    --dialog-primary-bg: #0078d4;
-    --dialog-primary-text: white;
-    --dialog-primary-hover-bg: #0086ef;
-    --dialog-delete-bg: #d43c3c;
-    --dialog-delete-hover-bg: #e64545;
-    --input-bg: #1f1f1f;
-    --input-border: #404040;
-    --input-text: #e8e8e8;
-    --input-focus-border: #0078d4;
-    --error-text: #ff6b6b;
-    --scrollbar-thumb-bg: rgba(95, 95, 95, 0.3);
-    --scrollbar-thumb-hover-bg: rgba(95, 95, 95, 0.5);
-    --toast-bg: #2c2c2c;
-    --toast-text: #fff;
-    --toast-border: #404040;
+    --module-header-color: #9e9e9e;
+    --module-header-border-color: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] {
-    --bg-color: #f0f0f0;
+    --bg-color: #f7f7f7;
     --text-color: #333;
-    --header-border-color: #e0e0e0;
+    --header-bg: rgba(255, 255, 255, 0.7);
+    --header-border: rgba(0, 0, 0, 0.08);
+    --card-bg: rgba(255, 255, 255, 0.6);
+    --link-color: #111;
+    --highlighted-bg: rgba(0, 0, 0, 0.05);
+    --hover-bg: rgba(0, 0, 0, 0.08);
+    --dialog-bg: rgba(255, 255, 255, 0.7);
+    --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
+    --context-menu-icon-filter: none;
     --module-bg-color: #ffffff;
     --module-header-color: #555;
-    --module-header-border-color: #ddd;
-    --module-item-hover-bg: #e9e9e9;
-    --link-color: #111;
-    --bookmark-container-bg: #f0f0f0;
-    --bookmark-container-border: #e0e0e0;
-    --highlighted-bg: #e9e9e9;
-    --bookmark-item-hover-bg: #e0e0e0;
-    --context-menu-bg: #ffffff;
-    --context-menu-shadow: rgba(0, 0, 0, 0.1);
-    --context-menu-hr: #eee;
-    --context-menu-text: #333;
-    --context-menu-hover-bg: #f0f0f0;
-    --highlgg-outline: rgba(0, 120, 212, 0.7);
-    --dialog-bg: #ffffff;
-    --dialog-header-border: #eee;
-    --dialog-header-text: #333;
-    --dialog-body-text: #555;
-    --dialog-button-bg: #f0f0f0;
-    --dialog-button-text: #333;
-    --dialog-button-hover-bg: #e0e0e0;
-    --dialog-primary-bg: #0078d4;
-    --dialog-primary-text: white;
-    --dialog-primary-hover-bg: #0086ef;
-    --dialog-delete-bg: #d43c3c;
-    --dialog-delete-hover-bg: #e64545;
-    --input-bg: #fff;
-    --input-border: #ccc;
-    --input-text: #333;
-    --input-focus-border: #0078d4;
-    --error-text: #d43c3c;
-    --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
-    --scrollbar-thumb-hover-bg: rgba(0, 0, 0, 0.4);
-    --toast-bg: #ffffff;
-    --toast-text: #333;
-    --toast-border: #ddd;
-    /* 为浅色模式下的右键菜单图标添加颜色反转滤镜 */
-    --context-menu-icon-filter: invert(1);
+    --module-header-border-color: #eee;
 }
 
-/* --- 核心布局修改 --- */
+/* --- 2. 核心布局与背景 --- */
 body {
-    margin: 0;
-    padding: 0;
-    background-color: var(--bg-color);
-    font-family: sans-serif;
-    display: flex;
-    flex-direction: column; /* 页面整体采用垂直布局 */
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     height: 100vh;
     color: var(--text-color);
-    overflow: hidden; /* 防止body出现滚动条 */
+    overflow: hidden;
+    background-color: var(--bg-color);
+    display: flex;
+    flex-direction: column;
 }
 
-/* 头部容器 */
 .page-header {
-    flex-shrink: 0; /* 防止头部在flex布局中被压缩 */
     position: relative;
     z-index: 100;
+    flex-shrink: 0;
 }
 
-/* 顶部背景图片 */
-.header-image {
-    position: absolute; /* 作为背景层 */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 25px;
-    z-index: 0;
+.main-container {
+    display: flex;
+    flex: 1;
     overflow: hidden;
+}
+
+/* --- 3. 顶部三层结构美化 (已修复) --- */
+.header-image {
+    width: 100%; height: 25px; overflow: hidden;
 }
 
 .header-bg-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    filter: brightness(0.8);
+    width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8);
 }
 
-/* 主体内容区容器 */
-.main-container {
-    display: flex;
-    flex: 1; /* 占据所有剩余空间 */
-    overflow: hidden; /* 内部自己处理滚动 */
-    padding-top: 69px; /* 为头部预留空间 (25px图片 + 44px顶栏) */
-    box-sizing: border-box;
+.bookmark-column[data-level="0"],
+.top-sites-bar {
+    background-color: var(--header-bg);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
-/* --- 顶部书签栏样式修改 --- */
 .bookmark-column[data-level="0"] {
-    /* 关键修改：移除 position: fixed，改为 absolute 定位在 header 内 */
-    position: absolute; 
-    top: 25px; /* 将其定位在背景图下方 */
-    left: 0;
-    right: 0;
-    z-index: 1;
-    
-    /* 其他样式保持不变 */
     display: flex;
-    flex-direction: row;
-    background-color: var(--module-bg-color);
     align-items: center;
+    /* 关键修复：恢复居中 */
     justify-content: center;
-    padding: 6px 16px;
+    padding: 0 16px;
+    height: 44px;
     box-sizing: border-box;
-    height: 44px; /* 固定高度 */
     overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
+    border-top: 1px solid var(--header-border);
+    border-bottom: 1px solid var(--header-border);
 }
 
-
-/* --- 下方视图容器样式修改 --- */
-.bookmark-container {
+.top-sites-bar {
     display: flex;
-    flex-direction: row;
-    flex: 1; /* 占据主体区域的剩余空间 */
-    height: 100%;
-    overflow: auto; /* 允许横向和纵向滚动 */
-    position: relative;
-}
-
-.vertical-modules {
-    display: none;
-    flex-direction: column;
-    width: clamp(270px, 20vw, 350px);
-    min-width: 270px;
-    background-color: var(--module-bg-color);
-    border-radius: 8px;
-    margin: 0 12px 0 6px;
+    justify-content: center;
+    height: 52px;
+    transition: height 0.3s ease;
     overflow: hidden;
-    height: 100%; /* 占满父容器高度 */
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    transition: width 0.3s ease;
+    border-bottom: 1px solid var(--header-border);
+}
+.top-sites-bar:hover { height: 72px; }
+
+.top-sites-content {
+    display: flex; justify-content: center; align-items: flex-start;
+    gap: 16px; padding: 10px 20px 0 20px;
 }
 
+.top-site-item {
+    display: flex; flex-direction: column; align-items: center; text-decoration: none;
+    width: 60px; transition: transform 0.2s ease;
+}
+.top-site-item:hover { transform: translateY(-2px); }
 
-/* --- 统一的拖动样式 --- */
-.bookmark-item.dragging {
-    opacity: 0.5;
+.top-site-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px; object-fit: cover;
 }
 
-/* 最终解决方案：预占位透明边框，从根源上解决抖动问题，且提示清晰 */
-
-/* 为所有书签项设置一个基础的、透明的边框来预占空间 */
-.bookmark-item {
-    box-sizing: border-box; /* 确保边框和内边距的计算方式正确 */
-    border: 2px solid transparent; 
+.top-site-title {
+    font-size: 12px; color: var(--link-color); margin-top: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    width: 100%; text-align: center; opacity: 0;
+    transform: translateY(-4px); transition: all 0.2s ease;
 }
+.top-sites-bar:hover .top-site-title { opacity: 1; transform: translateY(0); }
 
-/* 为了抵消边框占用的空间，用负外边距把它拉回来，保持原有布局不变 */
-.bookmark-column:not([data-level="0"]) .bookmark-item {
-    margin: -2px 0;
+/* --- 4. 主视图区域卡片式美化 (已修复) --- */
+.bookmark-container {
+    display: flex; flex: 1; height: 100%; overflow-x: auto;
+    padding: 20px;
+    gap: 20px;
 }
-.bookmark-column[data-level="0"] .bookmark-item {
-    margin: 0 -2px;
-}
-
-/* 拖拽悬停时，只改变对应边框的颜色 */
-
-/* 顶部栏指示器 (左/右) */
-.bookmark-column[data-level="0"] .bookmark-item.drag-over-before {
-    border-left-color: var(--dialog-primary-bg);
-}
-.bookmark-column[data-level="0"] .bookmark-item.drag-over-after {
-    border-right-color: var(--dialog-primary-bg);
-}
-
-/* 下方视图指示器 (上/下) */
-.bookmark-item.drag-over-top {
-    border-top-color: var(--dialog-primary-bg);
-}
-.bookmark-item.drag-over-bottom {
-    border-bottom-color: var(--dialog-primary-bg);
-}
-
-/* 移入文件夹的样式保持不变 */
-.bookmark-item.drag-enter {
-    background-color: var(--highlighted-bg);
-    border-color: transparent; /* 移入时，不需要边框提示 */
-}
-
-
-/* --- 其他所有样式都保持不变 --- */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.fade-in { animation: fadeIn 0.25s cubic-bezier(0.03, 0.5, 0, 1); will-change: opacity; }
 
 .bookmark-column {
-    width: auto;
+    background-color: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    border: 1px solid var(--header-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    padding: 8px;
     overflow-y: auto;
     flex-shrink: 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
-    padding: 8px 6px 0 5px;
-}
-
-.bookmark-item {
-    cursor: pointer;
-    padding: 8px 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
-}
-
-.highlighted {
-    background-color: var(--highlighted-bg);
-    border-radius: 5px;
-}
-
-.bookmark-item:hover {
-    background-color: var(--bookmark-item-hover-bg);
-    border-radius: 5px;
-}
-
-.bookmark-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-    flex-shrink: 0;
-}
-
-.bookmark-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.context-menu {
-    position: fixed;
-    z-index: 1000;
-    width: 160px;
-    background: var(--context-menu-bg);
-    box-shadow: 3px 3px 5px var(--context-menu-shadow);
-    border-radius: 5px;
-    display: none;
-    animation: zoomIn 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-@keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-.context-menu hr { border: 0; border-top: 1px solid var(--context-menu-hr); margin: 4px 0; }
-.context-menu ul { list-style: none; padding: 5px 0; margin: 2px 0; width: 100%; }
-.context-menu ul li { cursor: pointer; color: var(--context-menu-text); padding: 8px 6px 8px 20px; display: flex; align-items: center; gap: 8px; }
-.context-menu ul li:hover { background-color: var(--context-menu-hover-bg); border-radius: 5px; }
-
-.menu-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    opacity: 0.9;
-    filter: var(--context-menu-icon-filter, none);
-}
-
-.bookmark-item.highlgg {
-    border-radius: 5px;
-    outline: 2px dashed var(--highlgg-outline);
-    outline-offset: -1px;
+    width: auto; 
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .bookmark-column[data-level="1"] {
     margin-left: max(20px, calc((120vw - 1600px) / 2));
-    transition: margin-left 0.3s ease;
-    border-left: 2px solid var(--highlighted-bg);
+    border-left: none;
+    /* 关键修复：移除卡顿的 margin 动画 */
+    transition: none; 
 }
 
 @media screen and (max-width: 1240px) {
     .bookmark-column[data-level="1"] { margin-left: 20px; }
 }
 
-.bookmark-column[data-level="0"] .bookmark-item {
-    padding: 6px 12px;
-    width: auto;
-    min-width: 28px;
-    justify-content: center;
+.bookmark-item {
+    cursor: pointer; padding: 8px 12px;
+    display: flex; align-items: center;
+    border-radius: 6px;
+    transition: background-color 0.2s;
 }
+.bookmark-item:hover { background-color: var(--hover-bg); }
+.bookmark-item.highlighted { background-color: var(--highlighted-bg); }
 
+.bookmark-icon { width: 18px; height: 18px; margin-right: 10px; }
+.bookmark-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.bookmark-column[data-level="0"] .bookmark-item { padding: 6px 12px; }
 .bookmark-column[data-level="0"] .bookmark-icon { margin: 0; width: 20px; height: 20px; }
 .bookmark-column[data-level="0"] .bookmark-title { display: none; }
-.bookmark-column[data-level="0"] .bookmark-item:not([data-url]) .bookmark-title,
-.bookmark-column[data-level="0"] .bookmark-item[data-url=""] .bookmark-title {
-    display: inline; margin-left: 6px;
-}
 
+/* --- 5. 拖拽效果适配卡片 --- */
+.bookmark-item { border: 2px solid transparent; margin: -2px 0; }
+.bookmark-item.dragging { opacity: 0.4; }
+.bookmark-item.drag-over-top { border-top-color: var(--dialog-primary-bg); }
+.bookmark-item.drag-over-bottom { border-bottom-color: var(--dialog-primary-bg); }
+.bookmark-item.drag-enter { background-color: var(--highlighted-bg); border-color: transparent; }
+.bookmark-column[data-level="0"] .bookmark-item.drag-over-before { border-left: 2px solid var(--dialog-primary-bg); }
+.bookmark-column[data-level="0"] .bookmark-item.drag-over-after { border-right: 2px solid var(--dialog-primary-bg); }
+
+/* --- 6. 所有弹出层统一琉璃效果 --- */
+.context-menu, .settings-panel, .move-dialog-content, .edit-dialog-content, .vertical-modules, .toast {
+    background-color: var(--dialog-bg);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--header-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+}
+.move-dialog, .edit-dialog { background-color: rgba(0, 0, 0, 0.3); }
+
+/* --- 7. 保留所有其他必要的样式 (仅作微调) --- */
+.vertical-modules {
+    display: none; flex-direction: column; width: clamp(270px, 20vw, 320px);
+    margin: 0 12px 0 6px; overflow: hidden; height: 100%;
+}
+.sidebar-toggle-btn, .settings-btn {
+    position: fixed; z-index: 1002; background-color: rgba(0,0,0,0.2);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s ease;
+}
+.sidebar-toggle-btn {
+    top: 50%; right: 0; transform: translateY(-50%); color: var(--text-color);
+    opacity: 0.6; width: 28px; height: 60px; border-radius: 8px 0 0 8px;
+    font-size: 14px; writing-mode: vertical-rl; text-orientation: mixed;
+}
+.sidebar-toggle-btn:hover { opacity: 1; background-color: rgba(0,0,0,0.3); }
+.settings-btn {
+    bottom: 20px; left: 20px; color: var(--module-header-color);
+    width: 44px; height: 44px; border-radius: 50%; font-size: 22px; opacity: 0.6;
+}
+.settings-btn:hover { opacity: 1; transform: rotate(45deg); background-color: rgba(0,0,0,0.3); }
+.context-menu {
+    position: fixed; z-index: 1000; width: 180px; display: none; padding: 6px;
+}
+.settings-panel {
+    position: fixed; bottom: 74px; left: 20px; z-index: 1001; width: 300px;
+    opacity: 0; transform: translateY(10px); visibility: hidden; transition: all 0.25s ease;
+}
+.settings-panel.visible { opacity: 1; transform: translateY(0); visibility: visible; }
 .move-dialog, .edit-dialog {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: flex-start;
+    z-index: 2000; justify-content: center; align-items: flex-start;
 }
-
-.move-dialog-content, .edit-dialog-content {
-    background-color: var(--dialog-bg);
-    border-radius: 6px;
-    width: 600px;
-    max-width: 90vw;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    margin-top: 10vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.move-dialog-header, .edit-dialog-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--dialog-header-border);
-    text-align: center;
-}
-
-.move-dialog-header h3, .edit-dialog-header h3 {
-    font-size: 14px;
-    font-weight: normal;
-    color: var(--dialog-header-text);
-    margin: 0;
-}
-
-.move-dialog-body, .edit-dialog-body {
-    padding: 16px;
-    flex: 1; /* 关键修复：让内容区自动伸缩，撑满剩余空间 */
-    overflow-y: auto; /* 关键修复：当内容区本身也可能溢出时，也提供滚动 */
-}
-
-.bookmark-tree {
-    color: var(--dialog-body-text);
-    /* 不再需要max-height，因为它会被父容器约束 */
-}
-
-.edit-dialog-input {
-    width: 100%;
-    padding: 8px;
-    box-sizing: border-box;
-    background-color: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    color: var(--input-text);
-    font-size: 14px;
-}
-
-.edit-dialog-error {
-    color: var(--error-text);
-    font-size: 12px;
-    margin-top: 8px;
-    min-height: 18px;
-}
-
-.move-dialog-footer, .edit-dialog-footer {
-    padding: 12px 16px;
-    border-top: 1px solid var(--dialog-header-border);
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-}
+.move-dialog-content, .edit-dialog-content { margin-top: 10vh; width: 520px; }
 
 .dialog-button {
-    padding: 6px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: all 0.2s ease;
-    background-color: var(--dialog-button-bg);
-    color: var(--dialog-button-text);
+    padding: 8px 18px; border: none; border-radius: 6px;
+    cursor: pointer; font-size: 14px; font-weight: 500;
+    background-color: var(--dialog-button-bg); color: var(--text-color);
+    transition: all 0.2s;
 }
-
-.dialog-button:hover {
-    background-color: var(--dialog-button-hover-bg);
-}
-
-.dialog-button.primary {
-    background-color: var(--dialog-primary-bg);
-    color: var(--dialog-primary-text);
-}
-
-.dialog-button.primary:hover {
-    background-color: var(--dialog-primary-hover-bg);
-}
-
-#confirmDialog .dialog-button.primary {
-    background-color: var(--dialog-delete-bg);
-}
-
-#confirmDialog .dialog-button.primary:hover {
-    background-color: var(--dialog-delete-hover-bg);
-}
-
-.toast {
-    visibility: hidden; min-width: 250px; background-color: var(--toast-bg);
-    color: var(--toast-text); text-align: center; border-radius: 8px; padding: 12px 20px;
-    position: fixed; z-index: 9999; left: 50%; bottom: 30px; transform: translateX(-50%);
-    font-size: 14px; opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); border: 1px solid var(--toast-border);
-}
-
-.toast.show {
-    visibility: visible; opacity: 1; transform: translateX(-50%) translateY(-10px);
-}
-
-.sidebar-toggle-btn {
-    position: fixed; top: 50%; right: 0; transform: translateY(-50%); z-index: 1002;
-    background-color: transparent; color: rgba(224, 224, 224, 0.3); opacity: 0.5;
-    border: none; border-radius: 8px 0 0 8px; width: 30px; height: 70px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 16px; font-weight: bold; transition: all 0.3s ease;
-    writing-mode: vertical-rl; text-orientation: mixed;
-}
-
-.sidebar-toggle-btn:hover { background-color: rgba(95, 95, 95, 0.8); color: #e0e0e0; opacity: 1; }
-
-.settings-btn {
-    position: fixed; bottom: 20px; left: 20px; z-index: 1002;
-    background-color: transparent; color: var(--module-header-color);
-    border: none; width: 40px; height: 40px; border-radius: 50%;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; transition: all 0.2s ease; opacity: 0.4;
-}
-
-.settings-btn:hover {
-    background-color: var(--module-bg-color); color: var(--text-color);
-    opacity: 1; transform: rotate(45deg); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.settings-panel {
-    position: fixed; bottom: 70px; left: 20px; z-index: 1001;
-    width: 280px; background-color: var(--module-bg-color); border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); border: 1px solid var(--header-border-color);
-    overflow: hidden; opacity: 0; transform: translateY(10px); visibility: hidden;
-    transition: all 0.25s ease;
-}
-
-.settings-panel.visible { opacity: 1; transform: translateY(0); visibility: visible; }
-.settings-content { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-.setting-item { display: flex; justify-content: space-between; align-items: center; }
-.setting-label { font-size: 14px; color: var(--text-color); }
-.theme-options { display: flex; background-color: var(--bg-color); border-radius: 6px; padding: 3px; }
-.theme-option {
-    flex: 1; padding: 6px 12px; border: none; background-color: transparent;
-    color: var(--module-header-color); cursor: pointer; border-radius: 4px;
-    font-size: 13px; transition: all 0.2s ease;
-}
-.theme-option:hover { background-color: var(--bookmark-item-hover-bg); color: var(--text-color); }
-.theme-option.active { background-color: var(--highlighted-bg); color: var(--text-color); font-weight: bold; }
+.dialog-button:hover { background-color: var(--hover-bg); transform: scale(1.05); }
+.dialog-button:active { transform: scale(0.98); }
+.dialog-button.primary { background-color: var(--dialog-primary-bg); color: #fff; }
+.dialog-button.primary:hover { background-color: #528bff; }
 
 .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -498,107 +254,61 @@ body {
 }
 input:checked + .slider { background-color: var(--dialog-primary-bg); }
 input:checked + .slider:before { transform: translateX(20px); }
-
-/* 滚动条样式 */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb-bg); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover-bg); }
-* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb-bg) transparent; }
-
-
-/* 为可放置的列容器提供视觉反馈 */
-.bookmark-column.column-drag-over {
-    background-color: var(--highlighted-bg) !important;
+.settings-content { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.setting-item { display: flex; justify-content: space-between; align-items: center; }
+.setting-label { font-size: 14px; color: var(--text-color); }
+.theme-options { display: flex; background-color: var(--bg-color); border-radius: 6px; padding: 3px; }
+.theme-option {
+    flex: 1; padding: 6px 12px; border: none; background-color: transparent;
+    color: var(--module-header-color); cursor: pointer; border-radius: 4px;
+    font-size: 13px; transition: all 0.2s ease;
 }
-/* --- "移动到..." 对话框最终稳定版样式 --- */
-
-.move-dialog-content {
-    /* 关键修复：确保容器是flex布局，并且有最大高度限制 */
-    display: flex;
-    flex-direction: column;
-    max-height: 80vh; 
+.theme-option:hover { background-color: var(--hover-bg); color: var(--text-color); }
+.theme-option.active { background-color: var(--highlighted-bg); color: var(--text-color); font-weight: bold; }
+.move-dialog-header, .edit-dialog-header { padding: 12px 16px; border-bottom: 1px solid var(--header-border); }
+.move-dialog-header h3, .edit-dialog-header h3 { font-size: 14px; font-weight: 500; color: var(--text-color); margin: 0; }
+.move-dialog-body, .edit-dialog-body { padding: 16px; flex: 1; overflow-y: auto; }
+.move-dialog-footer, .edit-dialog-footer { padding: 12px 16px; border-top: 1px solid var(--header-border); display: flex; justify-content: flex-end; gap: 8px; }
+.move-dialog-content { max-height: 80vh; }
+.bookmark-tree { font-size: 14px; color: var(--text-color); }
+.bookmark-tree-item { margin-bottom: 2px; }
+.folder-content { display: flex; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: 6px; }
+.folder-content:hover { background-color: var(--hover-bg); }
+.bookmark-tree-item.selected > .folder-content { background-color: var(--dialog-primary-bg); color: #fff; }
+.expand-icon { width: 20px; text-align: center; flex-shrink: 0; color: var(--module-header-color); transition: transform 0.2s ease; cursor: pointer; }
+.bookmark-tree-item.selected .expand-icon { color: #fff; }
+.expand-icon.expanded { transform: rotate(90deg); }
+.folder-icon { width: 16px; height: 16px; margin-right: 8px; flex-shrink: 0; }
+.bookmark-tree-item.is-current-parent > .folder-content { background-color: var(--highlighted-bg); font-weight: 500; }
+.bookmark-tree-item.is-disabled > .folder-content { opacity: 0.5; cursor: not-allowed; }
+.folder-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-folder.is-hidden { display: none; }
+.edit-dialog-input {
+    width: 100%; padding: 10px; box-sizing: border-box; background-color: var(--input-bg);
+    border: 1px solid var(--input-border); border-radius: 6px; color: var(--input-text); font-size: 14px;
 }
+.edit-dialog-input:focus { border-color: var(--input-focus-border); outline: none; box-shadow: 0 0 0 2px var(--input-focus-border); }
+.edit-dialog-error { color: var(--error-text); font-size: 12px; margin-top: 8px; min-height: 18px; }
+.confirm-message { margin: 0; color: var(--text-color); }
+.context-menu hr { border: 0; border-top: 1px solid var(--context-menu-hr); margin: 4px 6px; }
+.context-menu ul { list-style: none; padding: 0; margin: 0; }
+.context-menu ul li { cursor: pointer; color: var(--text-color); padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-size: 14px; border-radius: 6px; margin: 0 4px;}
+.context-menu ul li:hover { background-color: var(--hover-bg); }
+.menu-icon { width: 16px; height: 16px; opacity: 0.9; filter: var(--context-menu-icon-filter, none); }
+.bookmark-item.highlgg { outline: 2px dashed var(--highlgg-outline); outline-offset: -1px; }
+.module-header { padding: 12px 16px; font-size: 14px; color: var(--module-header-color); border-bottom: 1px solid var(--module-header-border-color); }
+.module-content { list-style: none; padding: 8px; margin: 0; overflow-y: auto; }
+.module-content li { margin-bottom: 4px; }
+.module-content a { display: flex; align-items: center; padding: 8px; border-radius: 5px; text-decoration: none; color: var(--link-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.module-content a:hover { background-color: var(--hover-bg); }
+.module-content .module-icon { width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0; }
+.module-content .module-title { overflow: hidden; text-overflow: ellipsis; }
 
-.move-dialog-body {
-    /* 关键修复：让内容区自动伸缩，并自己负责滚动 */
-    flex: 1 1 auto;
-    overflow-y: auto;
-    padding: 8px;
+/* --- Toast (保持不变) --- */
+.toast {
+    visibility: hidden; min-width: 250px;
+    color: var(--text-color); text-align: center; padding: 12px 20px;
+    position: fixed; z-index: 9999; left: 50%; bottom: 30px; transform: translateX(-50%);
+    font-size: 14px; opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-.bookmark-tree {
-    font-size: 14px;
-}
-
-.bookmark-tree-item {
-    border-radius: 4px;
-    margin-bottom: 2px;
-}
-
-.folder-content {
-    display: flex;
-    align-items: center;
-    padding: 6px 8px;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-.folder-content:hover {
-    background-color: var(--bookmark-item-hover-bg);
-}
-
-.bookmark-tree-item.selected > .folder-content {
-    background-color: var(--dialog-primary-bg);
-    color: var(--dialog-primary-text);
-}
-
-.expand-icon {
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
-    text-align: center;
-    flex-shrink: 0;
-    color: var(--module-header-color);
-    transition: transform 0.2s ease;
-    cursor: pointer;
-}
-
-.bookmark-tree-item.selected .expand-icon {
-    color: var(--dialog-primary-text);
-}
-
-.expand-icon.expanded {
-    transform: rotate(90deg);
-}
-
-.folder-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-    flex-shrink: 0;
-}
-
-.bookmark-tree-item.is-current-parent > .folder-content {
-    background-color: var(--highlighted-bg);
-    font-weight: bold;
-}
-
-.bookmark-tree-item.is-disabled > .folder-content {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: transparent;
-}
-
-.folder-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sub-folder {
-    overflow: hidden;
-    /* 关键修复：将 height 改为 max-height 以实现流畅的动画效果 */
-    max-height: 0; 
-    transition: max-height 0.25s ease-in-out;
-}
+.toast.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(-10px); }

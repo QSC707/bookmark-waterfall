@@ -67,7 +67,8 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column = document.createElement('div');
         column.className = 'bookmark-column';
         column.dataset.level = level;
-        header.appendChild(column);
+        // 将书签栏插入到“常用网站”栏的前面
+        header.insertBefore(column, document.getElementById('topSitesBar'));
     } else {
         const container = document.getElementById('bookmarkContainer');
         const nextColumns = container.querySelectorAll(`.bookmark-column`);
@@ -91,7 +92,6 @@ function renderBookmarks(bookmarks, parentElement, level) {
         fragment.appendChild(item);
     });
 
-    // 为空的文件夹视图添加提示
     if (bookmarks.length === 0 && level > 0) {
         const emptyMsg = document.createElement('div');
         emptyMsg.className = 'empty-folder-message';
@@ -168,7 +168,6 @@ function createBookmarkItem(bookmark, index) {
 
     return item;
 }
-
 
 // --- 统一、简单、原生的拖动逻辑 ---
 
@@ -313,7 +312,6 @@ function handleColumnDrop(e) {
     }
 }
 
-
 // --- 对话框 & 右键菜单 ---
 function showContextMenu(e, bookmarkElement, column) {
     const contextMenu = document.getElementById('contextMenu');
@@ -393,6 +391,77 @@ function handleContextMenuAction(action, element) {
     }
 }
 
+function showEditDialog(title, initialValue, validator, callback) {
+    const dialog = document.getElementById('editDialog');
+    const titleEl = document.getElementById('editDialogTitle');
+    const inputEl = document.getElementById('editDialogInput');
+    const errorEl = document.getElementById('editDialogError');
+    const cancelBtn = document.getElementById('cancelEdit');
+    const confirmBtn = document.getElementById('confirmEdit');
+
+    titleEl.textContent = title;
+    inputEl.value = initialValue || '';
+    errorEl.textContent = '';
+    dialog.style.display = 'flex';
+    inputEl.focus();
+    inputEl.select();
+
+    const close = () => {
+        dialog.style.display = 'none';
+        confirmBtn.onclick = null;
+        cancelBtn.onclick = null;
+        inputEl.onkeydown = null;
+    };
+
+    const confirm = () => {
+        const newValue = inputEl.value.trim();
+        if (validator && !validator(newValue)) {
+            errorEl.textContent = '请输入有效的网址';
+            return;
+        }
+        if (!newValue && (title.includes('重命名') || title.includes('新建'))) {
+             errorEl.textContent = '名称不能为空';
+             return;
+        }
+        callback(newValue);
+        close();
+    };
+
+    cancelBtn.onclick = close;
+    confirmBtn.onclick = confirm;
+    inputEl.onkeydown = (e) => {
+        if (e.key === 'Enter') confirm();
+        if (e.key === 'Escape') close();
+    };
+}
+
+function showConfirmDialog(title, message, callback) {
+    const dialog = document.getElementById('confirmDialog');
+    const titleEl = document.getElementById('confirmDialogTitle');
+    const messageEl = document.getElementById('confirmDialogMessage');
+    const cancelBtn = document.getElementById('cancelConfirm');
+    const confirmBtn = document.getElementById('confirmConfirm');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    dialog.style.display = 'flex';
+    confirmBtn.focus();
+
+    const close = () => {
+        dialog.style.display = 'none';
+        confirmBtn.onclick = null;
+        cancelBtn.onclick = null;
+    };
+
+    const confirm = () => {
+        callback();
+        close();
+    };
+
+    cancelBtn.onclick = close;
+    confirmBtn.onclick = confirm;
+}
+
 function showMoveDialog(bookmarkElement) {
     const dialog = document.getElementById('moveDialog');
     const treeContainer = document.getElementById('bookmarkTree');
@@ -410,8 +479,6 @@ function showMoveDialog(bookmarkElement) {
         confirmBtn.onclick = null;
         cancelBtn.onclick = null;
         treeContainer.innerHTML = '';
-        // 关键：移除事件监听器以防止内存泄漏
-        treeContainer.removeEventListener('transitionend', handleTransitionEnd);
     };
 
     const renderTree = (nodes, parentElement, level) => {
@@ -445,8 +512,8 @@ function showMoveDialog(bookmarkElement) {
             content.appendChild(title);
             item.appendChild(content);
 
-            const subFolderContainer = document.createElement('div');
-            subFolderContainer.className = 'sub-folder';
+    const subFolderContainer = document.createElement('div');
+            subFolderContainer.className = 'sub-folder is-hidden';
             item.appendChild(subFolderContainer);
 
             if (node.children && node.children.some(child => !child.url)) {
@@ -465,24 +532,6 @@ function showMoveDialog(bookmarkElement) {
         });
     };
     
-    // 这是我们唯一的、集中的动画结束处理器
-    const handleTransitionEnd = (e) => {
-        // 确保事件是由 .sub-folder 的 max-height 动画触发的
-        if (e.target.classList.contains('sub-folder') && e.propertyName === 'max-height') {
-            const subFolderContainer = e.target;
-            
-            // 无论是展开还是折叠动画结束，都向上更新父容器
-            let parent = subFolderContainer.parentElement.closest('.sub-folder');
-            while (parent) {
-                // 只更新那些处于展开状态的父容器
-                if (parent.style.maxHeight !== '0px') {
-                    parent.style.maxHeight = `${parent.scrollHeight}px`;
-                }
-                parent = parent.parentElement.closest('.sub-folder');
-            }
-        }
-    };
-
     const processAndRenderTree = (tree) => {
         const topLevelFolders = tree[0]?.children;
         if (!topLevelFolders) return;
@@ -490,11 +539,6 @@ function showMoveDialog(bookmarkElement) {
 
         renderTree(topLevelFolders, treeContainer, 0);
 
-        // --- 最终优化：使用事件委托 ---
-        // 在最外层容器上只绑定一个监听器
-        treeContainer.addEventListener('transitionend', handleTransitionEnd);
-
-        // 所有的点击事件处理器现在都变得极其简单
         treeContainer.querySelectorAll('.bookmark-tree-item').forEach(item => {
             const subFolderContainer = item.querySelector('.sub-folder');
             const expandIcon = item.querySelector('.expand-icon');
@@ -504,14 +548,7 @@ function showMoveDialog(bookmarkElement) {
                 
                 expandIcon.onclick = (e) => {
                     e.stopPropagation();
-                    const isExpanded = expandIcon.classList.contains('expanded');
-                    
-                    // 只负责改变自己的状态，不关心任何父级
-                    if (isExpanded) {
-                        subFolderContainer.style.maxHeight = '0px';
-                    } else {
-                        subFolderContainer.style.maxHeight = `${subFolderContainer.scrollHeight}px`;
-                    }
+                    subFolderContainer.classList.toggle('is-hidden');
                     expandIcon.classList.toggle('expanded');
                 };
             }
@@ -547,12 +584,13 @@ function showMoveDialog(bookmarkElement) {
 
     cancelBtn.onclick = close;
 }
+
 // ==================================================================
 // --- 事件驱动的DOM更新 ---
 // ==================================================================
 
 function findColumnForParentId(parentId) {
-    if (parentId === '1') { // 恢复使用 '1' 作为书签栏的ID
+    if (parentId === '1') {
         return document.querySelector('.bookmark-column[data-level="0"]');
     }
     const parentItem = document.querySelector(`.bookmark-item[data-id="${parentId}"]`);
@@ -578,6 +616,7 @@ function handleBookmarkCreated(id, bookmark) {
         parentColumn.insertBefore(newItem, refNode);
         reindexColumnItems(parentColumn);
     }
+    displayRecentBookmarks(); 
 }
 
 function handleBookmarkRemoved(id, removeInfo) {
@@ -596,6 +635,7 @@ function handleBookmarkRemoved(id, removeInfo) {
         itemToRemove.remove();
         reindexColumnItems(parentColumn);
     }
+    displayRecentBookmarks(); 
 }
 
 function handleBookmarkChanged(id, changeInfo) {
@@ -652,6 +692,70 @@ function handleBookmarkReordered(id, reorderInfo) {
     reindexColumnItems(parentColumn);
 }
 
+// +++ 模块渲染函数 +++
+function displayRecentBookmarks() {
+    const container = document.querySelector('#recentBookmarksModule .module-content');
+    if (!container) return;
+
+    chrome.bookmarks.getRecent(15, (items) => {
+        container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        items.forEach(item => {
+            if (!item.url) return; 
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = item.url;
+            a.target = '_blank';
+            a.title = sanitizeText(item.title);
+
+            const icon = document.createElement('img');
+            icon.className = 'module-icon';
+            icon.src = getIconUrl(item.url);
+            
+            const title = document.createElement('span');
+            title.className = 'module-title';
+            title.textContent = sanitizeText(item.title);
+
+            a.appendChild(icon);
+            a.appendChild(title);
+            li.appendChild(a);
+            fragment.appendChild(li);
+        });
+        container.appendChild(fragment);
+    });
+}
+
+// +++ 修改后的“经常访问”渲染函数 +++
+function displayTopSites() {
+    const container = document.getElementById('topSitesContent');
+    if (!container) return;
+
+    chrome.topSites.get((items) => {
+        container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        items.slice(0, 15).forEach(item => { 
+            const a = document.createElement('a');
+            a.className = 'top-site-item';
+            a.href = item.url;
+            a.target = '_blank';
+            a.title = sanitizeText(item.title);
+
+            const icon = document.createElement('img');
+            icon.className = 'top-site-icon';
+            icon.src = getIconUrl(item.url);
+
+            const title = document.createElement('span');
+            title.className = 'top-site-title';
+            title.textContent = sanitizeText(item.title);
+
+            a.appendChild(icon);
+            a.appendChild(title);
+            fragment.appendChild(a);
+        });
+        container.appendChild(fragment);
+    });
+}
+
 
 // ==================================================================
 // --- 页面加载后执行的初始化代码 ---
@@ -675,6 +779,7 @@ document.addEventListener('DOMContentLoaded', function () {
         updateThemeButtons(theme);
     };
     applyTheme(localStorage.getItem('theme') || 'system');
+    
     hoverToggle.checked = localStorage.getItem('hoverToOpenEnabled') !== 'false';
     isHoverEnabled = hoverToggle.checked;
     hoverToggle.addEventListener('change', (e) => {
@@ -682,11 +787,12 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('hoverToOpenEnabled', isHoverEnabled);
         showToast(`悬停打开功能已${isHoverEnabled ? '开启' : '关闭'}`);
     });
+
     settingsBtn.addEventListener('click', (e) => { e.stopPropagation(); settingsPanel.classList.toggle('visible'); });
     themeOptionsContainer.addEventListener('click', (e) => { if (e.target.matches('.theme-option')) applyTheme(e.target.dataset.themeValue); });
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (localStorage.getItem('theme') === 'system') applyTheme('system'); });
 
-    // --- 侧边栏逻辑 ---
+    // --- 侧边栏逻辑（保持不变） ---
     let isModuleVisible = false;
     let hoverTimeout;
     const showModules = () => { if (!isModuleVisible) { verticalModules.style.display = 'flex'; isModuleVisible = true; } };
@@ -732,6 +838,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- 初始加载 ---
     chrome.bookmarks.getTree(displayBookmarks);
+    displayRecentBookmarks();
+    displayTopSites();
 
     // --- 添加事件监听 ---
     chrome.bookmarks.onCreated.addListener(handleBookmarkCreated);
