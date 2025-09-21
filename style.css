@@ -1,0 +1,1765 @@
+/* 设置全局样式 */
+:root {
+    --bg-color: #3C3C3C;
+    --text-color: #dcdcdc;
+    --header-border-color: #2b2b2b;
+    --module-bg-color: #353535;
+    --module-header-color: #8e8e8e;
+    --module-header-border-color: #4a4a4a;
+    --module-item-hover-bg: #2c2c2c;
+    --link-color: #dadada;
+    --bookmark-container-bg: #3C3C3C;
+    --bookmark-container-border: #272727;
+    --highlighted-bg: #2c2c2c;
+    --bookmark-item-hover-bg: #323232;
+    --context-menu-bg: #2c2c2c;
+    --context-menu-shadow: #2e2e2e;
+    --context-menu-hr: #515151;
+    --context-menu-text: #f1f1f1;
+    --context-menu-hover-bg: #4a4a4a;
+    --highlgg-outline: rgba(131, 132, 131, 0.7);
+    --dialog-bg: #2c2c2c;
+    --dialog-header-border: #404040;
+    --dialog-header-text: #e8e8e8;
+    --dialog-body-text: #ddd;
+    --dialog-button-bg: #3c3c3c;
+    --dialog-button-text: #ddd;
+    --dialog-button-hover-bg: #4a4a4a;
+    --dialog-primary-bg: #0078d4;
+    --dialog-primary-text: white;
+    --dialog-primary-hover-bg: #0086ef;
+    --dialog-delete-bg: #d43c3c;
+    --dialog-delete-hover-bg: #e64545;
+    --input-bg: #1f1f1f;
+    --input-border: #404040;
+    --input-text: #e8e8e8;
+    --input-focus-border: #0078d4;
+    --error-text: #ff6b6b;
+    --scrollbar-thumb-bg: rgba(95, 95, 95, 0.3);
+    --scrollbar-thumb-hover-bg: rgba(95, 95, 95, 0.5);
+    --toast-bg: #2c2c2c;
+    --toast-text: #fff;
+    --toast-border: #404040;
+}
+
+[data-theme="light"] {
+    --bg-color: #f0f0f0;
+    --text-color: #333;
+    --header-border-color: #e0e0e0;
+    --module-bg-color: #ffffff;
+    --module-header-color: #555;
+    --module-header-border-color: #ddd;
+    --module-item-hover-bg: #e9e9e9;
+    --link-color: #111;
+    --bookmark-container-bg: #f0f0f0;
+    --bookmark-container-border: #e0e0e0;
+    --highlighted-bg: #e9e9e9;
+    --bookmark-item-hover-bg: #e0e0e0;
+    --context-menu-bg: #ffffff;
+    --context-menu-shadow: rgba(0, 0, 0, 0.1);
+    --context-menu-hr: #eee;
+    --context-menu-text: #333;
+    --context-menu-hover-bg: #f0f0f0;
+    --highlgg-outline: rgba(0, 120, 212, 0.7);
+    --dialog-bg: #ffffff;
+    --dialog-header-border: #eee;
+    --dialog-header-text: #333;
+    --dialog-body-text: #555;
+    --dialog-button-bg: #f0f0f0;
+    --dialog-button-text: #333;
+    --dialog-button-hover-bg: #e0e0e0;
+    --dialog-primary-bg: #0078d4;
+    --dialog-primary-text: white;
+    --dialog-primary-hover-bg: #0086ef;
+    --dialog-delete-bg: #d43c3c;
+    --dialog-delete-hover-bg: #e64545;
+    --input-bg: #fff;
+    --input-border: #ccc;
+    --input-text: #333;
+    --input-focus-border: #0078d4;
+    --error-text: #d43c3c;
+    --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
+    --scrollbar-thumb-hover-bg: rgba(0, 0, 0, 0.4);
+    --toast-bg: #ffffff;
+    --toast-text: #333;
+    --toast-border: #ddd;
+    /* 为浅色模式下的右键菜单图标添加颜色反转滤镜 */
+    --context-menu-icon-filter: invert(1);
+}
+
+
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    font-family: sans-serif;
+    /* 使用浏览器默认的 sans-serif 字体 */
+    display: flex;
+    flex-direction: column;
+    height: 100vb;
+    color: var(--text-color);
+}
+
+/* 以下书签模块动画，js代码中加载 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.25s cubic-bezier(0.03, 0.5, 0, 1);
+    will-change: opacity;
+}
+
+/* 以上书签模块动画 */
+
+/* 调整 header 的样式 */
+.header {
+    position: relative;
+    /* 相对定位，用于定位子元素 */
+    width: fit-content;
+    /* 根据内容调整宽度 */
+    margin: auto;
+    /* 居中布局 */
+    width: 100%;
+    height: 50px;
+    /* 调整为上边距，并设置颜色 */
+    border-bottom: 2px solid var(--header-border-color);
+    /* 上边框 */
+    display: block;
+    /* 初始隐藏侧边栏 */
+}
+
+/* 调整 image-container 的样式 */
+.image-container {
+    position: relative;
+    /* 保持图片容器相对定位 */
+    z-index: 1;
+    /* 确保图片在最底层 */
+
+}
+
+/* 调整 ggff-container 的样式 */
+.ggff-container {
+    position: absolute;
+    /* 绝对定位 */
+    top: 0;
+    left: 0;
+    z-index: 2;
+    /* 确保 GIF 显示在图片上面 */
+    pointer-events: none;
+    /* 防止鼠标事件干扰下层图片 */
+}
+
+/* 调整图片的样式 */
+.image-container img {
+    display: block;
+    /* 防止图片周围出现空白间距 */
+    width: 100%;
+    height: 50px;
+}
+
+.ggff-container img {
+    display: block;
+    max-width: 100%;
+    /* 使 GIF 适应容器宽度 */
+    height: auto;
+    /* 保持 GIF 的纵横比 */
+    opacity: 0.8;
+    /* 设置 GIF 的透明度，使其与底层图片更好地融合 */
+}
+
+/* 主体内容区样式 */
+.main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    flex-direction: row;
+    margin-top: 70px;
+    /* 保持总高度不变 */
+    height: calc(100vh - 70px);
+}
+
+/* 左侧垂直排列的模块样式 */
+.vertical-modules {
+    display: none;
+    flex-direction: column;
+    width: clamp(270px, 20vw, 350px);
+    /* 使用 clamp 设置智能宽度范围 */
+    min-width: 270px;
+    /* 保持最小宽度 */
+    background-color: var(--module-bg-color);
+    border-radius: 8px;
+    margin: 6px 12px 6px 6px;
+    /* 调整外边距 */
+    overflow: hidden;
+    height: calc(100vh - 85px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    /* 添加阴影效果 */
+    transition: width 0.3s ease;
+    /* 添加宽度变化过渡效果 */
+}
+
+/* 在小屏幕上的响应式布局 */
+@media screen and (max-width: 1024px) {
+    .vertical-modules {
+        width: 270px;
+        /* 在小屏幕上固定宽度 */
+        margin-right: 6px;
+        /* 减小右边距 */
+    }
+}
+
+/* 在大屏幕上的响应式布局 */
+@media screen and (min-width: 1920px) {
+    .vertical-modules {
+        width: 350px;
+        /* 在大屏幕上使用最大宽度 */
+        margin-right: 16px;
+        /* 增加右边距 */
+    }
+}
+
+/* 模块容器样式 */
+.module {
+    display: flex;
+    flex-direction: column;
+    padding: 0 8px;
+    /* 增加内边距 */
+    min-height: 0;
+    margin-bottom: 8px;
+    /* 添加模块间距 */
+}
+
+/* 模块头部样式 */
+.module-header {
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 16px;
+    /* 统一内边距 */
+    color: var(--module-header-color);
+    border-bottom: 2px solid var(--module-header-border-color);
+    display: flex;
+    /* 改为flex布局 */
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.module-header:hover {
+    color: #a5a5a5;
+    border-bottom-color: #5a5a5a;
+}
+
+/* 模块内容区域样式 */
+.module-content {
+    list-style-type: none;
+    padding: 0;
+    margin: 4px 0;
+    /* 减小上下边距 */
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.module-content li {
+    display: flex;
+    /* 使用flex布局 */
+    align-items: center;
+    /* 垂直居中 */
+    padding: 8px;
+    /* 内边距 */
+}
+
+.module-content li:hover {
+    background-color: var(--module-item-hover-bg);
+    /* 鼠标悬停时的背景颜色 */
+    border-radius: 5px;
+    /* 圆角 */
+}
+
+.module-content img {
+    width: 12px;
+    /* 图标的大小 */
+    height: 12px;
+    /* 图标的大小 */
+    margin-right: 8px;
+    /* 图标和文本的间距 */
+}
+
+.module-content a {
+    color: var(--link-color);
+    /* 链接文字颜色 */
+    text-decoration: none;
+    /* 去掉下划线 */
+    font-size: 12px;
+    /* 链接文字的字体大小 */
+    white-space: nowrap;
+    /* 防止内容换行 */
+    overflow: hidden;
+    /* 隐藏超出部分 */
+    text-overflow: ellipsis;
+    /* 显示省略号 */
+}
+
+/* 右侧的书签模块样式 */
+.bookmark-container {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    background-color: var(--bookmark-container-bg);
+    color: var(--text-color);
+    flex: 1;
+    height: 100%;
+    /* 保证垂直方向有足够空间来滚动 */
+    border-right: none;
+    /* 移除右边框 */
+    overflow-x: auto;
+    overflow-y: auto;
+    position: relative;
+}
+
+/* 顶部装饰线条 */
+.bookmark-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 60%;
+    transform: translateX(-60%);
+    width: 96%;
+    height: 2px;
+    background: linear-gradient(to right, transparent, var(--bookmark-container-border), transparent);
+}
+
+
+.bookmark-column {
+    width: auto;
+    /* 宽度自动调整以适应内容 */
+    height: auto;
+    overflow: hidden;
+    /* 超出部分隐藏 */
+    white-space: nowrap;
+    /* 不换行 */
+    overflow-y: auto;
+    /* 允许垂直滚动 */
+    display: block;
+    /* 以块状元素显示 */
+    flex-shrink: 0;
+    /* 防止列在容器内缩小 */
+    position: relative;
+    /* 为拖动条提供相对定位 */
+    scrollbar-width: thin;
+    /* Firefox */
+    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
+    /* Firefox */
+    padding: 8px 6px 0 5px;
+    /* 添加右边内边距 */
+}
+
+/* 修改拖动条样式 */
+.resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 16px;
+    /* 保持较宽的可点击区域 */
+    cursor: ew-resize;
+    background-color: transparent;
+    z-index: 10;
+    transition: background-color 0.2s;
+    height: 100%;
+    /* 确保高度填满父元素 */
+}
+
+/* 书签列的拖动条样式 */
+.bookmark-column .resize-handle {
+    position: absolute;
+    /* 改回absolute定位 */
+}
+
+/* 添加伪元素作为视觉指示器 */
+.bookmark-column .resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    /* 非常细的线 */
+    height: 100%;
+    background-color: var(--bookmark-container-border);
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+/* 拖动条悬停效果 */
+.resize-handle:hover {
+    background-color: rgba(3, 167, 255, 0.05);
+    /* 更淡的背景 */
+}
+
+/* 悬停时的视觉指示器效果 */
+.resize-handle:hover::after {
+    opacity: 1;
+    width: 2px;
+    /* 悬停时稍微加粗 */
+    box-shadow: 0 0 4px rgba(207, 210, 210, 0.5);
+    /* 添加发光效果 */
+}
+
+/* 调整模块内容区域的padding */
+.vertical-modules .module {
+    margin: 0;
+    padding: 0 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* 允许模块收缩 */
+    margin-bottom: 0;
+    /* 移除底部边距 */
+}
+
+.bookmark-item {
+    cursor: pointer;
+    /* 鼠标指针变为手型 */
+    padding: 8px 12px 8px 12px;
+    /* 上，右，下，左 */
+    white-space: nowrap;
+    /* 防止内容换行 */
+    overflow: hidden;
+    /* 隐藏超出部分 */
+    text-overflow: ellipsis;
+    /* 显示省略号 */
+}
+
+.highlighted {
+    background-color: var(--highlighted-bg);
+    /* 已打开文件夹的背景颜色 */
+    border-radius: 5px;
+    /* 添加圆角，值越大，圆角越圆 */
+
+}
+
+.bookmark-item:hover {
+    background-color: var(--bookmark-item-hover-bg);
+    /* 鼠标悬停时的背景颜色 */
+    border-radius: 5px;
+    /* 圆角 */
+
+}
+
+.bookmark-icon {
+    width: 16px;
+    /* 图标的大小 */
+    height: 16px;
+    /* 图标的大小 */
+    margin-right: 8px;
+    /* 图标和文本的间距 */
+    margin-bottom: -4px;
+    /* 调整图标的垂直位置 */
+}
+
+/* 右键菜单样式 */
+.context-menu {
+    position: fixed;
+    /* 固定位置 */
+    z-index: 1000;
+    /* 在最上层显示 */
+    width: 160px;
+    /* 菜单宽度 */
+    background: var(--context-menu-bg);
+    /* 背景颜色 */
+    box-shadow: 3px 3px 5px var(--context-menu-shadow);
+    /* 阴影效果 */
+    border-radius: 5px;
+    /* 圆角 */
+    display: none;
+    /* 初始不显示 */
+    animation: zoomIn 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    /* 缩放动画 */
+    will-change: opacity;
+}
+
+@keyframes zoomIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.context-menu hr {
+    border: 0;
+    border-top: 1px solid var(--context-menu-hr);
+    margin: 4px 0;
+}
+
+.context-menu ul {
+    list-style: none;
+    /* 去除列表样式 */
+    padding: 5px 0;
+    /* 内边距 */
+    margin: 2px 0;
+    /* 外边距 */
+    width: 100%;
+}
+
+.context-menu ul li {
+    cursor: pointer;
+    /* 鼠标指针变为手型 */
+    color: var(--context-menu-text);
+    /* 字体颜色 */
+    padding: 8px 6px 8px 20px;
+    /* 左侧 6px，右侧 20px */
+}
+
+.context-menu ul li:hover {
+    background-color: var(--context-menu-hover-bg);
+    /* 鼠标悬停时的背景颜色 */
+    border-radius: 5px;
+    /* 添加圆角 */
+}
+
+
+/* 右键高亮书签元素的样式 */
+.bookmark-item.highlgg,
+.module-content li.highlgg {
+    border-radius: 5px;
+    outline: 2px dashed var(--highlgg-outline);
+    outline-offset: -1px;
+    /* 调整outline的偏移量 */
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+    will-change: box-shadow, outline;
+    transition: box-shadow 0.1s ease-in-out, outline 0.1s ease-in-out;
+}
+
+/* 书签列容器的智能布局 */
+.bookmark-column[data-level="1"] {
+    position: relative;
+    /* 确保相对定位 */
+    margin-left: max(20px, calc((120vw - 1600px) / 2));
+    /* 保持动态左边距 */
+    transition: margin-left 0.3s ease;
+    /* 保持平滑过渡效果 */
+    border-left: 2px solid var(--highlighted-bg);
+    /* 添加左侧细条 */
+}
+
+/* 小窗口时的布局调整 */
+@media screen and (max-width: 1240px) {
+    .bookmark-column[data-level="1"] {
+        margin-left: 20px;
+    }
+}
+
+/* 创建一个内部容器来包裹书签项 */
+.bookmark-column[data-level="0"]::before {
+    content: '';
+    flex: 1;
+    /* 左侧占据空白空间 */
+    max-width: 25%;
+    /* 限制空白空间的最大宽度 */
+}
+
+.bookmark-column[data-level="0"]::after {
+    content: '';
+    flex: 1;
+    /* 右侧占据空白空间 */
+    max-width: 25%;
+    /* 限制空白空间的最大宽度 */
+}
+
+
+/* 调整顶部横条中的图标样式 */
+.bookmark-column[data-level="0"] .bookmark-icon {
+    margin: 0;
+    /* 移除图标的右边距 */
+    width: 20px;
+    /* 稍微增大图标尺寸 */
+    height: 20px;
+}
+
+
+/* 移动对话框样式优化 */
+.move-dialog {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: flex-start;
+    /* 改为顶部对齐 */
+}
+
+/* 移动对话框主容器样式 */
+.move-dialog-content {
+    background-color: var(--dialog-bg);
+    border-radius: 6px;
+    width: 600px;
+    max-width: 90vw;
+    /* 限制最大宽度为视窗宽度的90% */
+    max-height: 80vh;
+    /* 限制最大高度为视窗高度的80% */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    margin-top: 10vh;
+    /* 减小顶部边距 */
+}
+
+/* 对话框头部样式 */
+.move-dialog-header {
+    padding: 12px 16px;
+    /* 头部内边距 */
+    border-bottom: 1px solid var(--dialog-header-border);
+    /* 底部分隔线 */
+}
+
+/* 对话框标题样式 */
+.move-dialog-header h3 {
+    font-size: 14px;
+    font-weight: normal;
+    color: var(--dialog-header-text);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.6;
+    padding: 0 16px;
+}
+
+/* 移动对话框中的项目名称样式 */
+.move-dialog-header .item-name {
+    color: #61afef;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    overflow: hidden;
+    white-space: normal;
+    word-break: break-word;
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+/* 对话框中的图标样式 */
+.dialog-item-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* 对话框内容区域样式 */
+.move-dialog-body {
+    padding: 4px 4px;
+    max-height: calc(80vh - 120px);
+    /* 减去头部和底部的高度 */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.bookmark-tree {
+    color: var(--dialog-body-text);
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    /* 允许内容区域收缩 */
+}
+
+.bookmark-tree-item {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* 文件夹项容器基础样式 */
+.folder-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px 8px 0;
+    margin: 1px 4px;
+    position: relative;
+}
+
+/* 文件夹悬停效果 */
+.folder-content:hover {
+    background-color: #212121;
+    /* 与书签模块相同的悬停背景色 */
+    border-radius: 5px;
+    /* 与书签模块相同的圆角 */
+}
+
+/* 选中状态样式 */
+.bookmark-tree-item.selected>.folder-content {
+    background-color: #1d1d1d;
+    /* 与书签模块相同的高亮背景色 */
+    border-radius: 5px;
+    /* 与书签模块相同的圆角 */
+}
+
+/* 展开图标悬停效果 */
+.expand-icon:hover {
+    color: #fff;
+    /* 改为白色，提高可见度 */
+    background-color: transparent;
+    /* 移除背景色 */
+}
+
+/* 文件夹图标样式 */
+.folder-icon {
+    width: 16px;
+    /* 文件夹图标大小 */
+    height: 16px;
+    flex-shrink: 0;
+    margin-left: 24px;
+    /* 减小左边距，让文件夹图标靠左一点 */
+}
+
+/* 展开/折叠图标样式 */
+.expand-icon {
+    width: 16px;
+    height: 16px;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    /* 只对颜色添加过渡效果 */
+}
+
+.expand-icon:hover {
+    color: #ffffff;
+    /* 悬停时只改变颜色 */
+}
+
+.sub-folder {
+    overflow: hidden;
+    transition: height 0.2s ease;
+    position: relative;
+    /* 用于显示层级线 */
+    margin-left: 0;
+    /* 移除默认缩进 */
+}
+
+/* 文件夹名称样式 */
+.folder-title {
+    font-size: 13px;
+    /* 调整字体大小 */
+    color: var(--dialog-header-text);
+    flex-grow: 1;
+    /* 占据剩余空间 */
+}
+
+/* 加载状态样式 */
+.loading {
+    padding: 12px;
+    text-align: center;
+    color: #888;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+}
+
+.loading.error {
+    color: #ff6b6b;
+}
+
+/* 加载动画 */
+.loading::after {
+    content: '';
+    width: 14px;
+    height: 14px;
+    margin-left: 8px;
+    border: 2px solid #888;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading.error::after {
+    display: none;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 滚动条样式优化 */
+.move-dialog-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.move-dialog-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.move-dialog-body::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-hover-bg);
+    border-radius: 4px;
+}
+
+.move-dialog-body::-webkit-scrollbar-thumb:hover {
+    background: #323232;
+}
+
+/* 底部按钮区域样式 */
+.move-dialog-footer {
+    padding: 12px 16px;
+    /* 底部区域内边距 */
+    border-top: 1px solid var(--dialog-header-border);
+    /* 顶部分隔线 */
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    /* 按钮间距 */
+}
+
+/* 按钮基础样式 */
+.dialog-button {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    background-color: var(--dialog-button-bg);
+    color: var(--dialog-button-text);
+    min-width: 80px;
+}
+
+.dialog-button:hover {
+    background-color: var(--dialog-button-hover-bg);
+}
+
+/* 确认按钮默认使用淡蓝色 */
+.dialog-button.primary {
+    background-color: var(--dialog-primary-bg);
+    color: var(--dialog-primary-text);
+}
+
+.dialog-button.primary:hover {
+    background-color: var(--dialog-primary-hover-bg);
+}
+
+/* 只有删除确认对话框使用红色按钮 */
+#confirmDialog .dialog-button.primary {
+    background-color: var(--dialog-delete-bg);
+}
+
+#confirmDialog .dialog-button.primary:hover {
+    background-color: var(--dialog-delete-hover-bg);
+}
+
+/* 其他对话框（移动和编辑）保持使用淡蓝色按钮 */
+#moveDialog .dialog-button.primary,
+#editDialog .dialog-button.primary {
+    background-color: var(--dialog-primary-bg);
+}
+
+#moveDialog .dialog-button.primary:hover,
+#editDialog .dialog-button.primary:hover {
+    background-color: var(--dialog-primary-hover-bg);
+}
+
+/* 添加层级连接线 */
+.sub-folder::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    /* 与文件夹图标对齐 */
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--dialog-header-border);
+    opacity: 0.5;
+}
+
+/* 没有子文件夹时的文件夹图标样式 */
+.folder-content:not(:has(.expand-icon)) .folder-icon {
+    margin-left: 24px;
+    /* 保持与有展开图标的文件夹对齐 */
+}
+
+/* 右键菜单项的图标样式 */
+.context-menu li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.menu-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.9;
+    /* 应用滤镜变量 */
+    filter: var(--context-menu-icon-filter, none);
+}
+
+/* 第一个模块顶部圆角 */
+.vertical-modules .module:first-child {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* 最后一个模块底部圆角 */
+.vertical-modules .module:last-child {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* 修改模块内容中列表项的样式 */
+#recentBookmarksModule .module-content li,
+#topSitesModule .module-content li {
+    padding: 6px 12px;
+    /* 减小内边距 */
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    /* 减小最小高度 */
+    transition: background-color 0.2s ease;
+    margin: 0 4px;
+    /* 保持左右边距 */
+}
+
+/* 优化列表项文本样式 */
+#recentBookmarksModule .module-content li a,
+#topSitesModule .module-content li a {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1.2;
+    /* 减小行高 */
+}
+
+/* 调整图标样式 */
+#recentBookmarksModule .module-content li img,
+#topSitesModule .module-content li img {
+    width: 14px;
+    /* 减小图标尺寸 */
+    height: 14px;
+    /* 减小图标尺寸 */
+    margin-right: 10px;
+    /* 减小右边距 */
+    flex-shrink: 0;
+}
+
+/* 添加滚动条样式 */
+.module-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.module-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.module-content::-webkit-scrollbar-thumb {
+    background: var(--module-header-border-color);
+    border-radius: 3px;
+}
+
+.module-content::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
+}
+
+/* 最近添加的书签模块 */
+#recentBookmarksModule {
+    flex: 2;
+    /* 分配更多空间给最近添加的书签 */
+    min-height: 200px;
+    /* 设置最小高度 */
+    max-height: 65vh;
+    /* 限制最大高度 */
+}
+
+/* 经常访问的网站模块 */
+#topSitesModule {
+    flex: 1;
+    /* 分配较少空间给经常访问的网站 */
+    min-height: 150px;
+    /* 设置最小高度 */
+    max-height: 35vh;
+    /* 限制最大高度 */
+}
+
+/* 编辑对话框样式 */
+.edit-dialog {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: flex-start;
+    /* 改为顶部对齐 */
+}
+
+.edit-dialog-content {
+    background-color: var(--dialog-bg);
+    border-radius: 6px;
+    width: 600px;
+    /* 进一步增加对话框宽度 */
+    max-width: 90vw;
+    /* 确保在小屏幕上也能正常显示 */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    animation: zoomIn 0.2s ease;
+    margin: 0 auto;
+    margin-top: 15vh;
+}
+
+.edit-dialog-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--dialog-header-border);
+    text-align: center;
+    /* 标题居中 */
+}
+
+.edit-dialog-header h3 {
+    font-size: 14px;
+    font-weight: normal;
+    color: var(--dialog-header-text);
+    margin: 0;
+    padding: 0 32px;
+    /* 增加标题的内边距 */
+    white-space: normal;
+    line-height: 1.5;
+    word-break: break-word;
+    max-width: 90%;
+    /* 限制标题最大宽度 */
+    margin: 0 auto;
+    /* 标题居中 */
+}
+
+.edit-dialog-body {
+    padding: 16px 16px 8px;
+    max-width: 100%;
+    overflow: hidden;
+    padding-right: 24px;
+    /* 增加右侧内边距 */
+    padding-left: 24px;
+    /* 增加左侧内边距 */
+}
+
+.edit-dialog-input {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    color: var(--input-text);
+    font-size: 14px;
+    min-height: 36px;
+    /* 稍微增加最小高度 */
+    max-height: 120px;
+    /* 增加最大高度，允许显示更多内容 */
+    overflow-y: auto;
+    resize: vertical;
+    line-height: 1.4;
+    padding-right: 12px;
+    /* 为滚动条预留空间 */
+}
+
+.edit-dialog-input:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+}
+
+.edit-dialog-error {
+    color: var(--error-text);
+    font-size: 12px;
+    margin-top: 8px;
+    min-height: 18px;
+}
+
+.edit-dialog-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--dialog-header-border);
+    display: flex;
+    justify-content: center;
+    /* 按钮居中 */
+    gap: 8px;
+}
+
+/* 顶部控制按钮容器 */
+.header-controls {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    margin-right: 6px;
+    gap: 4px;
+}
+
+/* 切换按钮样式 */
+.toggle-button {
+    background: none;
+    border: none;
+    color: #9a9a9a;
+    cursor: pointer;
+    padding: 1px 4px;
+    font-size: 11px;
+    border-radius: 8px;
+    width: 32px;
+    height: 40px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+    margin-right: 3px;
+}
+
+.toggle-button:hover {
+    opacity: 1;
+    background-color: rgb(93, 97, 90);
+}
+
+/* 确保图片不会遮挡按钮 */
+.header-image {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 25px;
+    background-color: #2B2B2B;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    z-index: 100;
+    overflow: hidden;
+}
+
+/* 顶部图片样式 */
+.header-bg-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    /* 先居中 */
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+
+    filter: brightness(0.8);
+}
+
+
+/* 确认对话框消息样式 */
+.confirm-message {
+    margin: 12px auto;
+    color: #61afef;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: left;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: nowrap;
+    width: fit-content;
+}
+
+/* 删除确认消息特殊样式 */
+.confirm-message.delete-confirm {
+    font-weight: 500;
+}
+
+/* 项目名称样式 */
+.confirm-message .item-name {
+    color: #61afef;
+    margin: 0 4px;
+    /* 添加左右间距 */
+}
+
+/* 编辑对话框底部按钮区域 */
+.edit-dialog-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--dialog-header-border);
+    display: flex;
+    justify-content: center;
+    /* 按钮居中 */
+    gap: 8px;
+}
+
+/* 所有确认按钮默认使用淡蓝色 */
+.dialog-button.primary {
+    background-color: var(--dialog-primary-bg);
+    color: var(--dialog-primary-text);
+}
+
+.dialog-button.primary:hover {
+    background-color: var(--dialog-primary-hover-bg);
+}
+
+/* 删除确认对话框的确认按钮使用红色 */
+#confirmDialog[data-action="delete"] .dialog-button.primary {
+    background-color: var(--dialog-delete-bg);
+}
+
+#confirmDialog[data-action="delete"] .dialog-button.primary:hover {
+    background-color: var(--dialog-delete-hover-bg);
+}
+
+/* 添加拖动相关样式 */
+.bookmark-item.dragging {
+    opacity: 0.5;
+    background-color: var(--highlighted-bg);
+}
+
+.bookmark-item.drag-over {
+    border-top: 2px solid #61afef;
+}
+
+
+/* 拖动时的占位符 */
+.drag-placeholder {
+    height: 2px;
+    background-color: #61afef;
+    margin: 0 8px;
+    transition: all 0.2s ease;
+}
+
+/* 确保图标与第一行文本对齐 */
+.confirm-message img.dialog-item-icon {
+    margin-top: 2px;
+    /* 与上面保持一致 */
+}
+
+/* 确保文本容器占据剩余空间 */
+.confirm-message span {
+    flex: 1;
+    min-width: 0;
+    /* 允许文本容器收缩 */
+}
+
+/* 输入框滚动条样式 */
+.edit-dialog-input::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.edit-dialog-input::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.edit-dialog-input::-webkit-scrollbar-thumb {
+    background: var(--module-header-border-color);
+    border-radius: 3px;
+}
+
+.edit-dialog-input::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
+}
+
+/* 拖动时的全屏遮罩 */
+.resize-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    cursor: ew-resize;
+}
+
+/* 防止文本选择的样式 */
+.no-select {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* 顶部书签栏拖动样式 */
+.bookmark-column[data-level="0"] .bookmark-item.dragging {
+    opacity: 0.5;
+    background-color: var(--highlighted-bg);
+    cursor: move;
+}
+
+/* 拖动指示器样式 */
+.drag-indicator {
+    position: fixed;
+    width: 2px;
+    background-color: #61afef;
+    pointer-events: none;
+    z-index: 1000;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 4px rgba(97, 175, 239, 0.5);
+}
+
+/* 顶部书签栏的特殊样式 */
+.bookmark-column[data-level="0"] {
+    position: fixed;
+    top: 25px;
+    /* 修改为图片条的高度 */
+    left: 0;
+    right: 0;
+    z-index: 101;
+    display: flex;
+    flex-direction: row;
+    background-color: var(--module-bg-color);
+    align-items: center;
+    justify-content: center;
+    padding: 6px 16px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
+}
+
+/* 顶部书签栏滚动条样式 */
+.bookmark-column[data-level="0"]::-webkit-scrollbar {
+    height: 6px;
+}
+
+.bookmark-column[data-level="0"]::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.bookmark-column[data-level="0"]::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb-bg);
+    border-radius: 3px;
+}
+
+.bookmark-column[data-level="0"]::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover-bg);
+}
+
+/* 顶部书签项的特殊样式 */
+.bookmark-column[data-level="0"] .bookmark-item {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: grab;
+    width: 28px;
+    display: flex;
+    justify-content: center;
+}
+
+.bookmark-column[data-level="0"] .bookmark-item:hover {
+    background-color: var(--module-item-hover-bg);
+}
+
+.bookmark-column[data-level="0"] .bookmark-item:active {
+    cursor: grabbing;
+    background-color: var(--highlighted-bg);
+}
+
+/* 调整图标的过渡效果 */
+.bookmark-column[data-level="0"] .bookmark-icon {
+    margin: 0;
+    /* 移除图标的右边距 */
+    width: 20px;
+    /* 稍微增大图标尺寸 */
+    height: 20px;
+}
+
+/* 隐藏顶部横条中的书签标题 */
+.bookmark-column[data-level="0"] .bookmark-title {
+    display: none;
+    /* 完全隐藏标题 */
+}
+
+
+/* 移除第一个和最后一个书签项的额外边距 */
+.bookmark-column[data-level="0"] .bookmark-item:first-child {
+    margin-left: 0;
+}
+
+.bookmark-column[data-level="0"] .bookmark-item:last-child {
+    margin-right: 0;
+}
+
+/* 确保滚动条不会遮挡内容 */
+.module {
+    display: flex;
+    flex-direction: column;
+    padding: 0 4px;
+    /* 添加左右内边距 */
+    min-height: 0;
+}
+
+/* 确保滚动条不会遮挡内容 */
+.module-content::-webkit-scrollbar {
+    width: 6px;
+    margin-left: 4px;
+    /* 为滚动条添加左边距 */
+}
+
+
+
+/* Webkit滚动条样式 */
+.bookmark-column::-webkit-scrollbar {
+    width: 6px;
+    /* 滚动条宽度 */
+    height: 6px;
+    /* 水平滚动条高度 */
+}
+
+.bookmark-column::-webkit-scrollbar-track {
+    background: transparent;
+    /* 轨道背景透明 */
+    margin: 4px 0;
+    /* 轨道上下留出间距 */
+}
+
+.bookmark-column::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb-bg);
+    /* 半透明滑块 */
+    border-radius: 3px;
+    /* 滑块圆角 */
+    transition: background-color 0.2s ease;
+    /* 添加过渡效果 */
+}
+
+.bookmark-column::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover-bg);
+    /* 悬停时加深颜色 */
+}
+
+.bookmark-column::-webkit-scrollbar-thumb:active {
+    background-color: rgba(95, 95, 95, 0.7);
+    /* 点击时进一步加深 */
+}
+
+/* 当鼠标不在书签列上时隐藏滚动条 */
+.bookmark-column:not(:hover)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+
+
+/* 显示文件夹标题文本样式 */
+.bookmark-column[data-level="0"] .bookmark-item:not([data-url]) .bookmark-title,
+.bookmark-column[data-level="0"] .bookmark-item[data-url=""] .bookmark-title {
+    display: block;
+    margin-top: 2px;
+    /* 上边距 */
+    margin-left: 2px;
+    /* 左边距 */
+}
+
+/* Toast提示样式 */
+.toast {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: var(--toast-bg);
+    color: var(--toast-text);
+    text-align: center;
+    border-radius: 8px;
+    padding: 12px 20px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--toast-border);
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.toast.show {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(-10px);
+}
+
+/* Webkit滚动条通用样式 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb-bg);
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover-bg);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background-color: rgba(95, 95, 95, 0.7);
+}
+
+/* Firefox滚动条样式 */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
+}
+
+
+
+/* style.css 新增样式 */
+
+/* 侧边栏开关按钮 (右侧居中) */
+.sidebar-toggle-btn {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    /* 修改点 */
+    transform: translateY(-50%);
+    z-index: 1002;
+    background-color: transparent;
+    /* 修改点 */
+    color: rgba(224, 224, 224, 0.3);
+    /* 修改点 */
+    opacity: 0.5;
+    /* 新增此行 */
+    border: none;
+    border-radius: 8px 0 0 8px;
+    /* 左侧圆角 */
+    width: 30px;
+    height: 70px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    writing-mode: vertical-rl;
+    /* 让文字 "G" 垂直显示 */
+    text-orientation: mixed;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: rgba(95, 95, 95, 0.8);
+    color: #e0e0e0;
+    opacity: 1;
+}
+
+/* 设置按钮 (左下角) */
+.settings-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1002;
+    background-color: transparent;
+    color: var(--module-header-color);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: none;
+    transition: all 0.2s ease;
+    opacity: 0.4;
+}
+
+.settings-btn:hover {
+    background-color: var(--module-bg-color);
+    color: var(--text-color);
+    opacity: 1;
+    transform: rotate(45deg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 设置面板 */
+.settings-panel {
+    position: fixed;
+    bottom: 70px;
+    /* 位于设置按钮上方 */
+    left: 20px;
+    z-index: 1001;
+    width: 280px;
+    background-color: var(--module-bg-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--header-border-color);
+    overflow: hidden;
+    /* 初始隐藏，通过JS控制显示 */
+    opacity: 0;
+    transform: translateY(10px);
+    visibility: hidden;
+    transition: all 0.25s ease;
+}
+
+.settings-panel.visible {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+}
+
+.settings-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.setting-label {
+    font-size: 14px;
+    color: var(--text-color);
+}
+
+/* 主题切换选项 */
+.theme-options {
+    display: flex;
+    background-color: var(--bg-color);
+    border-radius: 6px;
+    padding: 3px;
+}
+
+.theme-option {
+    flex: 1;
+    padding: 6px 12px;
+    border: none;
+    background-color: transparent;
+    color: var(--module-header-color);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.theme-option:hover {
+    background-color: var(--bookmark-item-hover-bg);
+    color: var(--text-color);
+}
+
+.theme-option.active {
+    background-color: var(--highlighted-bg);
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+/* 移除旧的顶部按钮样式 (如果还存在的话) */
+.header-controls .toggle-button {
+    display: none;
+}
+
+
+
+/* style.css 新增样式 */
+
+/* 当书签被拖拽悬停在文件夹上时的样式 */
+.bookmark-item.drag-enter {
+    background-color: var(--dialog-primary-bg) !important;
+    color: var(--dialog-primary-text) !important;
+    border-radius: 5px;
+}
+/* 拖拽时，为被拖拽的元素添加半透明效果 */
+.bookmark-item.dragging {
+    opacity: 0.5;
+}
+
+
+/* style.css 新增样式 */
+
+/* 当书签被拖拽悬停在一个书签列上时的样式 */
+.bookmark-column.drag-over-column {
+    box-shadow: inset 0 0 0 2px var(--dialog-primary-bg); /* 添加一个内部辉光效果 */
+}
+
+
+/* style.css 新增样式 */
+
+/* 开关按钮样式 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+/* 隐藏原始的 checkbox */
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* 开关的背景条 */
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--dialog-button-bg);
+    transition: .4s;
+    border-radius: 24px;
+}
+
+/* 开关的圆形滑块 */
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+/* 选中状态的样式 */
+input:checked + .slider {
+    background-color: var(--dialog-primary-bg);
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+
+/* 为下方视图的拖拽排序添加视觉提示 */
+.bookmark-item.drag-over-top {
+    border-top: 2px solid var(--dialog-primary-bg);
+}
+
+.bookmark-item.drag-over-bottom {
+    border-bottom: 2px solid var(--dialog-primary-bg);
+}
