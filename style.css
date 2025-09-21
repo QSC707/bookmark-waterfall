@@ -188,23 +188,44 @@ body {
     opacity: 0.5;
 }
 
-/* 顶部栏指示器 */
-.bookmark-column[data-level="0"] .bookmark-item.drag-over-before {
-    border-left: 2px solid var(--dialog-primary-bg);
-}
-.bookmark-column[data-level="0"] .bookmark-item.drag-over-after {
-    border-right: 2px solid var(--dialog-primary-bg);
+/* 最终解决方案：预占位透明边框，从根源上解决抖动问题，且提示清晰 */
+
+/* 为所有书签项设置一个基础的、透明的边框来预占空间 */
+.bookmark-item {
+    box-sizing: border-box; /* 确保边框和内边距的计算方式正确 */
+    border: 2px solid transparent; 
 }
 
-/* 下方视图指示器 */
+/* 为了抵消边框占用的空间，用负外边距把它拉回来，保持原有布局不变 */
+.bookmark-column:not([data-level="0"]) .bookmark-item {
+    margin: -2px 0;
+}
+.bookmark-column[data-level="0"] .bookmark-item {
+    margin: 0 -2px;
+}
+
+/* 拖拽悬停时，只改变对应边框的颜色 */
+
+/* 顶部栏指示器 (左/右) */
+.bookmark-column[data-level="0"] .bookmark-item.drag-over-before {
+    border-left-color: var(--dialog-primary-bg);
+}
+.bookmark-column[data-level="0"] .bookmark-item.drag-over-after {
+    border-right-color: var(--dialog-primary-bg);
+}
+
+/* 下方视图指示器 (上/下) */
 .bookmark-item.drag-over-top {
-    border-top: 2px solid var(--dialog-primary-bg);
+    border-top-color: var(--dialog-primary-bg);
 }
 .bookmark-item.drag-over-bottom {
-    border-bottom: 2px solid var(--dialog-primary-bg);
+    border-bottom-color: var(--dialog-primary-bg);
 }
+
+/* 移入文件夹的样式保持不变 */
 .bookmark-item.drag-enter {
     background-color: var(--highlighted-bg);
+    border-color: transparent; /* 移入时，不需要边框提示 */
 }
 
 
@@ -341,12 +362,13 @@ body {
 
 .move-dialog-body, .edit-dialog-body {
     padding: 16px;
+    flex: 1; /* 关键修复：让内容区自动伸缩，撑满剩余空间 */
+    overflow-y: auto; /* 关键修复：当内容区本身也可能溢出时，也提供滚动 */
 }
 
 .bookmark-tree {
     color: var(--dialog-body-text);
-    max-height: calc(80vh - 120px);
-    overflow-y: auto;
+    /* 不再需要max-height，因为它会被父容器约束 */
 }
 
 .edit-dialog-input {
@@ -483,3 +505,100 @@ input:checked + .slider:before { transform: translateX(20px); }
 ::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb-bg); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover-bg); }
 * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb-bg) transparent; }
+
+
+/* 为可放置的列容器提供视觉反馈 */
+.bookmark-column.column-drag-over {
+    background-color: var(--highlighted-bg) !important;
+}
+/* --- "移动到..." 对话框最终稳定版样式 --- */
+
+.move-dialog-content {
+    /* 关键修复：确保容器是flex布局，并且有最大高度限制 */
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh; 
+}
+
+.move-dialog-body {
+    /* 关键修复：让内容区自动伸缩，并自己负责滚动 */
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.bookmark-tree {
+    font-size: 14px;
+}
+
+.bookmark-tree-item {
+    border-radius: 4px;
+    margin-bottom: 2px;
+}
+
+.folder-content {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.folder-content:hover {
+    background-color: var(--bookmark-item-hover-bg);
+}
+
+.bookmark-tree-item.selected > .folder-content {
+    background-color: var(--dialog-primary-bg);
+    color: var(--dialog-primary-text);
+}
+
+.expand-icon {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    flex-shrink: 0;
+    color: var(--module-header-color);
+    transition: transform 0.2s ease;
+    cursor: pointer;
+}
+
+.bookmark-tree-item.selected .expand-icon {
+    color: var(--dialog-primary-text);
+}
+
+.expand-icon.expanded {
+    transform: rotate(90deg);
+}
+
+.folder-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.bookmark-tree-item.is-current-parent > .folder-content {
+    background-color: var(--highlighted-bg);
+    font-weight: bold;
+}
+
+.bookmark-tree-item.is-disabled > .folder-content {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: transparent;
+}
+
+.folder-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sub-folder {
+    overflow: hidden;
+    /* 关键修复：将 height 改为 max-height 以实现流畅的动画效果 */
+    max-height: 0; 
+    transition: max-height 0.25s ease-in-out;
+}
