@@ -7,9 +7,9 @@
       "bookmarks",
       "topSites",
       "favicon",
-       "windows",
-       "tabs",
-       "clipboardWrite"
+      "windows",
+      "tabs",
+      "clipboardWrite"
   ],
   "chrome_url_overrides": {
       "newtab": "newtab.html"
