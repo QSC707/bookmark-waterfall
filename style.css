@@ -261,14 +261,13 @@ body {
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-before { border-left: 2px solid var(--dialog-primary-bg); }
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-after { border-right: 2px solid var(--dialog-primary-bg); }
 
-/* 这是最终的、正确的 .selected 样式，请用它替换 */
+/* 统一选中高亮为虚线框 */
 .bookmark-item.selected {
-    /* 移除背景色，改为虚线框 */
-    background-color: transparent !important; /* 用 !important 覆盖 :hover 的背景色 */
+    background-color: transparent !important; /* 必须用 !important 覆盖 :hover */
     outline: 2px dashed var(--dialog-primary-bg);
-    outline-offset: -2px; /* 让虚线框在元素内部，更美观 */
+    outline-offset: -2px;
 }
-/* 确保虚线框状态下文字颜色不变，以便阅读 */
+/* 确保虚线框状态下文字颜色不变 */
 .bookmark-item.selected .bookmark-title {
     color: var(--text-color);
 }
@@ -283,7 +282,7 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border-radius: 12px;
 }
-.move-dialog, .edit-dialog, .confirm-dialog { background-color: rgba(0, 0, 0, 0.3); } /* 确认弹窗也加上背景 */
+.move-dialog, .edit-dialog, .confirm-dialog { background-color: rgba(0, 0, 0, 0.3); }
 
 /* --- 8. 右侧按钮和面板定位 --- */
 .vertical-modules {
@@ -396,7 +395,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .move-dialog-header h3, .edit-dialog-header h3 { font-size: 14px; font-weight: 500; color: var(--text-color); margin: 0; }
 .move-dialog-body, .edit-dialog-body { padding: 16px; flex: 1; overflow-y: auto; }
 .move-dialog-footer, .edit-dialog-footer { padding: 12px 16px; border-top: 1px solid var(--header-border); display: flex; justify-content: flex-end; gap: 8px; }
-.move-dialog-content { max-height: 80vh; display: flex; flex-direction: column;} /* 添加 flex 布局，确保 body 可以滚动 */
+.move-dialog-content { max-height: 80vh; display: flex; flex-direction: column;}
 .bookmark-tree { font-size: 14px; color: var(--text-color); }
 .bookmark-tree-item { margin-bottom: 2px; }
 .folder-content { display: flex; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: 6px; }
@@ -429,12 +428,13 @@ input:checked + .slider:before { transform: translateX(20px); }
     filter: var(--context-menu-icon-filter);
 }
 
-.empty-folder-message { /* 空文件夹提示样式 */
+.empty-folder-message {
     padding: 16px;
     text-align: center;
     color: var(--module-header-color);
     font-size: 13px;
 }
+
 
 .module-header { padding: 12px 16px; font-size: 14px; color: var(--module-header-color); border-bottom: 1px solid var(--module-header-border-color); }
 .module-content { list-style: none; padding: 8px; margin: 0; overflow-y: auto; }
@@ -455,46 +455,17 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 
 /* ================================================================== */
-/* --- 10. 自定义美化滚动条 (幽灵模式) --- */
+/* --- 10. 隐藏滚动条 --- */
 /* ================================================================== */
 
-/* 适用于所有可滚动的元素 */
-.bookmark-column, .module-content, .move-dialog-body {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
-}
-
-/* --- Webkit 浏览器 (Chrome) 的详细样式 --- */
-
-/* 整体部分：设置滚动条的宽度为更纤细的 6px */
+/* 适用于所有可滚动的元素，使用最强规则直接隐藏滚动条 */
 .bookmark-column::-webkit-scrollbar,
 .module-content::-webkit-scrollbar,
 .move-dialog-body::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    display: none; /* 直接隐藏滚动条 */
 }
 
-/* 轨道：滚动条背景，保持完全透明 */
-.bookmark-column::-webkit-scrollbar-track,
-.module-content::-webkit-scrollbar-track,
-.move-dialog-body::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-/* 滑块：滚动条本身 */
-.bookmark-column::-webkit-scrollbar-thumb,
-.module-content::-webkit-scrollbar-thumb,
-.move-dialog-body::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    /* 核心修改：默认状态下，滑块也是完全透明的 */
-    background-color: transparent;
-    transition: background-color 0.2s ease-in-out;
-}
-
-/* 鼠标悬停在可滚动区域上时，滑块才会浮现 */
-.bookmark-column:hover::-webkit-scrollbar-thumb,
-.module-content:hover::-webkit-scrollbar-thumb,
-.move-dialog-body:hover::-webkit-scrollbar-thumb {
-    /* 使用 var(--scrollbar-thumb-bg) 定义的颜色，其透明度为 0.2，低于半透明 */
-    background-color: var(--scrollbar-thumb-bg);
+/* 为 Firefox 浏览器提供兼容 */
+.bookmark-column, .module-content, .move-dialog-body {
+    scrollbar-width: none; /* 隐藏 Firefox 的滚动条 */
 }
