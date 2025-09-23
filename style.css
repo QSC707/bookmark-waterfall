@@ -172,6 +172,7 @@ body {
     display: flex; flex: 1; height: 100%; overflow-x: auto;
     padding: 20px;
     gap: 20px;
+    scroll-behavior: smooth; 
 }
 
 .bookmark-column {
@@ -468,4 +469,47 @@ input:checked + .slider:before { transform: translateX(20px); }
 /* 为 Firefox 浏览器提供兼容 */
 .bookmark-column, .module-content, .move-dialog-body {
     scrollbar-width: none; /* 隐藏 Firefox 的滚动条 */
+}
+
+
+/* ================================================================== */
+/* --- 11. 统一的入场动画 (Unified Entrance Animation) --- */
+/* ================================================================== */
+
+/* 这是您设计的最终动画效果的 Keyframes。
+  它将被应用于所有弹出的窗口和视图，以确保视觉风格的统一。
+*/
+@keyframes balanced-column-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.995);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 将您设计的动画应用到所有需要它的元素上：
+  - data-level="1" 的新书签列
+  - 右键菜单
+  - 所有对话框（移动、编辑、确认）
+  - 侧边栏模块（如“最近添加的书签”）
+*/
+.bookmark-container > .bookmark-column[data-level="1"],
+.context-menu,
+.move-dialog-content,
+.edit-dialog-content {
+    animation: balanced-column-appear 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: opacity, transform; /* 提示浏览器提前优化 */
+}
+
+/* 浅色模式下：GitHub 图标压成黑色 */
+[data-theme="light"] .bookmark-item[data-url*="github.com"] .bookmark-icon {
+    filter: brightness(0) saturate(100%);
+}
+
+/* 深色模式下：GitHub 图标压成白色 */
+[data-theme="dark"] .bookmark-item[data-url*="github.com"] .bookmark-icon {
+    filter: brightness(0) invert(1);
 }

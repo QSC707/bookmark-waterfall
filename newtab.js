@@ -186,6 +186,9 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column.className = 'bookmark-column';
         column.dataset.level = level;
         container.appendChild(column);
+         setTimeout(() => {
+            container.scrollTo(container.scrollWidth, 0);
+        }, 0);
     }
 
     // 添加拖拽事件监听
