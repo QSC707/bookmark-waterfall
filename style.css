@@ -20,6 +20,11 @@
     --module-header-color: #9e9e9e;
     --module-header-border-color: rgba(255, 255, 255, 0.08);
     --context-menu-icon-filter: none;
+    --input-bg: rgba(0,0,0,0.2);
+    --input-border: rgba(255,255,255,0.1);
+    --input-text: #fff;
+    --input-focus-border: var(--dialog-primary-bg);
+    --error-text: #ff8a80;
 }
 
 [data-theme="light"] {
@@ -37,6 +42,10 @@
     --module-header-color: #555;
     --module-header-border-color: #eee;
     --context-menu-icon-filter: invert(0.8);
+    --input-bg: rgba(0,0,0,0.05);
+    --input-border: rgba(0,0,0,0.1);
+    --input-text: #111;
+    --error-text: #d32f2f;
 }
 
 /* --- 2. 核心布局与背景 --- */
@@ -175,7 +184,7 @@ body {
     padding: 8px;
     overflow-y: auto;
     flex-shrink: 0;
-    width: auto; 
+    width: auto;
     height: 100%;
     box-sizing: border-box;
 }
@@ -183,7 +192,7 @@ body {
 .bookmark-column[data-level="1"] {
     margin-left: max(20px, calc((120vw - 1600px) / 2));
     border-left: none;
-    transition: none; 
+    transition: none;
 }
 
 @media screen and (max-width: 1240px) {
@@ -195,6 +204,7 @@ body {
     display: flex; align-items: center;
     border-radius: 6px;
     transition: background-color 0.2s;
+    position: relative; /* 为伪元素定位提供参考 */
 }
 .bookmark-item:hover { background-color: var(--hover-bg); }
 .bookmark-item.highlighted { background-color: var(--highlighted-bg); }
@@ -220,22 +230,47 @@ body {
 }
 
 
-/* --- 6. 拖拽与多选样式 --- */
-.bookmark-item { border: 2px solid transparent; margin: -2px 0; }
+/* --- 6. 拖拽与多选样式 (最终修复版) --- */
+.bookmark-item::before,
+.bookmark-item::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    height: 2px;
+    background-color: var(--dialog-primary-bg);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.15s ease;
+    z-index: 1;
+    display: none;
+}
+
+.bookmark-item::before { top: 0; }
+.bookmark-item::after { bottom: 0; }
+
+.bookmark-item.drag-over-top::before,
+.bookmark-item.drag-over-bottom::after {
+    display: block;
+    transform: scaleX(1);
+}
+
 .bookmark-item.dragging { opacity: 0.4; }
-.bookmark-item.drag-over-top { border-top-color: var(--dialog-primary-bg); }
-.bookmark-item.drag-over-bottom { border-bottom-color: var(--dialog-primary-bg); }
-.bookmark-item.drag-enter { background-color: var(--highlighted-bg); border-color: transparent; }
+.bookmark-item.drag-enter { background-color: var(--highlighted-bg); }
+
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-before { border-left: 2px solid var(--dialog-primary-bg); }
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-after { border-right: 2px solid var(--dialog-primary-bg); }
 
+/* 这是最终的、正确的 .selected 样式，请用它替换 */
 .bookmark-item.selected {
-    background-color: var(--dialog-primary-bg) !important;
-    color: #fff;
-    outline: 2px solid var(--dialog-primary-bg);
+    /* 移除背景色，改为虚线框 */
+    background-color: transparent !important; /* 用 !important 覆盖 :hover 的背景色 */
+    outline: 2px dashed var(--dialog-primary-bg);
+    outline-offset: -2px; /* 让虚线框在元素内部，更美观 */
 }
+/* 确保虚线框状态下文字颜色不变，以便阅读 */
 .bookmark-item.selected .bookmark-title {
-    color: #fff;
+    color: var(--text-color);
 }
 
 
@@ -248,13 +283,13 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border-radius: 12px;
 }
-.move-dialog, .edit-dialog { background-color: rgba(0, 0, 0, 0.3); }
+.move-dialog, .edit-dialog, .confirm-dialog { background-color: rgba(0, 0, 0, 0.3); } /* 确认弹窗也加上背景 */
 
 /* --- 8. 右侧按钮和面板定位 --- */
 .vertical-modules {
     position: fixed;
     top: 50%;
-    right: 90px; 
+    right: 90px;
     transform: translateY(-50%);
     display: none;
     flex-direction: column;
@@ -308,7 +343,7 @@ body {
 .context-menu {
     position: fixed;
     z-index: 1000;
-    width: 200px; /* 调整宽度 */
+    width: 200px;
     display: none;
     padding: 6px;
 }
@@ -317,7 +352,7 @@ body {
     opacity: 0; transform: translateY(10px); visibility: hidden; transition: all 0.25s ease;
 }
 .settings-panel.visible { opacity: 1; transform: translateY(0); visibility: visible; }
-.move-dialog, .edit-dialog {
+.move-dialog, .edit-dialog, .confirm-dialog {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 2000; justify-content: center; align-items: flex-start;
 }
@@ -338,7 +373,7 @@ body {
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .slider {
     position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: var(--dialog-button-bg); transition: .4s; border-radius: 24px;
+    background-color: var(--input-bg); transition: .4s; border-radius: 24px;
 }
 .slider:before {
     position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
@@ -361,7 +396,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .move-dialog-header h3, .edit-dialog-header h3 { font-size: 14px; font-weight: 500; color: var(--text-color); margin: 0; }
 .move-dialog-body, .edit-dialog-body { padding: 16px; flex: 1; overflow-y: auto; }
 .move-dialog-footer, .edit-dialog-footer { padding: 12px 16px; border-top: 1px solid var(--header-border); display: flex; justify-content: flex-end; gap: 8px; }
-.move-dialog-content { max-height: 80vh; }
+.move-dialog-content { max-height: 80vh; display: flex; flex-direction: column;} /* 添加 flex 布局，确保 body 可以滚动 */
 .bookmark-tree { font-size: 14px; color: var(--text-color); }
 .bookmark-tree-item { margin-bottom: 2px; }
 .folder-content { display: flex; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: 6px; }
@@ -387,14 +422,20 @@ input:checked + .slider:before { transform: translateX(20px); }
 .context-menu ul li { cursor: pointer; color: var(--text-color); padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-size: 14px; border-radius: 6px; margin: 0 4px;}
 .context-menu ul li:hover { background-color: var(--hover-bg); }
 
-.menu-icon { 
-    width: 18px; 
-    height: 18px; 
-    opacity: 0.9; 
+.menu-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.9;
     filter: var(--context-menu-icon-filter);
 }
 
-.bookmark-item.highlgg { outline: 2px dashed var(--dialog-primary-bg); outline-offset: -1px; }
+.empty-folder-message { /* 空文件夹提示样式 */
+    padding: 16px;
+    text-align: center;
+    color: var(--module-header-color);
+    font-size: 13px;
+}
+
 .module-header { padding: 12px 16px; font-size: 14px; color: var(--module-header-color); border-bottom: 1px solid var(--module-header-border-color); }
 .module-content { list-style: none; padding: 8px; margin: 0; overflow-y: auto; }
 .module-content li { margin-bottom: 4px; }
@@ -411,3 +452,49 @@ input:checked + .slider:before { transform: translateX(20px); }
     font-size: 14px; opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .toast.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(-10px); }
+
+
+/* ================================================================== */
+/* --- 10. 自定义美化滚动条 (幽灵模式) --- */
+/* ================================================================== */
+
+/* 适用于所有可滚动的元素 */
+.bookmark-column, .module-content, .move-dialog-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-bg) transparent;
+}
+
+/* --- Webkit 浏览器 (Chrome) 的详细样式 --- */
+
+/* 整体部分：设置滚动条的宽度为更纤细的 6px */
+.bookmark-column::-webkit-scrollbar,
+.module-content::-webkit-scrollbar,
+.move-dialog-body::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+/* 轨道：滚动条背景，保持完全透明 */
+.bookmark-column::-webkit-scrollbar-track,
+.module-content::-webkit-scrollbar-track,
+.move-dialog-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* 滑块：滚动条本身 */
+.bookmark-column::-webkit-scrollbar-thumb,
+.module-content::-webkit-scrollbar-thumb,
+.move-dialog-body::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    /* 核心修改：默认状态下，滑块也是完全透明的 */
+    background-color: transparent;
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* 鼠标悬停在可滚动区域上时，滑块才会浮现 */
+.bookmark-column:hover::-webkit-scrollbar-thumb,
+.module-content:hover::-webkit-scrollbar-thumb,
+.move-dialog-body:hover::-webkit-scrollbar-thumb {
+    /* 使用 var(--scrollbar-thumb-bg) 定义的颜色，其透明度为 0.2，低于半透明 */
+    background-color: var(--scrollbar-thumb-bg);
+}
