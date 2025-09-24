@@ -185,7 +185,8 @@ function isValidUrl(string) {
  */
 function clearSelection() {
     selectedItems.clear();
-    document.querySelectorAll('.bookmark-item.selected').forEach(el => el.classList.remove('selected'));
+    // 【修改】确保能清除主区域和侧边栏的所有选中样式
+    document.querySelectorAll('.bookmark-item.selected, .vertical-modules a.selected').forEach(el => el.classList.remove('selected'));
     lastClickedId = null;
 }
 
@@ -369,29 +370,20 @@ function createBookmarkItem(bookmark, index) {
 
     // 这是最终的、正确的 click 事件监听器，请用它替换
     item.addEventListener('click', (e) => {
-        // 仅在没有修饰键且选中项不多于1个时执行默认单击行为
-        if (!e.metaKey && !e.ctrlKey && !e.shiftKey && selectedItems.size <= 1) {
-            if (!isFolder) {
-                // --- 这是针对书签链接的最终逻辑 ---
+        // 如果按下了任何修饰键(Ctrl/Cmd/Shift)，说明用户意图是多选，而不是打开。
+        // 所以我们直接返回，不做任何事，把选择逻辑完全交给 mousedown 事件处理。
+        if (e.metaKey || e.ctrlKey || e.shiftKey) {
+            return;
+        }
 
-                // 1. 清除任何之前的选中项
-                clearSelection();
-
-                // 2. 选中当前点击的项，使其获得虚线高亮
-                toggleSelection(item);
-
-                // 3. 在新标签页打开链接
-                window.open(bookmark.url, '_blank');
-
-            } else {
-                // 点击文件夹时，行为不变
-                handleFolderClick(item, bookmark.id);
-            }
-        } else if (isFolder && selectedItems.size > 1) {
-            // 多选时点击文件夹的行为，也不变
-            e.preventDefault();
-            clearSelection();
-            toggleSelection(item);
+        // --- 如果是普通的、无修饰的单击 ---
+        if (!isFolder) {
+            // 对于书签链接：
+            // 此时 mousedown 事件已经处理好了高亮，我们只需要执行“打开”这个动作。
+            window.open(bookmark.url, '_blank');
+        } else {
+            // 对于文件夹：
+            // 单击文件夹就是为了打开它，这个行为保持不变。
             handleFolderClick(item, bookmark.id);
         }
     });
@@ -692,22 +684,20 @@ function showContextMenu(e, bookmarkElement, column) {
     let menuHtml = '';
 
     const rightClickedId = bookmarkElement?.dataset.id;
-    // 【新增】判断点击的是否为侧边栏模块内的项目
+    // 【错误修复】重新添加这行被遗漏的变量定义
     const isModuleItem = bookmarkElement?.closest('.vertical-modules');
 
-    if (rightClickedId && !selectedItems.has(rightClickedId) && !isModuleItem) { // 【修改】增加了 !isModuleItem 条件
-        // 如果右键点击了未选中的项目，并且它不是侧边栏项目，则清空选择并选中该项
+    // --- 这是唯一的、正确的逻辑 ---
+    if (rightClickedId && !selectedItems.has(rightClickedId)) {
+        // 如果右键点击了一个“未被选中”的项目 (无论它在哪里)
+        // 1. 清除所有旧的选中状态
         clearSelection();
+        // 2. 选中这个新项目 (这会给它加上高亮样式)
         toggleSelection(bookmarkElement);
     } else if (!rightClickedId) {
-        // 如果右键点击了空白处，清空所有选择
+        // 如果右键点击的是空白区域，则清除所有选择
         clearSelection();
-    } else if (isModuleItem) {
-        // 如果右键点击了侧边栏项目，清空主区域选择，并将侧边栏项目ID放入选择集
-        clearSelection();
-        selectedItems.add(rightClickedId);
     }
-
 
     const selectionSize = selectedItems.size;
     const hasBookmarkInSelection = Array.from(selectedItems).some(id => {
@@ -725,7 +715,7 @@ function showContextMenu(e, bookmarkElement, column) {
                 menuHtml += `<hr>`;
             }
         } else { // 单选菜单
-            const isFolder = bookmarkElement && bookmarkElement.classList.contains('is-folder'); // 【修改】
+            const isFolder = bookmarkElement && bookmarkElement.classList.contains('is-folder');
             if (isFolder) {
                 menuHtml += `<li id="openAll"><img src="/img/open_all.svg" class="menu-icon">打开文件夹内所有书签</li><hr>`;
             } else {
@@ -736,14 +726,14 @@ function showContextMenu(e, bookmarkElement, column) {
             }
         }
 
-        if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) { // 【修改】
+        if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
             menuHtml += `<li id="editUrl"><img src="/img/edit.svg" class="menu-icon">修改网址</li>`;
         }
         if (selectionSize === 1) {
             menuHtml += `<li id="rename"><img src="/img/rename.svg" class="menu-icon">重命名</li>`;
         }
         menuHtml += `<li id="move"><img src="/img/move.svg" class="menu-icon">移动${selectionSize > 1 ? ` (${selectionSize})` : ''}到...</li>`;
-        if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) { // 【修改】
+        if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
             menuHtml += `<li id="copyUrl"><img src="/img/copy.svg" class="menu-icon">复制网址</li>`;
         }
         menuHtml += `<hr>`;
@@ -751,7 +741,7 @@ function showContextMenu(e, bookmarkElement, column) {
     }
 
     // --- 在列上右键的菜单 ---
-    if (column && !isModuleItem) { // 【修改】增加 !isModuleItem 条件
+    if (column && !isModuleItem) { // 【错误修复】现在 isModuleItem 已经被定义，这里不再报错
         if (menuHtml !== '') menuHtml += `<hr>`;
         menuHtml += `<li id="newFolder"><img src="/img/folder.svg" class="menu-icon">新建文件夹</li><hr>`;
         menuHtml += `<li id="sortAlphaAsc"><img src="/img/sort_asc.svg" class="menu-icon">排序：由 A 到 Z</li>`;
@@ -1339,6 +1329,24 @@ async function displayRecentBookmarks() {
             a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
             a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
 
+            // --- 【这是新增的、最关键的代码】 ---
+            // 添加 mousedown 事件来处理单击高亮
+            a.addEventListener('mousedown', (e) => {
+                // 只响应鼠标左键
+                if (e.button !== 0) return;
+
+                // 如果按住了 Ctrl/Cmd 或 Shift 键，则阻止链接默认的打开行为
+                if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                    e.preventDefault();
+                }
+
+                // 核心逻辑：如果当前项未被选中，则清空其他所有选择，然后选中当前项
+                if (!selectedItems.has(a.dataset.id)) {
+                    clearSelection();
+                    toggleSelection(a);
+                }
+            });
+
             fragment.appendChild(a);
         }
         container.appendChild(fragment);
@@ -1602,11 +1610,12 @@ document.addEventListener('DOMContentLoaded', function () {
             hideContextMenu();
         }
 
-        // 4. 点击外部关闭浮动窗口 (核心修复)
+        // 4. 【修改】点击外部关闭浮动窗口 (核心修复)
         const isClickOnDialog = e.target.closest('.move-dialog') ||
             e.target.closest('.edit-dialog') ||
             e.target.closest('.confirm-dialog');
-        if (isModuleVisible && !verticalModules.contains(e.target) && !toggleVerticalBtn.contains(e.target) && !isClickOnDialog) {
+        // 如果模块可见，并且点击位置不在模块、开关按钮、右键菜单、任何对话框之中，则关闭模块
+        if (isModuleVisible && !verticalModules.contains(e.target) && !toggleVerticalBtn.contains(e.target) && !e.target.closest('.context-menu') && !isClickOnDialog) {
             hideModules();
         }
     });

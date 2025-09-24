@@ -322,8 +322,9 @@ body {
     border-right: 2px solid var(--dialog-primary-bg);
 }
 
-/* 统一选中高亮为虚线框 */
-.bookmark-item.selected {
+/* 【修改】统一选中高亮为虚线框 */
+.bookmark-item.selected,
+.vertical-modules a.selected {
     background-color: transparent !important;
     /* 必须用 !important 覆盖 :hover */
     outline: 2px dashed var(--dialog-primary-bg);
