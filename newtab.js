@@ -884,6 +884,8 @@ async function handleSortBookmarks(parentId, sortType) {
         if (!children || children.length < 2) return;
         showToast('正在排序...');
         let sortedChildren;
+
+        // --- 排序逻辑 (保持不变) ---
         switch (sortType) {
             case 'sortDateNew':
                 sortedChildren = children.sort((a, b) => b.dateAdded - a.dateAdded);
@@ -915,19 +917,32 @@ async function handleSortBookmarks(parentId, sortType) {
                 return;
         }
 
-        // 依次移动书签到新的位置
+        // --- 移动书签到新位置 (保持不变) ---
         for (let i = 0; i < sortedChildren.length; i++) {
-            await new Promise(resolve => chrome.bookmarks.move(sortedChildren[i].id, { parentId: parentId, index: i }, resolve));
+            // 防止移动自身到同一位置，这会引发API错误
+            if (sortedChildren[i].index !== i) {
+                 await new Promise(resolve => chrome.bookmarks.move(sortedChildren[i].id, { parentId: parentId, index: i }, resolve));
+            }
         }
 
-        // 刷新视图
-        const parentFolderItem = document.querySelector(`.bookmark-item.highlighted[data-id="${parentId}"]`);
-        if (parentFolderItem) {
-            handleFolderClick(parentFolderItem, parentId); // 重新打开文件夹以刷新
-        } else if (parentId === '1') {
-            chrome.bookmarks.getTree(displayBookmarks); // 如果是根目录，则刷新整个书签栏
-        }
-        showToast('排序完成');
+        // --- 【这是全新的、正确的刷新逻辑】 ---
+        // 1. 重新获取刚刚排序完成的、最新的子元素列表
+        chrome.bookmarks.getChildren(parentId, (freshlySortedChildren) => {
+            if (parentId === '1') {
+                // 如果是书签栏，直接刷新整个应用
+                chrome.bookmarks.getTree(displayBookmarks);
+            } else {
+                // 2. 找到代表父文件夹的那个 DOM 元素
+                const parentFolderItem = document.querySelector(`.bookmark-item.highlighted[data-id="${parentId}"]`);
+                if (parentFolderItem) {
+                    // 3. 获取父文件夹所在的层级
+                    const level = parseInt(parentFolderItem.closest('.bookmark-column').dataset.level, 10);
+                    // 4. 直接调用 renderBookmarks 重新渲染下一列，而不是模拟点击
+                    renderBookmarks(freshlySortedChildren, document.getElementById('bookmarkContainer'), level + 1);
+                }
+            }
+            showToast('排序完成');
+        });
     });
 }
 
