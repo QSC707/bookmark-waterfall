@@ -257,19 +257,20 @@ function displayBookmarks(bookmarks) {
  * @param {HTMLElement} parentElement - 父级容器元素
  * @param {number} level - 当前列的层级
  */
+// --- 【这是完整的、恢复了缺失逻辑的 renderBookmarks 函数】 ---
 function renderBookmarks(bookmarks, parentElement, level) {
     let column;
+    const container = document.getElementById('bookmarkContainer');
+
     if (level === 0) {
-        // 第0级（书签栏）直接添加到header
+        // 【逻辑恢复】这是被删除的关键部分：渲染顶部的书签栏
         const header = document.querySelector('.page-header');
         column = document.createElement('div');
         column.className = 'bookmark-column';
         column.dataset.level = level;
         header.appendChild(column);
     } else {
-        // 其他层级添加到主容器
-        const container = document.getElementById('bookmarkContainer');
-        // 移除所有当前或更深层级的列
+        // 其他层级（主视图区域）的逻辑
         const nextColumns = container.querySelectorAll(`.bookmark-column`);
         nextColumns.forEach(col => {
             if (parseInt(col.dataset.level) >= level) col.remove();
@@ -278,24 +279,19 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column.className = 'bookmark-column';
         column.dataset.level = level;
         container.appendChild(column);
-        setTimeout(() => {
-            container.scrollTo(container.scrollWidth, 0);
-        }, 0);
     }
 
-    // 添加拖拽事件监听
+    // 添加拖拽事件监听 (保持不变)
     column.addEventListener('dragover', handleColumnDragOver);
     column.addEventListener('dragleave', handleColumnDragLeave);
     column.addEventListener('drop', handleColumnDrop);
 
-    // 使用 DocumentFragment 提高性能
     const fragment = document.createDocumentFragment();
     bookmarks.forEach((bookmark, index) => {
         const item = createBookmarkItem(bookmark, index);
         fragment.appendChild(item);
     });
 
-    // 如果文件夹为空，显示提示信息
     if (bookmarks.length === 0 && level > 0) {
         const emptyMsg = document.createElement('div');
         emptyMsg.className = 'empty-folder-message';
@@ -304,6 +300,23 @@ function renderBookmarks(bookmarks, parentElement, level) {
     }
 
     column.appendChild(fragment);
+
+    // --- 【这是修正后的调用逻辑】 ---
+    if (level > 0) {
+        makeColumnResizable(column);
+    }
+    
+    // 使用 setTimeout 将宽度调整推迟到浏览器渲染之后，确保获取的宽度是准确的
+    setTimeout(() => {
+        // 只对主容器内的列进行宽度调整
+        if (container.contains(column)) {
+             adjustColumnWidths(container);
+        }
+        if (level > 0) {
+            container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+        }
+    }, 0);
+    // --- 【修正结束】 ---
 }
 
 /**
@@ -448,6 +461,139 @@ function handleFolderClick(folderItem, bookmarkId) {
         });
     }
 }
+
+
+// ... 这是 handleFolderClick 函数的最后一个 }
+
+// --- 【这是采用高性能拖拽方案的最终版函数】 ---
+function makeColumnResizable(column) {
+    const handle = document.createElement('div');
+    handle.className = 'resize-handle';
+    column.appendChild(handle);
+
+    const overlay = document.querySelector('.resizing-overlay');
+    const indicator = document.querySelector('.resize-indicator');
+    const container = document.getElementById('bookmarkContainer');
+
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const startX = e.clientX;
+        const startWidth = column.offsetWidth;
+        
+        // 【优化1】根据容器的实际位置和高度来设置提示线
+        const containerRect = container.getBoundingClientRect();
+        indicator.style.top = `${containerRect.top}px`;
+        indicator.style.height = `${containerRect.height}px`;
+        indicator.style.left = `${e.clientX}px`;
+
+        document.body.classList.add('is-resizing');
+        overlay.style.display = 'block';
+
+        const handleMouseMove = (moveEvent) => {
+            // 【优化2】拖动时只移动提示线，不改变列宽，保证流畅
+            indicator.style.left = `${moveEvent.clientX}px`;
+        };
+
+        const handleMouseUp = (moveEvent) => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+
+            document.body.classList.remove('is-resizing');
+            overlay.style.display = 'none';
+
+            // 【优化3】在拖动结束后，只执行一次宽度计算和赋值
+            const finalX = moveEvent.clientX;
+            const deltaX = finalX - startX;
+            let newWidth = startWidth + deltaX;
+
+            // 限制最小宽度
+            if (newWidth < 180) {
+                newWidth = 180;
+            }
+            
+            column.style.width = `${newWidth}px`;
+            column.dataset.userResized = 'true';
+
+            // 结束后智能调整一下布局
+            adjustColumnWidths(container);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    });
+}
+// --- 【新增函数结束】 ---
+
+
+// ... 这是 makeColumnResizable 函数的最后一个 }
+
+// --- 【新增函数：当列超出窗口时，智能调整宽度】 ---
+// --- 【这是增加了“智能放大”功能的最终版函数】 ---
+function adjustColumnWidths(container) {
+    const columns = Array.from(container.querySelectorAll('.bookmark-column'));
+    if (columns.length === 0) return;
+
+    // 从CSS获取列之间的间距
+    const gap = parseInt(window.getComputedStyle(container).gap) || 20;
+    const containerWidth = container.clientWidth;
+    const DEFAULT_COL_WIDTH = 280; // 定义一个理想的默认/最大宽度
+
+    // 1. 重置所有非用户手动调整过的列的宽度，让它们恢复自然大小
+    columns.forEach(col => {
+        if (!col.dataset.userResized) {
+            col.style.width = '';
+        }
+    });
+
+    // 2. 重新计算当前的总宽度
+    const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
+
+    if (totalWidth > containerWidth) {
+        // --- 智能缩小逻辑 (保持不变) ---
+        const overflow = totalWidth - containerWidth;
+        // 不缩小最后一列
+        const columnsToShrink = columns.slice(0, -1);
+        let totalShrinkableWidth = columnsToShrink.reduce((sum, col) => sum + col.offsetWidth, 0);
+
+        if (columnsToShrink.length > 0) {
+            for (const col of columnsToShrink) {
+                const proportion = col.offsetWidth / totalShrinkableWidth;
+                const shrinkAmount = overflow * proportion;
+                const newWidth = col.offsetWidth - shrinkAmount;
+                col.style.width = `${Math.max(180, newWidth)}px`;
+            }
+        }
+    } else {
+        // --- 【新增的智能放大逻辑】 ---
+        // 如果有剩余空间，则按比例放大那些比默认宽度窄的列
+        const availableSpace = containerWidth - totalWidth;
+        
+        // 找到所有可以被放大的列
+        const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH);
+        if (columnsToEnlarge.length > 0) {
+            
+            // 计算这些列总共可以“长大”多少空间
+            let totalEnlargePotential = columnsToEnlarge.reduce((sum, col) => sum + (DEFAULT_COL_WIDTH - col.offsetWidth), 0);
+
+            if (totalEnlargePotential > 0) {
+                 for (const col of columnsToEnlarge) {
+                    // 计算每个列可以“长大”的潜力占比
+                    const potential = DEFAULT_COL_WIDTH - col.offsetWidth;
+                    const proportion = potential / totalEnlargePotential;
+                    // 按比例分配可用的额外空间
+                    const enlargeAmount = availableSpace * proportion;
+                    const newWidth = col.offsetWidth + enlargeAmount;
+
+                    // 确保放大后的宽度不超过我们的理想值
+                    col.style.width = `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px`;
+                }
+            }
+        }
+    }
+}
+// --- 【新增函数结束】 ---
 
 
 // --- 拖拽逻辑 ---
@@ -1599,6 +1745,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // 隐藏右键菜单的全局事件
     window.addEventListener('scroll', hideContextMenu, true);
     window.addEventListener('resize', hideContextMenu);
+    // --- 【新增代码：使用 ResizeObserver 智能调整列宽】 ---
+    const bookmarkContainer = document.getElementById('bookmarkContainer');
+    
+    // 创建一个防抖函数，确保即使在快速变化中也只执行一次最终计算
+    const debouncedAdjust = debounce(() => {
+        adjustColumnWidths(bookmarkContainer);
+    }, 100);
+
+    // 创建一个 ResizeObserver 实例，并告诉它在 bookmarkContainer 尺寸变化时调用我们的防抖函数
+    const resizeObserver = new ResizeObserver(entries => {
+        // 我们不需要关心具体的 entries，只要知道尺寸变了就行
+        debouncedAdjust();
+    });
+
+    // 开始观察 bookmarkContainer 元素
+    resizeObserver.observe(bookmarkContainer);
+    // --- 【新增代码结束】 ---
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             hideContextMenu();

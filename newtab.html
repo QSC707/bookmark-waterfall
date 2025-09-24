@@ -112,31 +112,33 @@
     </div>
 
     <div id="settings-panel" class="settings-panel">
-
-        <div id="settings-panel" class="settings-panel">
-            <label class="module-header">设置</label>
-            <div class="settings-content">
-                <div class="setting-item">
-                    <span class="setting-label">主题模式</span>
-                    <div class="theme-options">
-                        <button class="theme-option" data-theme-value="dark">深色</button>
-                        <button class="theme-option" data-theme-value="light">浅色</button>
-                        <button class="theme-option" data-theme-value="system">系统</button>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <span class="setting-label">悬停打开文件夹</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="hover-toggle-switch">
-                        <span class="slider"></span>
-                    </label>
+        <label class="module-header">设置</label>
+        <div class="settings-content">
+            <div class="setting-item">
+                <span class="setting-label">主题模式</span>
+                <div class="theme-options">
+                    <button class="theme-option" data-theme-value="dark">深色</button>
+                    <button class="theme-option" data-theme-value="light">浅色</button>
+                    <button class="theme-option" data-theme-value="system">系统</button>
                 </div>
             </div>
+            <div class="setting-item">
+                <span class="setting-label">悬停打开文件夹</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="hover-toggle-switch">
+                    <span class="slider"></span>
+                </label>
+            </div>
         </div>
-        <div id="pageOverlay" class="page-overlay"></div>
-        <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
+    </div>
 
-        <script src="newtab.js"></script>
+    <div id="pageOverlay" class="page-overlay"></div>
+    <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
+
+    <div class="resizing-overlay" style="display: none;"></div>
+    <div class="resize-indicator"></div>
+
+    <script src="newtab.js"></script>
 </body>
 
 </html>

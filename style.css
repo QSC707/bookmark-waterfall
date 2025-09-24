@@ -431,6 +431,8 @@ body {
 }
 
 .settings-btn {
+    position: fixed; /* 确保这个属性存在 */
+    z-index: 10000;  /* <<< 修改：赋予一个极高的层级，确保它在最顶层 */
     bottom: 20px;
     left: 20px;
     color: var(--module-header-color);
@@ -1152,4 +1154,54 @@ input:checked+.slider:before {
     padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid var(--input-border);
+}
+
+
+
+/* ================================================================== */
+/* --- 13. 可调整列宽功能样式 (Resizable Columns) --- */
+/* ================================================================== */
+
+/* 为书签列容器启用相对定位，以便定位 Handle 和 Line */
+.bookmark-column {
+    position: relative;
+    /* 为宽度变化添加动画，以实现需求中的“缩小动画” */
+    transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 拖动 Handle 的样式 */
+.resize-handle {
+    position: absolute;
+    top: 0;
+    right: -10px; /* 定位到列的右边距区域，不占用列本身空间 */
+    width: 20px;   /* 增加可点击区域 */
+    height: 100%;
+    cursor: col-resize; /* 鼠标悬停时显示拖动光标 */
+    z-index: 1;
+}
+
+/* 拖动时覆盖整个页面的遮罩，防止鼠标事件被其他元素捕获 */
+.resizing-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    cursor: col-resize;
+    z-index: 9998; /* 确保在最顶层 */
+}
+
+/* 拖动时显示的提示线条 */
+.resize-indicator {
+    position: fixed;
+    top: 0; /* top 和 height 会由 JS 动态设置 */
+    width: 1.5px; /* 改为更细的线条 */
+    background-color: var(--dialog-primary-bg);
+    display: none;
+    z-index: 9999;
+}
+
+/* 当开始拖动时，让提示线显示出来 */
+body.is-resizing .resize-indicator {
+    display: block;
 }
