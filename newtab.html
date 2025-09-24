@@ -98,30 +98,45 @@
         </div>
     </div>
 
-    <div id="settings-panel" class="settings-panel">
-        <label class="module-header">设置</label>
-        <div class="settings-content">
-            <div class="setting-item">
-                <span class="setting-label">主题模式</span>
-                <div class="theme-options">
-                    <button class="theme-option" data-theme-value="dark">深色</button>
-                    <button class="theme-option" data-theme-value="light">浅色</button>
-                    <button class="theme-option" data-theme-value="system">系统</button>
-                </div>
+    <div id="propertiesDialog" class="edit-dialog">
+        <div class="edit-dialog-content">
+            <div class="edit-dialog-header">
+                <h3 id="propertiesDialogTitle">属性</h3>
             </div>
-            <div class="setting-item">
-                <span class="setting-label">悬停打开文件夹</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="hover-toggle-switch">
-                    <span class="slider"></span>
-                </label>
+            <div id="propertiesDialogBody" class="properties-dialog-body">
+            </div>
+            <div class="edit-dialog-footer">
+                <button id="closeProperties" class="dialog-button primary">关闭</button>
             </div>
         </div>
     </div>
-    <div id="pageOverlay" class="page-overlay"></div>
-    <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
 
-    <script src="newtab.js"></script>
+    <div id="settings-panel" class="settings-panel">
+
+        <div id="settings-panel" class="settings-panel">
+            <label class="module-header">设置</label>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <span class="setting-label">主题模式</span>
+                    <div class="theme-options">
+                        <button class="theme-option" data-theme-value="dark">深色</button>
+                        <button class="theme-option" data-theme-value="light">浅色</button>
+                        <button class="theme-option" data-theme-value="system">系统</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">悬停打开文件夹</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="hover-toggle-switch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div id="pageOverlay" class="page-overlay"></div>
+        <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
+
+        <script src="newtab.js"></script>
 </body>
 
 </html>

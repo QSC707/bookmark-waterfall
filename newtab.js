@@ -736,6 +736,9 @@ function showContextMenu(e, bookmarkElement, column) {
         if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
             menuHtml += `<li id="copyUrl"><img src="/img/copy.svg" class="menu-icon">复制网址</li>`;
         }
+        if (selectionSize === 1) {
+            menuHtml += `<li id="properties"><img src="/img/rename.svg" class="menu-icon">属性</li>`; // 暂时复用图标
+        }
         menuHtml += `<hr>`;
         menuHtml += `<li id="delete"><img src="/img/delete.svg" class="menu-icon">删除${selectionSize > 1 ? ` (${selectionSize})` : ''}</li>`;
     }
@@ -870,6 +873,9 @@ function handleContextMenuAction(action, element) {
                 });
                 break;
             }
+        case 'properties':
+            showPropertiesDialog(element);
+            break;
     }
 }
 
@@ -921,7 +927,7 @@ async function handleSortBookmarks(parentId, sortType) {
         for (let i = 0; i < sortedChildren.length; i++) {
             // 防止移动自身到同一位置，这会引发API错误
             if (sortedChildren[i].index !== i) {
-                 await new Promise(resolve => chrome.bookmarks.move(sortedChildren[i].id, { parentId: parentId, index: i }, resolve));
+                await new Promise(resolve => chrome.bookmarks.move(sortedChildren[i].id, { parentId: parentId, index: i }, resolve));
             }
         }
 
@@ -1140,6 +1146,52 @@ function showMoveDialog(bookmarkElement, idsToMove) {
     };
 
     cancelBtn.onclick = close;
+}
+
+
+// --- 【新增代码：显示属性对话框的函数】 ---
+async function showPropertiesDialog(element) {
+    if (!element) return;
+
+    const dialog = document.getElementById('propertiesDialog'),
+        bodyEl = document.getElementById('propertiesDialogBody'),
+        closeBtn = document.getElementById('closeProperties');
+
+    const bookmarkId = element.dataset.id;
+    if (!bookmarkId) return;
+
+    // 1. 获取书签的详细信息
+    const [bookmarkDetails] = await new Promise(resolve => chrome.bookmarks.get(bookmarkId, resolve));
+    const bookmarkPath = await getBookmarkPath(bookmarkId);
+
+    // 2. 准备要显示的数据
+    const properties = [
+        { label: '名称', value: bookmarkDetails.title },
+        { label: '网址 (URL)', value: bookmarkDetails.url || 'N/A (这是一个文件夹)' },
+        { label: '路径', value: bookmarkPath || '根目录' },
+        { label: '添加时间', value: formatDateTime(bookmarkDetails.dateAdded) },
+        { label: 'ID', value: bookmarkDetails.id }
+    ];
+
+    // 3. 构建 HTML 内容
+    bodyEl.innerHTML = properties.map(prop => `
+        <div class="prop-item">
+            <span class="prop-label">${prop.label}</span>
+            <span class="prop-value">${sanitizeText(prop.value)}</span>
+        </div>
+    `).join('');
+
+
+    // 4. 显示对话框并绑定关闭事件
+    dialog.style.display = 'flex';
+    closeBtn.focus();
+
+    const close = () => {
+        dialog.style.display = 'none';
+        closeBtn.onclick = null;
+    };
+
+    closeBtn.onclick = close;
 }
 
 

@@ -1119,3 +1119,37 @@ input:checked+.slider:before {
     flex-shrink: 0;
     padding-top: 1px;
 }
+
+
+
+/* --- 书签属性对话框 (V39 - 美化版) --- */
+
+.properties-dialog-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* 增加行间距 */
+}
+
+.prop-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* 标签和内容之间的间距 */
+}
+
+.prop-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--module-header-color);
+}
+
+.prop-value {
+    font-size: 14px;
+    color: var(--text-color);
+    word-break: break-all; /* 确保长URL可以换行 */
+    line-height: 1.5;
+    background-color: var(--input-bg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--input-border);
+}
