@@ -257,20 +257,31 @@ function displayBookmarks(bookmarks) {
  * @param {HTMLElement} parentElement - 父级容器元素
  * @param {number} level - 当前列的层级
  */
-// --- 【这是完整的、恢复了缺失逻辑的 renderBookmarks 函数】 ---
+// --- 【这是最终修正版的 renderBookmarks 函数】 ---
 function renderBookmarks(bookmarks, parentElement, level) {
     let column;
     const container = document.getElementById('bookmarkContainer');
+    const fragment = document.createDocumentFragment();
+
+    // 1. 创建书签DOM元素 (这部分可以提前)
+    bookmarks.forEach((bookmark, index) => {
+        const item = createBookmarkItem(bookmark, index);
+        fragment.appendChild(item);
+    });
 
     if (level === 0) {
-        // 【逻辑恢复】这是被删除的关键部分：渲染顶部的书签栏
+        // --- 顶部书签栏 (level 0) 的逻辑 ---
         const header = document.querySelector('.page-header');
         column = document.createElement('div');
         column.className = 'bookmark-column';
         column.dataset.level = level;
         header.appendChild(column);
+
+        // 【核心修正】直接将书签添加到 column，不使用 wrapper
+        column.appendChild(fragment);
+
     } else {
-        // 其他层级（主视图区域）的逻辑
+        // --- 主内容区其他列 (level > 0) 的逻辑 ---
         const nextColumns = container.querySelectorAll(`.bookmark-column`);
         nextColumns.forEach(col => {
             if (parseInt(col.dataset.level) >= level) col.remove();
@@ -279,46 +290,42 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column.className = 'bookmark-column';
         column.dataset.level = level;
         container.appendChild(column);
+
+        // 【保持不变】为内容区的列创建用于滚动的 wrapper
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'column-content-wrapper';
+        column.appendChild(contentWrapper);
+
+        // 如果文件夹为空，显示提示信息
+        if (bookmarks.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'empty-folder-message';
+            emptyMsg.textContent = '这个文件夹是空的';
+            contentWrapper.appendChild(emptyMsg);
+        }
+
+        // 将书签添加到 wrapper 中
+        contentWrapper.appendChild(fragment);
+
+        // 为这一列添加可调整宽度的功能
+        makeColumnResizable(column);
     }
 
-    // 添加拖拽事件监听 (保持不变)
+    // 统一的拖拽事件监听
     column.addEventListener('dragover', handleColumnDragOver);
     column.addEventListener('dragleave', handleColumnDragLeave);
     column.addEventListener('drop', handleColumnDrop);
 
-    const fragment = document.createDocumentFragment();
-    bookmarks.forEach((bookmark, index) => {
-        const item = createBookmarkItem(bookmark, index);
-        fragment.appendChild(item);
-    });
-
-    if (bookmarks.length === 0 && level > 0) {
-        const emptyMsg = document.createElement('div');
-        emptyMsg.className = 'empty-folder-message';
-        emptyMsg.textContent = '这个文件夹是空的';
-        column.appendChild(emptyMsg);
-    }
-
-    column.appendChild(fragment);
-
-    // --- 【这是修正后的调用逻辑】 ---
-    if (level > 0) {
-        makeColumnResizable(column);
-    }
-    
-    // 使用 setTimeout 将宽度调整推迟到浏览器渲染之后，确保获取的宽度是准确的
+    // 统一的渲染后调整逻辑
     setTimeout(() => {
-        // 只对主容器内的列进行宽度调整
         if (container.contains(column)) {
-             adjustColumnWidths(container);
+            adjustColumnWidths(container);
         }
         if (level > 0) {
             container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
         }
     }, 0);
-    // --- 【修正结束】 ---
 }
-
 /**
  * 创建单个书签或文件夹的DOM元素
  * @param {chrome.bookmarks.BookmarkTreeNode} bookmark - 书签节点对象

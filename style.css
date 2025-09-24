@@ -195,11 +195,15 @@ body {
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
     padding: 8px;
-    overflow-y: auto;
     flex-shrink: 0;
     width: auto;
     height: 100%;
     box-sizing: border-box;
+}
+
+.column-content-wrapper {
+    height: 100%;
+    overflow-y: auto;
 }
 
 .bookmark-column[data-level="1"] {
@@ -842,22 +846,19 @@ input:checked+.slider:before {
 /* --- 10. 隐藏滚动条 --- */
 /* ================================================================== */
 
-/* 适用于所有可滚动的元素，使用最强规则直接隐藏滚动条 */
-.bookmark-column::-webkit-scrollbar,
+/* 适用于所有可滚动的元素... */
+.column-content-wrapper::-webkit-scrollbar, /* <-- 已修改 */
 .module-content::-webkit-scrollbar,
 .move-dialog-body::-webkit-scrollbar {
     display: none;
-    /* 直接隐藏滚动条 */
 }
 
 /* 为 Firefox 浏览器提供兼容 */
-.bookmark-column,
+.column-content-wrapper, /* <-- 已修改 */
 .module-content,
 .move-dialog-body {
     scrollbar-width: none;
-    /* 隐藏 Firefox 的滚动条 */
 }
-
 
 /* ================================================================== */
 /* --- 11. 统一的入场动画 (Unified Entrance Animation) --- */
