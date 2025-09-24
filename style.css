@@ -917,7 +917,7 @@ input:checked+.slider:before {
 
 /* --- 工具栏 --- */
 .recent-bookmarks-toolbar {
-    padding: 12px 16px;
+    padding: 6px 16px;
     border-bottom: 1px solid var(--module-header-border-color);
     display: flex;
     justify-content: space-between;
@@ -959,6 +959,7 @@ input:checked+.slider:before {
     padding: 4px;
 }
 
+/* --- 这是优化后的代码 --- */
 .filter-btn {
     border: none;
     background-color: transparent;
@@ -967,18 +968,24 @@ input:checked+.slider:before {
     font-size: 13px;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease; /* 动画更精细 */
+    transform: scale(1); /* 为点击动画做准备 */
 }
 
-.filter-btn:hover {
+.filter-btn:hover:not(.active) { /* 鼠标悬停在非激活按钮上时 */
     background-color: var(--hover-bg);
     color: var(--text-color);
 }
 
+.filter-btn:active:not(.active) { /* 鼠标按下非激活按钮时 */
+    transform: scale(0.97); /* 添加一个微妙的点击下沉效果 */
+}
+
 .filter-btn.active {
-    background-color: var(--highlighted-bg);
-    color: var(--text-color);
+    background-color: var(--dialog-primary-bg); /* 使用更醒目的主色调 */
+    color: #fff; /* 文字变为白色，对比更清晰 */
     font-weight: 500;
+    cursor: default; /* 激活状态下，鼠标变为默认指针 */
 }
 
 /* --- 内容区/书签列表 (V37 - 终极简化版) --- */
@@ -990,7 +997,7 @@ input:checked+.slider:before {
 
     overflow-y: auto;
     position: relative;
-    padding: 12px 20px 20px var(--item-left-padding);
+    padding: 2px 20px 20px var(--item-left-padding); /* <<< 将顶部的 12px 改为 4px */
     
 
     /* 核心: 使用背景图创建一条绝对连续的垂直线 */
@@ -1019,15 +1026,15 @@ input:checked+.slider:before {
     border: 1px solid var(--input-border);
     border-radius: 16px;
     padding: 4px 12px;
-    margin-top: 16px;
+    margin-top: 8px;
     /* 从 20px 减小 */
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     /* 从 20px 减小 */
 }
 
 /* --- 书签条目 --- */
 #recentBookmarksModule .module-content>a {
-    padding: 8px 10px;
+    padding: 6px 10px; /* <<< 将垂直的 8px 改为 6px */
     /* 垂直内边距从 12px 减小到 8px */
     display: flex;
     margin-left: 32px; /* <<< 修改为 margin-left */
