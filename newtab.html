@@ -13,27 +13,39 @@
         <div id="headerImage" class="header-image">
             <img src="/img/bilbil.avif" alt="Header Image" class="header-bg-image">
         </div>
-        
-        </header>
+
+    </header>
 
     <main class="main-container">
         <div id="bookmarkContainer" class="bookmark-container"></div>
 
-        <div class="vertical-modules" style="display: none;">
+        <div class="vertical-modules">
             <section class="module" id="recentBookmarksModule">
                 <label class="module-header">最近添加的书签</label>
-                <ul class="module-content"></ul>
+                <div class="recent-bookmarks-toolbar">
+                    <div class="date-filter">
+                        <input type="date" id="startDate" class="date-input" title="开始日期">
+                        <span>-</span>
+                        <input type="date" id="endDate" class="date-input" title="结束日期">
+                    </div>
+                    <div id="quickFilters" class="quick-filters">
+                        <button class="filter-btn active" data-days="30">最近30天</button>
+                        <button class="filter-btn" data-days="7">最近7天</button>
+                        <button class="filter-btn" data-days="1">今天</button>
+                    </div>
+                </div>
+                <div class="module-content"></div>
             </section>
         </div>
     </main>
 
     <div id="topSitesBar" class="top-sites-bar">
         <div id="topSitesContent" class="top-sites-content">
-            </div>
+        </div>
     </div>
-    
+
     <div id="sidebar-toggle-container">
-         <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">G</button>
+        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">G</button>
     </div>
 
 
@@ -71,7 +83,7 @@
         </div>
     </div>
 
-    <div id="confirmDialog" class="edit-dialog">
+    <div id="confirmDialog" class="edit-dialog confirm-dialog">
         <div class="edit-dialog-content">
             <div class="edit-dialog-header">
                 <h3 id="confirmDialogTitle"></h3>
@@ -106,6 +118,7 @@
             </div>
         </div>
     </div>
+    <div id="pageOverlay" class="page-overlay"></div>
     <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
 
     <script src="newtab.js"></script>

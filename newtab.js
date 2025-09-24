@@ -11,6 +11,7 @@ let previewWindowId = null; // 预览窗口的ID
 let currentlyHoveredItem = null; // 当前鼠标悬停的元素
 let selectedItems = new Set(); // 选中的项目ID集合
 let lastClickedId = null; // 最后一次点击的项目ID（用于Shift多选）
+let allBookmarksFlat = []; // 用于存储扁平化的书签列表，便于快速搜索和筛选
 
 
 // ==================================================================
@@ -18,6 +19,96 @@ let lastClickedId = null; // 最后一次点击的项目ID（用于Shift多选�
 // ==================================================================
 
 // --- 辅助工具函数 ---
+
+/**
+ * 格式化日期时间戳
+ * @param {number} timestamp - 时间戳
+ * @returns {string} 格式化后的字符串 e.g., "2023-10-27"
+ */
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * [新增] 格式化日期+时间戳
+ * @param {number} timestamp - 时间戳
+ * @returns {string} 格式化后的字符串 e.g., "2023-10-27 15:30"
+ */
+function formatDateTime(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+/**
+ * 获取书签的完整路径 (修复版)
+ * @param {string} bookmarkId - 书签ID
+ * @returns {Promise<string>} 文件夹路径字符串
+ */
+function getBookmarkPath(bookmarkId) {
+    return new Promise(resolve => {
+        let path = [];
+        const buildPath = (id) => {
+            // 当找到根节点'0'时，停止递归
+            if (!id || id === '0') {
+                resolve(path.reverse().join(' / '));
+                return;
+            }
+            chrome.bookmarks.get(id, (nodes) => {
+                if (nodes && nodes[0]) {
+                    const node = nodes[0];
+                    // 为根目录下的文件夹提供明确的名称
+                    let title = node.title;
+                    if (node.parentId === '0') {
+                        if (node.id === '1') title = '书签栏';
+                        else if (node.id === '2') title = '其他书签';
+                    }
+                    if (title) { // 只有非空的标题才加入路径
+                        path.push(title);
+                    }
+                    buildPath(node.parentId);
+                } else {
+                    // 如果节点获取失败，则返回当前已构建的路径
+                    resolve(path.reverse().join(' / '));
+                }
+            });
+        };
+
+        // 从书签的父级开始构建路径，因为书签本身不是路径的一部分
+        chrome.bookmarks.get(bookmarkId, (nodes) => {
+            if (nodes && nodes[0]) {
+                buildPath(nodes[0].parentId);
+            } else {
+                resolve(''); // 书签不存在则返回空路径
+            }
+        });
+    });
+}
+
+/**
+ * 递归获取所有书签并扁平化处理
+ * @param {chrome.bookmarks.BookmarkTreeNode[]} nodes - 书签节点
+ * @param {Array} flatList - 结果数组
+ */
+function flattenBookmarks(nodes, flatList) {
+    for (const node of nodes) {
+        if (node.url) { // 是书签
+            flatList.push(node);
+        }
+        if (node.children) { // 是文件夹
+            flattenBookmarks(node.children, flatList);
+        }
+    }
+}
+
 
 /**
  * 函数防抖
@@ -186,7 +277,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column.className = 'bookmark-column';
         column.dataset.level = level;
         container.appendChild(column);
-         setTimeout(() => {
+        setTimeout(() => {
             container.scrollTo(container.scrollWidth, 0);
         }, 0);
     }
@@ -227,6 +318,7 @@ function createBookmarkItem(bookmark, index) {
     item.dataset.url = bookmark.url || '';
     item.dataset.index = index;
     item.dataset.parentId = bookmark.parentId;
+    item.dataset.title = bookmark.title || 'No Title'; // <<< 新增
     item.draggable = true;
 
     const icon = document.createElement('img');
@@ -600,17 +692,28 @@ function showContextMenu(e, bookmarkElement, column) {
     let menuHtml = '';
 
     const rightClickedId = bookmarkElement?.dataset.id;
-    if (rightClickedId && !selectedItems.has(rightClickedId)) {
-        // 如果右键点击了未选中的项目，则清空选择并选中该项
+    // 【新增】判断点击的是否为侧边栏模块内的项目
+    const isModuleItem = bookmarkElement?.closest('.vertical-modules');
+
+    if (rightClickedId && !selectedItems.has(rightClickedId) && !isModuleItem) { // 【修改】增加了 !isModuleItem 条件
+        // 如果右键点击了未选中的项目，并且它不是侧边栏项目，则清空选择并选中该项
         clearSelection();
         toggleSelection(bookmarkElement);
     } else if (!rightClickedId) {
         // 如果右键点击了空白处，清空所有选择
         clearSelection();
+    } else if (isModuleItem) {
+        // 如果右键点击了侧边栏项目，清空主区域选择，并将侧边栏项目ID放入选择集
+        clearSelection();
+        selectedItems.add(rightClickedId);
     }
 
+
     const selectionSize = selectedItems.size;
-    const hasBookmarkInSelection = Array.from(selectedItems).some(id => !document.querySelector(`.bookmark-item[data-id="${id}"]`)?.classList.contains('is-folder'));
+    const hasBookmarkInSelection = Array.from(selectedItems).some(id => {
+        const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
+        return item && !item.classList.contains('is-folder');
+    });
 
     // --- 根据选中项生成菜单 ---
     if (selectionSize > 0) {
@@ -622,7 +725,7 @@ function showContextMenu(e, bookmarkElement, column) {
                 menuHtml += `<hr>`;
             }
         } else { // 单选菜单
-            const isFolder = bookmarkElement.classList.contains('is-folder');
+            const isFolder = bookmarkElement && bookmarkElement.classList.contains('is-folder'); // 【修改】
             if (isFolder) {
                 menuHtml += `<li id="openAll"><img src="/img/open_all.svg" class="menu-icon">打开文件夹内所有书签</li><hr>`;
             } else {
@@ -633,14 +736,14 @@ function showContextMenu(e, bookmarkElement, column) {
             }
         }
 
-        if (selectionSize === 1 && !bookmarkElement.classList.contains('is-folder')) {
+        if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) { // 【修改】
             menuHtml += `<li id="editUrl"><img src="/img/edit.svg" class="menu-icon">修改网址</li>`;
         }
         if (selectionSize === 1) {
             menuHtml += `<li id="rename"><img src="/img/rename.svg" class="menu-icon">重命名</li>`;
         }
         menuHtml += `<li id="move"><img src="/img/move.svg" class="menu-icon">移动${selectionSize > 1 ? ` (${selectionSize})` : ''}到...</li>`;
-        if (selectionSize === 1 && !bookmarkElement.classList.contains('is-folder')) {
+        if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) { // 【修改】
             menuHtml += `<li id="copyUrl"><img src="/img/copy.svg" class="menu-icon">复制网址</li>`;
         }
         menuHtml += `<hr>`;
@@ -648,7 +751,7 @@ function showContextMenu(e, bookmarkElement, column) {
     }
 
     // --- 在列上右键的菜单 ---
-    if (column) {
+    if (column && !isModuleItem) { // 【修改】增加 !isModuleItem 条件
         if (menuHtml !== '') menuHtml += `<hr>`;
         menuHtml += `<li id="newFolder"><img src="/img/folder.svg" class="menu-icon">新建文件夹</li><hr>`;
         menuHtml += `<li id="sortAlphaAsc"><img src="/img/sort_asc.svg" class="menu-icon">排序：由 A 到 Z</li>`;
@@ -678,9 +781,8 @@ function showContextMenu(e, bookmarkElement, column) {
     document.body.dataset.contextMenuOpen = 'true';
 }
 
-
 /**
- * 处理右键菜单的点击动作
+ * 处理右键菜单的点击动作 (最终修复版)
  * @param {string} action - 动作ID
  * @param {HTMLElement} element - 关联的书签元素
  */
@@ -688,7 +790,7 @@ function handleContextMenuAction(action, element) {
     const selectionSize = selectedItems.size;
     const selectedIds = Array.from(selectedItems);
 
-    // --- 排序逻辑 ---
+    // --- 排序逻辑 (保持不变) ---
     if (action.startsWith('sort')) {
         const column = document.getElementById('contextMenu').relatedColumn;
         if (!column) return;
@@ -706,31 +808,27 @@ function handleContextMenuAction(action, element) {
         return;
     }
 
-    // --- 其他动作 ---
+    // --- 其他动作 (核心改造部分) ---
     switch (action) {
         case 'open':
-            selectedIds.forEach(id => {
-                const item = document.querySelector(`.bookmark-item[data-id="${id}"]`);
-                if (item && item.dataset.url) chrome.tabs.create({ url: item.dataset.url });
-            });
-            break;
         case 'openNew':
-            selectedIds.forEach(id => {
-                const item = document.querySelector(`.bookmark-item[data-id="${id}"]`);
-                if (item && item.dataset.url) chrome.windows.create({ url: item.dataset.url });
-            });
-            break;
         case 'openIncognito':
             selectedIds.forEach(id => {
-                const item = document.querySelector(`.bookmark-item[data-id="${id}"]`);
-                if (item && item.dataset.url) chrome.windows.create({ url: item.dataset.url, incognito: true });
+                // 使用通用选择器，可以同时找到主区域和侧边栏的书签
+                const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
+                if (item && item.dataset.url) {
+                    if (action === 'open') chrome.tabs.create({ url: item.dataset.url });
+                    else if (action === 'openNew') chrome.windows.create({ url: item.dataset.url });
+                    else if (action === 'openIncognito') chrome.windows.create({ url: item.dataset.url, incognito: true });
+                }
             });
             break;
         case 'delete':
             showConfirmDialog(`删除 ${selectionSize} 个项目`, `确定要删除这 ${selectionSize} 个选中的项目吗?`, () => {
                 selectedIds.forEach(id => {
-                    const item = document.querySelector(`.bookmark-item[data-id="${id}"]`);
+                    const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
                     if (!item) return;
+                    // .is-folder 只存在于主区域的文件夹上
                     const isFolder = item.classList.contains('is-folder');
                     const promise = isFolder ? chrome.bookmarks.removeTree(id) : chrome.bookmarks.remove(id);
                     promise.catch(err => console.error('删除失败:', err));
@@ -741,17 +839,27 @@ function handleContextMenuAction(action, element) {
             showMoveDialog(element, selectedIds);
             break;
         case 'copyUrl':
-            if (element) navigator.clipboard.writeText(element.dataset.url).then(() => showToast('网址已复制'));
+            // element 是右键点击的那个元素，它的 dataset 总是可用的
+            if (element && element.dataset.url) {
+                navigator.clipboard.writeText(element.dataset.url).then(() => showToast('网址已复制'));
+            }
             break;
         case 'rename':
-            if (element) showEditDialog('重命名', element.querySelector('.bookmark-title').textContent, null, (newName) => {
-                if (newName) chrome.bookmarks.update(element.dataset.id, { title: newName });
-            });
+            // 从 element.dataset 中获取标题，实现了通用
+            if (element && element.dataset.title) {
+                showEditDialog('重命名', element.dataset.title, null, (newName) => {
+                    if (newName) chrome.bookmarks.update(element.dataset.id, { title: newName });
+                });
+            }
             break;
         case 'editUrl':
-            if (element) showEditDialog('修改网址', element.dataset.url, isValidUrl, (newUrl) => {
-                if (newUrl) chrome.bookmarks.update(element.dataset.id, { url: newUrl });
-            });
+            if (element && element.dataset.url) {
+                showEditDialog('修改网址', element.dataset.url, isValidUrl, (newUrl) => {
+                    if (newUrl && newUrl !== element.dataset.url) {
+                        chrome.bookmarks.update(element.dataset.id, { url: newUrl });
+                    }
+                });
+            }
             break;
         case 'newFolder':
             {
@@ -1122,42 +1230,153 @@ function handleBookmarkMoved(id, moveInfo) {
 
 
 // --- 侧边栏模块 (Modules) ---
-
-/**
- * 显示最近添加的书签
- */
-function displayRecentBookmarks() {
+async function displayRecentBookmarks() {
     const container = document.querySelector('#recentBookmarksModule .module-content');
-    if (!container) return;
-    chrome.bookmarks.getRecent(15, (items) => {
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    const quickFiltersContainer = document.getElementById('quickFilters');
+    if (!container || !startDateInput || !endDateInput || !quickFiltersContainer) return;
+
+    // --- 辅助函数：格式化日期 (保持不变) ---
+    const getRelativeDateString = (date) => {
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        today.setHours(0, 0, 0, 0);
+        yesterday.setHours(0, 0, 0, 0);
+        const checkDate = new Date(date.getTime());
+        checkDate.setHours(0, 0, 0, 0);
+        if (checkDate.getTime() === today.getTime()) return '今天';
+        if (checkDate.getTime() === yesterday.getTime()) return '昨天';
+        return formatDate(date.getTime());
+    };
+
+    // --- 渲染函数 (核心修改部分) ---
+    const renderList = async () => {
+        const startTime = new Date(startDateInput.value).getTime();
+        const endTime = new Date(endDateInput.value).getTime() + (24 * 60 * 60 * 1000 - 1);
         container.innerHTML = '';
+
+        const filteredBookmarks = allBookmarksFlat
+            .filter(bm => bm.dateAdded >= startTime && bm.dateAdded <= endTime && bm.url)
+            .sort((a, b) => b.dateAdded - a.dateAdded);
+
+        if (filteredBookmarks.length === 0) {
+            container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">该时段无书签</div>';
+            return;
+        }
+
         const fragment = document.createDocumentFragment();
-        items.forEach(item => {
-            if (!item.url) return;
-            const li = document.createElement('li'),
-                a = document.createElement('a');
+        let lastDateString = '';
+
+        for (const item of filteredBookmarks) {
+            const currentDate = new Date(item.dateAdded);
+            const currentDateString = getRelativeDateString(currentDate);
+
+            if (currentDateString !== lastDateString) {
+                // 只创建一个简单的 DIV 即可
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'timeline-date-header';
+                dateHeader.textContent = currentDateString;
+                fragment.appendChild(dateHeader);
+                lastDateString = currentDateString;
+            }
+
+            const a = document.createElement('a');
             a.href = item.url;
             a.target = '_blank';
-            a.title = sanitizeText(item.title);
+            a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
+            a.dataset.id = item.id;
+            a.dataset.url = item.url;
+            a.dataset.parentId = item.parentId;
+            a.dataset.title = item.title;
 
+            // --- V3: 全新的、更合理的 HTML 结构 ---
             const icon = document.createElement('img');
             icon.className = 'module-icon';
             icon.src = getIconUrl(item.url);
+
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'bookmark-content-wrapper';
 
             const title = document.createElement('span');
             title.className = 'module-title';
             title.textContent = sanitizeText(item.title);
 
-            a.append(icon, title);
-            li.appendChild(a);
+            const metaInfo = document.createElement('div');
+            metaInfo.className = 'bookmark-meta-info';
 
+            // --- 新增：创建一个容器来包裹路径和URL ---
+            const pathUrlWrapper = document.createElement('div');
+            pathUrlWrapper.className = 'bookmark-path-url-wrapper';
+
+            const pathSpan = document.createElement('span');
+            pathSpan.className = 'bookmark-item-path';
+            pathSpan.textContent = await getBookmarkPath(item.id); // 显示文件夹路径
+
+            // --- 新增：创建用于显示URL的元素 ---
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'bookmark-item-url';
+            urlSpan.textContent = item.url.replace(/^https?:\/\//, '').replace(/^www\./, ''); // 显示净化后的URL
+
+            pathUrlWrapper.append(urlSpan, pathSpan); // <<< 【修改这里】先放网址，后放路径
+
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'bookmark-item-date';
+            dateSpan.textContent = formatDateTime(item.dateAdded);
+
+
+            // --- 修改：将包装器和日期放入 metaInfo ---
+            metaInfo.append(pathUrlWrapper, dateSpan);
+            contentWrapper.append(title, metaInfo);
+            a.append(icon, contentWrapper);
+            // --- 结构定义结束 ---
+
+            a.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e, a, a.closest('.vertical-modules'));
+            });
             a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
             a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
 
-            fragment.appendChild(li);
-        });
+            fragment.appendChild(a);
+        }
         container.appendChild(fragment);
-    });
+    };
+
+    // --- 初始化和事件绑定 (保持不变) ---
+    const setDateRange = (days) => {
+        const today = new Date();
+        const endDate = new Date(today);
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - (days - 1));
+        endDateInput.value = endDate.toISOString().split('T')[0];
+        startDateInput.value = startDate.toISOString().split('T')[0];
+        renderList();
+    };
+    if (!startDateInput.dataset.initialized) {
+        endDateInput.addEventListener('change', renderList);
+        startDateInput.addEventListener('change', renderList);
+        quickFiltersContainer.addEventListener('click', (e) => {
+            if (e.target.matches('.filter-btn')) {
+                quickFiltersContainer.querySelector('.filter-btn.active')?.classList.remove('active');
+                e.target.classList.add('active');
+                const days = parseInt(e.target.dataset.days, 10);
+                if (days === 1) {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    startDateInput.value = todayStr;
+                    endDateInput.value = todayStr;
+                    renderList();
+                } else {
+                    setDateRange(days);
+                }
+            }
+        });
+        setDateRange(30);
+        startDateInput.dataset.initialized = 'true';
+    } else {
+        renderList();
+    }
 }
 
 /**
@@ -1259,11 +1478,11 @@ function createSizedPreviewWindow(url) {
 }
 
 // ==================================================================
-// --- DOMContentLoaded: 页面加载完成后的初始化 ---
+// --- DOMContentLoaded: 页面加载完成后的初始化 (最终修正版) ---
 // ==================================================================
 
 document.addEventListener('DOMContentLoaded', function () {
-    // --- 获取元素 ---
+    // --- 1. 获取所有需要的元素 ---
     const settingsBtn = document.getElementById('settings-btn');
     const settingsPanel = document.getElementById('settings-panel');
     const themeOptionsContainer = settingsPanel.querySelector('.theme-options');
@@ -1271,27 +1490,54 @@ document.addEventListener('DOMContentLoaded', function () {
     const verticalModules = document.querySelector('.vertical-modules');
     const toggleVerticalBtn = document.getElementById('sidebar-toggle-btn');
     const contextMenu = document.getElementById('contextMenu');
+    const pageOverlay = document.getElementById('pageOverlay');
 
-       /************************************************************/
-    /* --- 新增：用于隐藏菜单的全局事件监听 --- */
+    // --- 2. 定义核心功能函数 (模块显隐等) ---
+
     /************************************************************/
-    // 页面滚动时隐藏菜单 (true 表示在捕获阶段执行，更可靠)
+    /* --- V2: 居中浮动窗口显隐逻辑 --- */
+    /************************************************************/
+    let isModuleVisible = false;
+
+    const showModules = () => {
+        if (!isModuleVisible) {
+            pageOverlay.style.display = 'block';
+            verticalModules.classList.add('visible');
+            isModuleVisible = true;
+        }
+    };
+
+    const hideModules = () => {
+        if (isModuleVisible) {
+            pageOverlay.style.display = 'none';
+            verticalModules.classList.remove('visible');
+            isModuleVisible = false;
+        }
+    };
+
+
+    // --- 3. 绑定所有事件监听器 ---
+
+    /************************************************************/
+    /* --- 全局通用事件监听 --- */
+    /************************************************************/
+    // 隐藏右键菜单的全局事件
     window.addEventListener('scroll', hideContextMenu, true);
-    // 调整窗口大小时隐藏菜单
     window.addEventListener('resize', hideContextMenu);
-    // 按下 ESC 键时隐藏菜单
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             hideContextMenu();
+            hideModules(); // 按下Esc键也关闭模块窗口
         }
     });
 
 
-    // --- 设置功能 ---
+    /************************************************************/
+    /* --- 设置面板相关 --- */
+    /************************************************************/
     const updateThemeButtons = (active) => {
         themeOptionsContainer.querySelectorAll('.theme-option').forEach(btn => btn.classList.toggle('active', btn.dataset.themeValue === active));
     };
-
     const applyTheme = (theme) => {
         const root = document.documentElement;
         if (theme === 'system') {
@@ -1302,11 +1548,7 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('theme', theme);
         updateThemeButtons(theme);
     };
-
-    // 初始化主题
-    applyTheme(localStorage.getItem('theme') || 'system');
-
-    // 初始化悬停开关
+    applyTheme(localStorage.getItem('theme') || 'system'); // 初始化主题
     hoverToggle.checked = localStorage.getItem('hoverToOpenEnabled') !== 'false';
     isHoverEnabled = hoverToggle.checked;
     hoverToggle.addEventListener('change', (e) => {
@@ -1314,121 +1556,126 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('hoverToOpenEnabled', isHoverEnabled);
         showToast(`悬停打开功能已${isHoverEnabled ? '开启' : '关闭'}`);
     });
-
-    // 设置按钮点击事件
     settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsPanel.classList.toggle('visible');
     });
-
-    // 主题切换按钮点击事件
     themeOptionsContainer.addEventListener('click', (e) => {
-        if (e.target.matches('.theme-option')) {
-            applyTheme(e.target.dataset.themeValue);
-        }
+        if (e.target.matches('.theme-option')) applyTheme(e.target.dataset.themeValue);
     });
-
-    // 监听系统颜色模式变化
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (localStorage.getItem('theme') === 'system') {
-            applyTheme('system');
-        }
+        if (localStorage.getItem('theme') === 'system') applyTheme('system');
     });
 
 
-    // --- 侧边栏模块显隐逻辑 ---
-    let isModuleVisible = false,
-        hoverTimeout;
-    const showModules = () => {
-        if (!isModuleVisible) {
-            verticalModules.style.display = 'flex';
-            isModuleVisible = true;
-        }
-    };
-    const hideModules = () => {
-        if (isModuleVisible) {
-            verticalModules.style.display = 'none';
-            isModuleVisible = false;
-        }
-    };
-
-    toggleVerticalBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isModuleVisible ? hideModules() : showModules();
-    });
-
-    toggleVerticalBtn.addEventListener('mouseenter', () => {
-        clearTimeout(hoverTimeout);
-        hoverTimeout = setTimeout(showModules, 500);
-    });
+    /************************************************************/
+    /* --- 浮动窗口（原侧边栏）相关 --- */
+    /************************************************************/
+    let hoverTimeout;
+    toggleVerticalBtn.addEventListener('click', (e) => { e.stopPropagation(); isModuleVisible ? hideModules() : showModules(); });
+    toggleVerticalBtn.addEventListener('mouseenter', () => { clearTimeout(hoverTimeout); hoverTimeout = setTimeout(showModules, 500); });
     toggleVerticalBtn.addEventListener('mouseleave', () => clearTimeout(hoverTimeout));
-    verticalModules.addEventListener('mouseenter', () => clearTimeout(hoverTimeout)); // 进入模块区域时取消隐藏计时
+    verticalModules.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
 
 
-// ... 位于 DOMContentLoaded 内部 ...
-    // --- 全局点击事件处理 ---
+    /************************************************************/
+    /* --- 全局点击事件处理 --- */
+    /************************************************************/
     document.addEventListener('click', (e) => {
-        // 检查点击事件是否发生在任何不应清除高亮的“活动区域”之外
+        // 1. 点击外部区域清除选择
         const isClickOutsideActiveAreas = !e.target.closest('.bookmark-item') &&
-                                          !e.target.closest('.context-menu') &&
-                                          !e.target.closest('.move-dialog-content') &&
-                                          !e.target.closest('.edit-dialog-content');
-
+            !e.target.closest('.context-menu') &&
+            !e.target.closest('.move-dialog-content') &&
+            !e.target.closest('.edit-dialog-content') &&
+            !e.target.closest('.vertical-modules a');
         if (isClickOutsideActiveAreas) {
             clearSelection();
         }
 
-        // --- 以下是其他保持不变的逻辑 ---
-
-        // 点击设置面板和按钮之外的区域，关闭设置面板
+        // 2. 点击外部关闭设置面板
         if (settingsPanel.classList.contains('visible') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
             settingsPanel.classList.remove('visible');
         }
 
-        // 点击菜单之外的区域，关闭右键菜单
-        if (!contextMenu.contains(e.target)) {
+        // 3. 点击外部关闭右键菜单
+        if (!e.target.closest('.context-menu')) {
             hideContextMenu();
         }
-        
-        // 点击侧边栏和按钮之外的区域，关闭侧边栏
-        if (isModuleVisible && !verticalModules.contains(e.target) && !toggleVerticalBtn.contains(e.target)) {
+
+        // 4. 点击外部关闭浮动窗口 (核心修复)
+        const isClickOnDialog = e.target.closest('.move-dialog') ||
+            e.target.closest('.edit-dialog') ||
+            e.target.closest('.confirm-dialog');
+        if (isModuleVisible && !verticalModules.contains(e.target) && !toggleVerticalBtn.contains(e.target) && !isClickOnDialog) {
             hideModules();
         }
     });
 
-    // --- 全局右键菜单 ---
+    /************************************************************/
+    /* --- 全局右键菜单处理 --- */
+    /************************************************************/
     document.body.addEventListener('contextmenu', (e) => {
-        const item = e.target.closest('.bookmark-item');
+        const item = e.target.closest('.bookmark-item, .vertical-modules a');
         const column = e.target.closest('.bookmark-column');
-        if (!item && !column) return; // 必须在书签或列上右键
+        if (!item && !column) return;
         e.preventDefault();
         showContextMenu(e, item, column);
     });
 
-    // 右键菜单点击事件
     contextMenu.addEventListener('click', (e) => {
         const li = e.target.closest('li');
         if (li && li.id) {
             handleContextMenuAction(li.id, contextMenu.relatedTarget);
-            hideContextMenu(); // <<< --- 添加这一行
+            hideContextMenu();
         }
     });
 
+    // --- 4. 初始化应用 & 绑定 Chrome API 监听 ---
 
-    // --- 初始化加载 & Chrome API 监听 ---
-    chrome.bookmarks.getTree(displayBookmarks);
-    displayRecentBookmarks();
-    displayTopSites();
+    const initializeApp = (bookmarks) => {
+        allBookmarksFlat = [];
+        flattenBookmarks(bookmarks[0].children, allBookmarksFlat);
+        displayBookmarks(bookmarks);
+        displayRecentBookmarks();
+        displayTopSites();
+    };
 
-    chrome.bookmarks.onCreated.addListener(handleBookmarkCreated);
-    chrome.bookmarks.onRemoved.addListener(handleBookmarkRemoved);
-    chrome.bookmarks.onChanged.addListener(handleBookmarkChanged);
-    chrome.bookmarks.onMoved.addListener(handleBookmarkMoved);
+    const refreshAllData = () => {
+        setTimeout(() => {
+            chrome.bookmarks.getTree(bookmarks => {
+                allBookmarksFlat = [];
+                flattenBookmarks(bookmarks[0].children, allBookmarksFlat);
+                displayRecentBookmarks();
+            });
+        }, 250);
+    };
 
+    // 首次加载
+    chrome.bookmarks.getTree(initializeApp);
+
+    // 监听书签变化
+    chrome.bookmarks.onCreated.addListener((id, bookmark) => {
+        handleBookmarkCreated(id, bookmark);
+        refreshAllData();
+    });
+    chrome.bookmarks.onRemoved.addListener((id, removeInfo) => {
+        handleBookmarkRemoved(id, removeInfo);
+        refreshAllData();
+    });
+    chrome.bookmarks.onChanged.addListener((id, changeInfo) => {
+        handleBookmarkChanged(id, changeInfo);
+        refreshAllData();
+    });
+    chrome.bookmarks.onMoved.addListener((id, moveInfo) => {
+        handleBookmarkMoved(id, moveInfo);
+        refreshAllData();
+    });
+
+    // 其他监听
     document.addEventListener('keydown', handleSpacebarPreview);
     chrome.windows.onRemoved.addListener((id) => {
         if (id === previewWindowId) {
-            previewWindowId = null; // 预览窗口关闭后重置ID
+            previewWindowId = null;
         }
     });
 });
