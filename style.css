@@ -71,6 +71,7 @@ body {
     display: flex;
     flex: 1;
     overflow: hidden;
+    padding-right: 36px; /* <<< 新增这一行 */
 }
 
 /* --- 3. 顶部结构美化 --- */
@@ -120,9 +121,17 @@ body {
     background-color: transparent;
     border: none;
     box-shadow: none;
-    transition: width 0.2s ease-out;
+    /* --- 核心修改 Start --- */
+    opacity: 0.2; /* <<< 新增：默认状态下为40%透明度 */
+    transition: opacity 0.2s ease-out, width 0.2s ease-out; /* <<< 修改：让透明度和宽度的变化都产生动画 */
+    /* --- 核心修改 End --- */
     z-index: 1002;
     overflow: hidden;
+}
+
+/* <<< 新增下面的代码块 >>> */
+.top-sites-bar:hover {
+    opacity: 1; /* 鼠标悬停时，完全不透明 */
 }
 
 .top-sites-bar.expanded { /* <<< 修改 */
