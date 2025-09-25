@@ -1206,3 +1206,15 @@ input:checked+.slider:before {
 body.is-resizing .resize-indicator {
     display: block;
 }
+
+
+#history-btn {
+    bottom: 74px; /* 20px (底部间距) + 44px (设置按钮高度) + 10px (两个按钮的间距) */
+    left: 20px;
+    font-size: 20px; /* 调整一下图标大小 */
+    transform-origin: center; /* 确保旋转动画居中 */
+}
+
+#history-btn:hover {
+    transform: rotate(0deg); /* 历史记录按钮不需要旋转动画 */
+}

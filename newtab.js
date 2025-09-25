@@ -12,6 +12,7 @@ let currentlyHoveredItem = null; // 当前鼠标悬停的元素
 let selectedItems = new Set(); // 选中的项目ID集合
 let lastClickedId = null; // 最后一次点击的项目ID（用于Shift多选）
 let allBookmarksFlat = []; // 用于存储扁平化的书签列表，便于快速搜索和筛选
+let historyWindowId = null; // <<< 新增：用于跟踪历史记录窗口的ID
 
 
 // ==================================================================
@@ -1732,6 +1733,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const toggleVerticalBtn = document.getElementById('sidebar-toggle-btn');
     const contextMenu = document.getElementById('contextMenu');
     const pageOverlay = document.getElementById('pageOverlay');
+    const historyBtn = document.getElementById('history-btn'); // <<< 新增：获取历史记录按钮
 
     // --- 2. 定义核心功能函数 (模块显隐等) ---
 
@@ -1758,7 +1760,60 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // --- 3. 绑定所有事件监听器 ---
+    /************************************************************/
+    /* --- 历史记录按钮 (V2 - 防止重复打开) --- */
+    /************************************************************/
+    historyBtn.addEventListener('click', () => {
+        // 检查窗口是否已经存在
+        if (historyWindowId !== null) {
+            chrome.windows.get(historyWindowId, {}, (win) => {
+                if (chrome.runtime.lastError) {
+                    // 窗口已被用户关闭，重置ID并创建新窗口
+                    historyWindowId = null;
+                    createNewHistoryWindow();
+                } else {
+                    // 窗口存在，激活并置于顶层
+                    chrome.windows.update(historyWindowId, { focused: true });
+                }
+            });
+        } else {
+            // 窗口不存在，直接创建
+            createNewHistoryWindow();
+        }
+    });
 
+    // 将创建窗口的逻辑封装成一个函数，便于复用
+    function createNewHistoryWindow() {
+        chrome.windows.getCurrent({}, (currentWindow) => {
+            // --- 核心修改 (V3) ---
+            // 1. 定义最小和最大宽度限制
+            const minWidth = 850;
+            const maxWidth = 1200;
+
+            // 2. 计算基于百分比的理想宽度
+            const idealWidth = Math.round(currentWindow.width * 0.7);
+
+            // 3. 使用 Math.min 和 Math.max 将宽度限制在 [minWidth, maxWidth] 区间内
+            const width = Math.min(maxWidth, Math.max(minWidth, idealWidth));
+
+            // 高度逻辑保持不变
+            const height = Math.round(currentWindow.height * 0.8);
+
+            const top = currentWindow.top + Math.round((currentWindow.height - height) * 0.5);
+            const left = currentWindow.left + Math.round((currentWindow.width - width) * 0.5);
+
+            chrome.windows.create({
+                url: 'chrome://history',
+                type: 'popup',
+                width: width,
+                height: height,
+                top: top,
+                left: left
+            }, (win) => {
+                historyWindowId = win.id;
+            });
+        });
+    }
     /************************************************************/
     /* --- 全局通用事件监听 --- */
     /************************************************************/
@@ -1928,6 +1983,13 @@ document.addEventListener('DOMContentLoaded', function () {
     chrome.bookmarks.onMoved.addListener((id, moveInfo) => {
         handleBookmarkMoved(id, moveInfo);
         refreshAllData();
+    });
+
+    // <<< 新增：监听历史记录窗口是否被关闭
+    chrome.windows.onRemoved.addListener((id) => {
+        if (id === historyWindowId) {
+            historyWindowId = null; // 重置ID
+        }
     });
 
     // 其他监听
