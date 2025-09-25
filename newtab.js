@@ -488,7 +488,7 @@ function makeColumnResizable(column) {
 
         const startX = e.clientX;
         const startWidth = column.offsetWidth;
-        
+
         // 【优化1】根据容器的实际位置和高度来设置提示线
         const containerRect = container.getBoundingClientRect();
         indicator.style.top = `${containerRect.top}px`;
@@ -519,7 +519,7 @@ function makeColumnResizable(column) {
             if (newWidth < 180) {
                 newWidth = 180;
             }
-            
+
             column.style.width = `${newWidth}px`;
             column.dataset.userResized = 'true';
 
@@ -576,16 +576,16 @@ function adjustColumnWidths(container) {
         // --- 【新增的智能放大逻辑】 ---
         // 如果有剩余空间，则按比例放大那些比默认宽度窄的列
         const availableSpace = containerWidth - totalWidth;
-        
+
         // 找到所有可以被放大的列
         const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH);
         if (columnsToEnlarge.length > 0) {
-            
+
             // 计算这些列总共可以“长大”多少空间
             let totalEnlargePotential = columnsToEnlarge.reduce((sum, col) => sum + (DEFAULT_COL_WIDTH - col.offsetWidth), 0);
 
             if (totalEnlargePotential > 0) {
-                 for (const col of columnsToEnlarge) {
+                for (const col of columnsToEnlarge) {
                     // 计算每个列可以“长大”的潜力占比
                     const potential = DEFAULT_COL_WIDTH - col.offsetWidth;
                     const proportion = potential / totalEnlargePotential;
@@ -968,6 +968,19 @@ function handleContextMenuAction(action, element) {
                     else if (action === 'openIncognito') chrome.windows.create({ url: item.dataset.url, incognito: true });
                 }
             });
+            break;
+        case 'openAll':
+            // element 是右键点击的那个文件夹元素
+            if (element && element.dataset.id) {
+                chrome.bookmarks.getChildren(element.dataset.id, (children) => {
+                    children.forEach(child => {
+                        // 只打开书签，忽略子文件夹
+                        if (child.url) {
+                            chrome.tabs.create({ url: child.url });
+                        }
+                    });
+                });
+            }
             break;
         case 'delete':
             showConfirmDialog(`删除 ${selectionSize} 个项目`, `确定要删除这 ${selectionSize} 个选中的项目吗?`, () => {
@@ -1754,7 +1767,7 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('resize', hideContextMenu);
     // --- 【新增代码：使用 ResizeObserver 智能调整列宽】 ---
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    
+
     // 创建一个防抖函数，确保即使在快速变化中也只执行一次最终计算
     const debouncedAdjust = debounce(() => {
         adjustColumnWidths(bookmarkContainer);
