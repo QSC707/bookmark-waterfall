@@ -1018,7 +1018,6 @@ function showEditDialog(title, initialValue, validator, callback) {
     errorEl.textContent = '';
     dialog.style.display = 'flex';
     inputEl.focus();
-    inputEl.select();
 
     const close = () => {
         dialog.style.display = 'none';
