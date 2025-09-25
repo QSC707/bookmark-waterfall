@@ -1106,22 +1106,13 @@ async function handleSortBookmarks(parentId, sortType) {
 
         // --- 【这是全新的、正确的刷新逻辑】 ---
         // 1. 重新获取刚刚排序完成的、最新的子元素列表
-        chrome.bookmarks.getChildren(parentId, (freshlySortedChildren) => {
-            if (parentId === '1') {
-                // 如果是书签栏，直接刷新整个应用
-                chrome.bookmarks.getTree(displayBookmarks);
-            } else {
-                // 2. 找到代表父文件夹的那个 DOM 元素
-                const parentFolderItem = document.querySelector(`.bookmark-item.highlighted[data-id="${parentId}"]`);
-                if (parentFolderItem) {
-                    // 3. 获取父文件夹所在的层级
-                    const level = parseInt(parentFolderItem.closest('.bookmark-column').dataset.level, 10);
-                    // 4. 直接调用 renderBookmarks 重新渲染下一列，而不是模拟点击
-                    renderBookmarks(freshlySortedChildren, document.getElementById('bookmarkContainer'), level + 1);
-                }
-            }
-            showToast('排序完成');
-        });
+        // 这是优化后的、更可靠的刷新逻辑
+        // 移动书签的操作会自动触发我们刚才修改的 onMoved 事件监听器，
+        // 所以我们不再需要在这里手动刷新主视图。
+        // onMoved 监听器会为我们完美地处理UI更新。
+        // 我们只需要确保侧边栏的数据被刷新即可。
+        refreshAllData();
+        showToast('排序完成');
     });
 }
 
@@ -1436,27 +1427,7 @@ function handleBookmarkChanged(id, changeInfo) {
     });
 }
 
-function handleBookmarkMoved(id, moveInfo) {
-    // 从旧位置移除
-    const itemToMove = document.querySelector(`.bookmark-item[data-id="${id}"]`);
-    if (itemToMove) {
-        const oldParentColumn = itemToMove.parentElement;
-        itemToMove.remove();
-        reindexColumnItems(oldParentColumn);
-    }
 
-    // 在新位置添加
-    const newParentColumn = findColumnForParentId(moveInfo.parentId);
-    if (newParentColumn) {
-        chrome.bookmarks.get(id, (bookmarks) => {
-            if (bookmarks && bookmarks[0]) {
-                const newItem = createBookmarkItem(bookmarks[0], moveInfo.index);
-                newParentColumn.insertBefore(newItem, newParentColumn.children[moveInfo.index]);
-                reindexColumnItems(newParentColumn);
-            }
-        });
-    }
-}
 
 
 // --- 侧边栏模块 (Modules) ---
@@ -1793,7 +1764,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chrome.windows.getCurrent({}, (currentWindow) => {
             // --- 核心修改 (V3) ---
             // 1. 定义最小和最大宽度限制
-            const minWidth = 850;
+            const minWidth = 970;
             const maxWidth = 1200;
 
             // 2. 计算基于百分比的理想宽度
@@ -1986,8 +1957,67 @@ document.addEventListener('DOMContentLoaded', function () {
         handleBookmarkChanged(id, changeInfo);
         refreshAllData();
     });
+// 这是最终的、能够正确处理所有情况并保持视图状态的解决方案
     chrome.bookmarks.onMoved.addListener((id, moveInfo) => {
-        handleBookmarkMoved(id, moveInfo);
+        const { parentId, oldParentId } = moveInfo;
+
+        // 查找被移动的书签（或文件夹）的DOM元素。
+        // 它可能存在于主视图区，也可能在侧边栏模块中。
+        const movedItemElement = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
+
+        // --- 核心逻辑 1: 从旧位置平滑移除 ---
+        if (movedItemElement) {
+            // 如果在UI中找到了这个元素，就将它平滑地移除，而不是暴力刷新整个容器。
+            // 这可以防止不必要的闪烁和布局重排，性能更高。
+            movedItemElement.remove();
+        } else {
+            // 如果在当前的UI视图中找不到被移动的元素（例如，它在一个未打开的文件夹里），
+            // 我们仍然需要刷新旧的父文件夹视图，以确保数据一致性。
+            const oldParentItem = document.querySelector(`.bookmark-item.highlighted[data-id="${oldParentId}"]`);
+            if (oldParentItem) {
+                handleFolderClick(oldParentItem, oldParentId); // 重新“点击”一次，强制刷新其子列
+                handleFolderClick(oldParentItem, oldParentId); // 再次“点击”以恢复打开状态
+            }
+        }
+
+        // --- 核心逻辑 2: 在新位置智能添加 ---
+
+        // 首先检查新的父文件夹在UI上是否是打开状态
+        const newParentItem = document.querySelector(`.bookmark-item.highlighted[data-id="${parentId}"]`);
+
+        if (newParentItem) {
+            // 如果目标文件夹是打开的，我们就获取它最新的、完整的所有子项。
+            chrome.bookmarks.getChildren(parentId, (freshChildren) => {
+                // 找到刚刚移动的那个书签在新的子项列表中的正确位置（索引）。
+                const movedItemInfo = freshChildren.find(child => child.id === id);
+                if (movedItemInfo) {
+                    // 创建这个书签的新DOM元素。
+                    const newItemElement = createBookmarkItem(movedItemInfo, movedItemInfo.index);
+
+                    // 定位到需要插入新元素的子列容器。
+                    const level = parseInt(newParentItem.closest('.bookmark-column').dataset.level, 10);
+                    const targetColumn = document.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
+                    const contentWrapper = targetColumn ? targetColumn.querySelector('.column-content-wrapper') : null;
+
+                    if (contentWrapper) {
+                        // 在正确的位置插入新元素，而不是粗暴地重绘整个列表。
+                        // 这维持了其他所有元素的状态，包括可能已打开的子文件夹。
+                        contentWrapper.insertBefore(newItemElement, contentWrapper.children[movedItemInfo.index] || null);
+                        // 插入后，重新计算该列所有项目的索引以保证后续操作的正确性。
+                        reindexColumnItems(contentWrapper);
+                    }
+                }
+            });
+        }
+        
+        // --- 核心逻辑 3: 刷新书签栏和侧边栏 ---
+        
+        // 无论如何，如果移动涉及到了书签栏，我们需要刷新它。
+        if (parentId === '1' || oldParentId === '1') {
+             chrome.bookmarks.getTree(displayBookmarks);
+        }
+
+        // 最后，独立地、无冲突地刷新侧边栏模块的数据。
         refreshAllData();
     });
 
