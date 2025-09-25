@@ -34,6 +34,7 @@ let selectedItems = new Set();
 let lastClickedId = null;
 let allBookmarksFlat = [];
 let historyWindowId = null;
+let isMouseOverTopSitesBar = false;
 
 // --- 新增：智能悬停状态变量 (简化版) ---
 let hoverIntent = {
@@ -177,7 +178,7 @@ function isValidUrl(string) {
 // --- 多选相关函数 ---
 function clearSelection() {
     selectedItems.clear();
-    document.querySelectorAll('.bookmark-item.selected, .vertical-modules a.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.bookmark-item.selected, .vertical-modules a.selected, .top-site-item.selected').forEach(el => el.classList.remove('selected'));
     lastClickedId = null;
 }
 
@@ -737,14 +738,29 @@ function handleColumnDrop(e) {
 }
 
 // --- 右键菜单 ---
+// ==================================================================
+// --- 这是修正后的 hideContextMenu 函数 (请整体替换) ---
+// ==================================================================
 function hideContextMenu() {
     const contextMenu = document.getElementById('contextMenu');
     if (contextMenu.style.display === 'block') {
         contextMenu.style.display = 'none';
         delete document.body.dataset.contextMenuOpen;
+
+        // ▼▼▼ 新增的核心逻辑 ▼▼▼
+        // 当菜单关闭时，检查鼠标是否还在“经常访问”区域，如果不在，则收起它
+        if (!isMouseOverTopSitesBar) {
+            const topSitesBar = document.getElementById('topSitesBar');
+            if (topSitesBar) {
+                topSitesBar.classList.remove('expanded');
+            }
+        }
+        // ▲▲▲ 新增逻辑结束 ▲▲▲
     }
 }
-
+// ==================================================================
+// --- 这是微调后的 showContextMenu 函数 (请整体替换) ---
+// ==================================================================
 function showContextMenu(e, bookmarkElement, column) {
     const contextMenu = document.getElementById('contextMenu');
     contextMenu.innerHTML = '';
@@ -753,21 +769,34 @@ function showContextMenu(e, bookmarkElement, column) {
 
     const rightClickedId = bookmarkElement?.dataset.id;
     const isModuleItem = bookmarkElement?.closest('.vertical-modules');
+    const isTopSiteItem = bookmarkElement?.classList.contains('top-site-item');
 
     if (rightClickedId && !selectedItems.has(rightClickedId)) {
         clearSelection();
-        toggleSelection(bookmarkElement);
+        if (isTopSiteItem) {
+            selectedItems.add(rightClickedId);
+            bookmarkElement.classList.add('selected');
+        } else {
+            toggleSelection(bookmarkElement);
+        }
     } else if (!rightClickedId) {
         clearSelection();
     }
-
+    
     const selectionSize = selectedItems.size;
     const hasBookmarkInSelection = Array.from(selectedItems).some(id => {
         const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
         return item && !item.classList.contains('is-folder');
     });
 
-    if (selectionSize > 0) {
+    if (isTopSiteItem) {
+        menuHtml += `<li id="open"><img src="/img/open.svg" class="menu-icon">新标签打开</li>`;
+        menuHtml += `<li id="openNew"><img src="/img/open_new.svg" class="menu-icon">新窗口打开</li>`;
+        menuHtml += `<li id="openIncognito"><img src="/img/open_new.svg" class="menu-icon">在隐身模式中打开</li>`;
+        menuHtml += `<hr>`;
+        menuHtml += `<li id="removeTopSite"><img src="/img/delete.svg" class="menu-icon">移除</li>`;
+    } 
+    else if (selectionSize > 0) {
         if (selectionSize > 1) {
             if (hasBookmarkInSelection) {
                 menuHtml += `<li id="open"><img src="/img/open_all.svg" class="menu-icon">打开全部 (${selectionSize})</li>`;
@@ -804,7 +833,7 @@ function showContextMenu(e, bookmarkElement, column) {
         menuHtml += `<li id="delete"><img src="/img/delete.svg" class="menu-icon">删除${selectionSize > 1 ? ` (${selectionSize})` : ''}</li>`;
     }
 
-    if (column && !isModuleItem) {
+    if (column && !isModuleItem && !isTopSiteItem) { 
         if (menuHtml !== '') menuHtml += `<hr>`;
         menuHtml += `<li id="newFolder"><img src="/img/folder.svg" class="menu-icon">新建文件夹</li><hr>`;
         menuHtml += `<li id="${CONSTANTS.SORT_TYPES.ALPHA_ASC}"><img src="/img/sort_asc.svg" class="menu-icon">排序：由 A 到 Z</li>`;
@@ -820,10 +849,30 @@ function showContextMenu(e, bookmarkElement, column) {
 
     const { innerWidth: winWidth, innerHeight: winHeight } = window;
     const { offsetWidth: menuWidth, offsetHeight: menuHeight } = contextMenu;
-    let left = e.clientX,
-        top = e.clientY;
-    if (left + menuWidth > winWidth) left = winWidth - menuWidth - 5;
-    if (top + menuHeight > winHeight) top = winHeight - menuHeight - 5;
+    let left = e.clientX, top = e.clientY;
+
+    if (isTopSiteItem) {
+        const H_OFFSET = 5;  // 水平偏移
+        const V_OFFSET = 10; // 垂直偏移 (让菜单向下移动10像素)
+        
+        // ▼▼▼ 核心修改：在这里应用垂直偏移 ▼▼▼
+        top = e.clientY + V_OFFSET; 
+        
+        left = e.clientX - menuWidth - H_OFFSET; 
+        
+        if (left < H_OFFSET) {
+            left = e.clientX + H_OFFSET;
+        }
+    }
+
+    // 统一的边界检查
+    if (left + menuWidth > winWidth) {
+        left = winWidth - menuWidth - 5;
+    }
+    if (top + menuHeight > winHeight) {
+        top = winHeight - menuHeight - 5;
+    }
+    
     contextMenu.style.left = `${left}px`;
     contextMenu.style.top = `${top}px`;
 
@@ -858,7 +907,7 @@ function handleContextMenuAction(action, element) {
         case 'openNew':
         case 'openIncognito':
             selectedIds.forEach(id => {
-                const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
+                const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"], .top-site-item[data-id="${id}"]`);
                 if (item && item.dataset.url) {
                     if (action === 'open') window.open(item.dataset.url, '_blank');
                     else if (action === 'openNew') chrome.windows.create({ url: item.dataset.url });
@@ -953,6 +1002,21 @@ function handleContextMenuAction(action, element) {
         case 'properties':
             showPropertiesDialog(element);
             break;
+        // ▼▼▼ 在 switch 语句末尾添加这个新的 case ▼▼▼
+        case 'removeTopSite':
+            if (element && element.dataset.url) {
+                chrome.history.deleteUrl({ url: element.dataset.url }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error(`移除历史记录失败: ${chrome.runtime.lastError.message}`);
+                        showToast('移除失败');
+                    } else {
+                        element.remove();
+                        showToast('已从常访问中移除');
+                    }
+                });
+            }
+            break;
+        // ▲▲▲ 添加结束 ▲▲▲
     }
 }
 
@@ -1479,7 +1543,11 @@ function displayTopSites() {
             a.className = 'top-site-item';
             a.href = item.url;
             a.target = '_blank';
-            a.title = sanitizeText(item.title);
+            // ▼▼▼ 在这里添加或修改 ▼▼▼
+            a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
+            a.dataset.id = item.url; // 使用 URL 作为唯一 ID
+            a.dataset.url = item.url;
+            // ▲▲▲ 添加结束 ▲▲▲
 
             const icon = document.createElement('img');
             icon.className = 'top-site-icon';
@@ -1566,11 +1634,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const hoverDelaySettingItem = document.getElementById('hover-delay-setting-item');
     const hoverDelayInput = document.getElementById('hover-delay-input');
     const historyBtn = document.getElementById('history-btn');
-    // ▼▼▼ 删除从这里开始的所有代码 ▼▼▼
+    // ...
     const topSitesBar = document.getElementById('topSitesBar');
     let topSitesHoverTimeout;
 
     topSitesBar.addEventListener('mouseenter', () => {
+        isMouseOverTopSitesBar = true; // 更新状态：鼠标进入
         clearTimeout(topSitesHoverTimeout);
         topSitesHoverTimeout = setTimeout(() => {
             topSitesBar.classList.add('expanded');
@@ -1578,10 +1647,16 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     topSitesBar.addEventListener('mouseleave', () => {
+        isMouseOverTopSitesBar = false; // 更新状态：鼠标离开
         clearTimeout(topSitesHoverTimeout);
-        topSitesBar.classList.remove('expanded');
+
+        // 核心修正：仅当右键菜单未打开时，才收起侧边栏
+        if (document.body.dataset.contextMenuOpen !== 'true') {
+            topSitesBar.classList.remove('expanded');
+        }
     });
-    // ▲▲▲ 删除到这里结束 ▲▲▲
+
+
     let isModuleVisible = false;
 
     const showModules = () => {
@@ -1759,7 +1834,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.body.addEventListener('contextmenu', (e) => {
-        const item = e.target.closest('.bookmark-item, .vertical-modules a');
+        const item = e.target.closest('.bookmark-item, .vertical-modules a, .top-site-item');
         const column = e.target.closest('.bookmark-column');
         if (!item && !column) return;
         e.preventDefault();

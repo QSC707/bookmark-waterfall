@@ -151,34 +151,36 @@ body {
     display: flex;
     align-items: center;
     text-decoration: none;
-    height: 40px;
-    width: 40px;
+    height: 36px;
+    width: 36px;
     border-radius: 50%;
     border: 1px solid var(--header-border);
-    background-color: transparent;
+    background-color: var(--highlighted-bg); /* <<< 修改这里 */
     box-sizing: border-box;
     flex-shrink: 0;
     position: relative;
     overflow: hidden;
-    transition: all 0.2s ease-out;
+    transition: width 0.2s ease-out, padding 0.2s ease-out, border-radius 0.2s ease-out, gap 0.2s ease-out;
 }
 
-.top-sites-bar.expanded .top-site-item { /* <<< 修改 */
+.top-sites-bar.expanded .top-site-item {
     width: 100%;
-    padding: 6px 10px;
-    border-radius: 20px;
-    gap: 12px;
+    padding: 8px 10px;    /* 调整垂直内边距以保持整体高度一致 */
+    border-radius: 18px;  /* 调整圆角为新高度的一半，保持完美胶囊形 */
+    gap: 10px;            /* 稍微减小图标与文字的间距 */
 }
 
+/* --- 修改后 --- */
+/* --- 修改后 (极简版) --- */
 .top-site-item:hover {
-    background-color: var(--hover-bg);
-    border-color: transparent;
+    background-color: var(--hover-bg);   /* 保留轻微的背景色变化 */
+    border-left: 2px solid var(--dialog-primary-bg); /* 核心修改: 仅将左侧边框加粗并设为主题色 */
 }
 
 /* 书签图标 */
 .top-site-icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border-radius: 6px;
     object-fit: cover;
     flex-shrink: 0;
@@ -359,11 +361,11 @@ body {
     border-right: 2px solid var(--dialog-primary-bg);
 }
 
-/* 【修改】统一选中高亮为虚线框 */
+/* 将其修改为：*/
 .bookmark-item.selected,
-.vertical-modules a.selected {
+.vertical-modules a.selected,
+.top-site-item.selected { /* <--- 新增这一行 */
     background-color: transparent !important;
-    /* 必须用 !important 覆盖 :hover */
     outline: 2px dashed var(--dialog-primary-bg);
     outline-offset: -2px;
 }
