@@ -14,10 +14,10 @@ const CONSTANTS = {
     },
     STORAGE_KEYS: {
         THEME: 'theme',
-        HOVER_ENABLED: 'hoverToOpenEnabled'
+        HOVER_ENABLED: 'hoverToOpenEnabled', // <-- 这里之前缺少了逗号
+        HOVER_DELAY: 'hoverDelay'
     }
 };
-
 
 // ==================================================================
 // --- 全局状态变量 ---
@@ -424,28 +424,25 @@ function handleFolderClick(folderItem, bookmarkId) {
  * @param {HTMLElement} item - 目标文件夹元素
  */
 function startHoverIntent(item) {
-    // 1. 清除任何可能存在的旧计时器
     clearTimeout(hoverIntent.timer);
 
-    // 2. 检查功能是否启用以及其他上下文条件
     if (!isHoverEnabled || isDragging || suppressHover || document.body.dataset.contextMenuOpen || selectedItems.size > 1) {
         return;
     }
 
-    // 3. 设置新的目标
     hoverIntent.target = item;
 
-    // 4. 启动一个全新的、专属于当前目标的计时器
+    // [核心修改] 从 localStorage 读取延迟，如果不存在则默认为 500
+    const delay = parseInt(localStorage.getItem(CONSTANTS.STORAGE_KEYS.HOVER_DELAY) || '500', 10);
+
     hoverIntent.timer = setTimeout(() => {
-        // 5. 时间到了，检查悬停的目标是否还是最初那个
         if (hoverIntent.target === item) {
             const currentHighlighted = item.parentElement.querySelector('.bookmark-item.highlighted');
-            // 确保它没有被自己高亮
             if (item !== currentHighlighted) {
                 handleFolderClick(item, item.dataset.id);
             }
         }
-    }, 500); // 延迟500毫秒
+    }, delay);
 }
 
 /**
@@ -1568,6 +1565,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const contextMenu = document.getElementById('contextMenu');
     const pageOverlay = document.getElementById('pageOverlay');
     const historyBtn = document.getElementById('history-btn');
+    const hoverDelaySettingItem = document.getElementById('hover-delay-setting-item');
+    const hoverDelayInput = document.getElementById('hover-delay-input');
 
     let isModuleVisible = false;
 
@@ -1660,11 +1659,48 @@ document.addEventListener('DOMContentLoaded', function () {
     applyTheme(localStorage.getItem(CONSTANTS.STORAGE_KEYS.THEME) || 'system');
     hoverToggle.checked = localStorage.getItem(CONSTANTS.STORAGE_KEYS.HOVER_ENABLED) !== 'false';
     isHoverEnabled = hoverToggle.checked;
+
+    // --- [最终版] 悬停功能设置的完整逻辑 ---
+
+    // 初始化总开关的状态
+    hoverToggle.checked = localStorage.getItem(CONSTANTS.STORAGE_KEYS.HOVER_ENABLED) !== 'false';
+    isHoverEnabled = hoverToggle.checked;
+
+    // 初始化延迟输入框的值
+    const savedDelay = localStorage.getItem(CONSTANTS.STORAGE_KEYS.HOVER_DELAY) || '500';
+    hoverDelayInput.value = savedDelay;
+
+    // 根据总开关的初始状态，决定是否显示和启用延迟输入框
+    const setDelayInputState = (enabled) => {
+        hoverDelaySettingItem.style.opacity = enabled ? '1' : '0.4';
+        hoverDelaySettingItem.style.pointerEvents = enabled ? 'auto' : 'none';
+    };
+    setDelayInputState(isHoverEnabled);
+
+    // 监听总开关的变化
     hoverToggle.addEventListener('change', (e) => {
         isHoverEnabled = e.target.checked;
         localStorage.setItem(CONSTANTS.STORAGE_KEYS.HOVER_ENABLED, isHoverEnabled);
         showToast(`悬停打开功能已${isHoverEnabled ? '开启' : '关闭'}`);
+        setDelayInputState(isHoverEnabled); // 联动更新延迟输入框的状态
     });
+
+    // 监听延迟输入框的变化
+    hoverDelayInput.addEventListener('change', () => {
+        let newDelay = parseInt(hoverDelayInput.value, 10);
+
+        // 输入验证：确保值在合理范围内 (200ms - 2000ms)
+        if (isNaN(newDelay) || newDelay < 200) {
+            newDelay = 200;
+        } else if (newDelay > 2000) {
+            newDelay = 2000;
+        }
+
+        hoverDelayInput.value = newDelay; // 将修正后的值写回输入框
+        localStorage.setItem(CONSTANTS.STORAGE_KEYS.HOVER_DELAY, newDelay);
+        showToast('悬停延迟已保存');
+    });
+
     settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsPanel.classList.toggle('visible');

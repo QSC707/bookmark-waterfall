@@ -1218,3 +1218,24 @@ body.is-resizing .resize-indicator {
 #history-btn:hover {
     transform: rotate(0deg); /* 历史记录按钮不需要旋转动画 */
 }
+
+
+/* --- [新增] 悬停延迟输入框样式 --- */
+.delay-input {
+    width: 80px;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    color: var(--input-text);
+    font-size: 14px;
+    text-align: right;
+}
+.delay-input:focus {
+    border-color: var(--input-focus-border);
+    outline: none;
+}
+#hover-delay-setting-item {
+    transition: opacity 0.3s ease;
+}
