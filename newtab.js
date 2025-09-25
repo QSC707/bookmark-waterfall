@@ -35,6 +35,12 @@ let lastClickedId = null;
 let allBookmarksFlat = [];
 let historyWindowId = null;
 
+// --- 新增：智能悬停状态变量 (简化版) ---
+let hoverIntent = {
+    timer: null,      // 全局唯一的计时器
+    target: null      // 当前悬停的目标元素
+};
+
 // ==================================================================
 // --- 核心修复：将 Lazy Loader 移至全局作用域 ---
 // ==================================================================
@@ -218,6 +224,23 @@ function displayBookmarks(bookmarks) {
     }
 }
 
+// --- [新增] 只刷新书签栏的专用函数 ---
+function refreshBookmarksBar() {
+    // 1. 获取书签栏的父容器
+    const header = document.querySelector('.page-header');
+    if (!header) return;
+
+    // 2. 获取最新的书签栏内容
+    chrome.bookmarks.getChildren(CONSTANTS.BOOKMARKS_BAR_ID, (bookmarksBarItems) => {
+        // 3. 移除旧的书签栏DOM
+        const oldTopBar = header.querySelector('.bookmark-column[data-level="0"]');
+        if (oldTopBar) oldTopBar.remove();
+
+        // 4. 使用我们现有的 renderBookmarks 函数，只在 header 中渲染 level 0 的内容
+        renderBookmarks(bookmarksBarItems, header, 0);
+    });
+}
+
 function renderBookmarks(bookmarks, parentElement, level) {
     let column;
     const container = document.getElementById('bookmarkContainer');
@@ -317,6 +340,7 @@ function createBookmarkItem(bookmark, index) {
         item.classList.add('is-github-link');
     }
 
+    // --- [清理后] 的事件监听 ---
     item.addEventListener('mouseenter', () => currentlyHoveredItem = item);
     item.addEventListener('mouseleave', () => currentlyHoveredItem = null);
 
@@ -352,22 +376,17 @@ function createBookmarkItem(bookmark, index) {
         }
     });
 
+    // --- 应用最终版的悬停逻辑 ---
     if (isFolder) {
-        let hoverTimeout;
         item.addEventListener('mouseenter', () => {
-            if (!isHoverEnabled || isDragging || suppressHover || document.body.dataset.contextMenuOpen) return;
-            clearTimeout(hoverTimeout);
-            hoverTimeout = setTimeout(() => {
-                if (isDragging || selectedItems.size > 1) return;
-                const currentHighlighted = item.parentElement.querySelector('.bookmark-item.highlighted');
-                if (item !== currentHighlighted) {
-                    handleFolderClick(item, bookmark.id);
-                }
-            }, 500);
+            startHoverIntent(item);
         });
-        item.addEventListener('mouseleave', () => clearTimeout(hoverTimeout));
+        item.addEventListener('mouseleave', () => {
+            clearHoverIntent();
+        });
     }
 
+    // --- 拖放事件监听器 ---
     item.addEventListener('dragstart', handleDragStart);
     item.addEventListener('dragend', handleDragEnd);
     item.addEventListener('dragover', handleDragOver);
@@ -396,6 +415,46 @@ function handleFolderClick(folderItem, bookmarkId) {
             if (parseInt(col.dataset.level) > level) col.remove();
         });
     }
+}
+
+// --- [最终版] 智能悬停核心函数 ---
+
+/**
+ * 为指定元素启动一个悬停意图。
+ * @param {HTMLElement} item - 目标文件夹元素
+ */
+function startHoverIntent(item) {
+    // 1. 清除任何可能存在的旧计时器
+    clearTimeout(hoverIntent.timer);
+
+    // 2. 检查功能是否启用以及其他上下文条件
+    if (!isHoverEnabled || isDragging || suppressHover || document.body.dataset.contextMenuOpen || selectedItems.size > 1) {
+        return;
+    }
+
+    // 3. 设置新的目标
+    hoverIntent.target = item;
+
+    // 4. 启动一个全新的、专属于当前目标的计时器
+    hoverIntent.timer = setTimeout(() => {
+        // 5. 时间到了，检查悬停的目标是否还是最初那个
+        if (hoverIntent.target === item) {
+            const currentHighlighted = item.parentElement.querySelector('.bookmark-item.highlighted');
+            // 确保它没有被自己高亮
+            if (item !== currentHighlighted) {
+                handleFolderClick(item, item.dataset.id);
+            }
+        }
+    }, 500); // 延迟500毫秒
+}
+
+/**
+ * 取消一个可能正在等待的悬停意图。
+ */
+function clearHoverIntent() {
+    // 无论如何，都清除计时器和目标
+    clearTimeout(hoverIntent.timer);
+    hoverIntent.target = null;
 }
 
 function makeColumnResizable(column) {
@@ -525,8 +584,19 @@ function handleDragStart(e) {
 
 function handleDragEnd(e) {
     isDragging = false;
+    // 核心修复：立即激活悬停抑制标志
+    suppressHover = true;
+
+    // 在短暂延迟后，重新启用悬停功能。
+    // 这就创建了一个“冷却期”，防止刚刚拖放的目标文件夹被意外打开。
+    setTimeout(() => {
+        suppressHover = false;
+    }, 300); // 300毫秒的冷却时间，足够用户移开鼠标
+
     clearTimeout(dragOverTimeout);
+    // 清空所有选中状态
     clearSelection();
+    // 清理所有拖拽相关的样式
     document.querySelectorAll('.bookmark-item.dragging').forEach(el => el.classList.remove('dragging'));
     draggedItem = null;
     document.querySelectorAll('.bookmark-item, .bookmark-column').forEach(el => {
@@ -1724,8 +1794,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        // 如果移动涉及到了书签栏，则只调用专用函数刷新书签栏
         if (parentId === CONSTANTS.BOOKMARKS_BAR_ID || oldParentId === CONSTANTS.BOOKMARKS_BAR_ID) {
-            chrome.bookmarks.getTree(displayBookmarks);
+            refreshBookmarksBar();
         }
 
         refreshAllData();
