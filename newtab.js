@@ -1574,7 +1574,7 @@ document.addEventListener('DOMContentLoaded', function () {
         clearTimeout(topSitesHoverTimeout);
         topSitesHoverTimeout = setTimeout(() => {
             topSitesBar.classList.add('expanded');
-        }, 250);
+        }, 500);
     });
 
     topSitesBar.addEventListener('mouseleave', () => {
