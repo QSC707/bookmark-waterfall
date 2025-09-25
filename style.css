@@ -480,6 +480,7 @@ body {
     visibility: visible;
 }
 
+
 .move-dialog,
 .edit-dialog,
 .confirm-dialog {
@@ -491,12 +492,12 @@ body {
     height: 100%;
     z-index: 2000;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center; /* <<< 修改：从 flex-start 改为 center */
 }
 
+/* --- 对话框内容区 (找到这个选择器) --- */
 .move-dialog-content,
 .edit-dialog-content {
-    margin-top: 10vh;
     width: 520px;
 }
 
