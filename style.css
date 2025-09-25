@@ -102,7 +102,11 @@ body {
     -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
-/* --- 4. 右侧“经常访问”竖条 --- */
+/* ================================================================== */
+/* --- 4. 右侧“经常访问”竖条 (JS延迟展开最终版) --- */
+/* ================================================================== */
+
+/* 侧边栏主容器 */
 .top-sites-bar {
     position: fixed;
     top: 50%;
@@ -113,69 +117,98 @@ body {
     max-height: 80vh;
     padding-top: 20px;
     padding-bottom: 20px;
-    background-color: var(--header-bg);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid var(--header-border);
-    border-right: none;
-    border-radius: 12px 0 0 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    transition: width 0.3s ease;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    transition: width 0.2s ease-out;
     z-index: 1002;
     overflow: hidden;
 }
 
-.top-sites-bar:hover {
-    width: 200px;
+.top-sites-bar.expanded { /* <<< 修改 */
+    width: 220px;
 }
 
+/* 内容区域的容器 */
 .top-sites-content {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 0 16px;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 0;
+    box-sizing: border-box;
+    transition: all 0.2s ease-out;
 }
 
+.top-sites-bar.expanded .top-sites-content { /* <<< 修改 */
+    align-items: flex-start;
+    padding: 0 10px;
+}
+
+/* 单个书签项 */
 .top-site-item {
     display: flex;
-    flex-direction: row;
     align-items: center;
     text-decoration: none;
+    height: 40px;
+    width: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--header-border);
+    background-color: transparent;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease-out;
+}
+
+.top-sites-bar.expanded .top-site-item { /* <<< 修改 */
     width: 100%;
-    transition: transform 0.2s ease;
+    padding: 6px 10px;
+    border-radius: 20px;
+    gap: 12px;
 }
 
 .top-site-item:hover {
-    transform: translateX(2px);
+    background-color: var(--hover-bg);
+    border-color: transparent;
 }
 
+/* 书签图标 */
 .top-site-icon {
     width: 24px;
     height: 24px;
     border-radius: 6px;
     object-fit: cover;
     flex-shrink: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.2s ease-out;
 }
 
+.top-sites-bar.expanded .top-site-icon { /* <<< 修改 */
+    position: static;
+    transform: none;
+}
+
+/* 书签标题 */
 .top-site-title {
     font-size: 13px;
     color: var(--link-color);
-    margin-left: 12px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     opacity: 0;
-    transform: translateX(-10px);
-    transition: all 0.3s ease;
+    transition: opacity 0s;
 }
 
-.top-sites-bar:hover .top-site-title {
+.top-sites-bar.expanded .top-site-title { /* <<< 修改 */
     opacity: 1;
-    transform: translateX(0);
+    transition: opacity 0.15s 0.1s ease-in;
 }
-
-
 /* --- 5. 主视图区域卡片式美化 --- */
 .bookmark-container {
     display: flex;

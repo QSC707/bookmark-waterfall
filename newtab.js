@@ -1563,10 +1563,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const toggleVerticalBtn = document.getElementById('sidebar-toggle-btn');
     const contextMenu = document.getElementById('contextMenu');
     const pageOverlay = document.getElementById('pageOverlay');
-    const historyBtn = document.getElementById('history-btn');
     const hoverDelaySettingItem = document.getElementById('hover-delay-setting-item');
     const hoverDelayInput = document.getElementById('hover-delay-input');
+    const historyBtn = document.getElementById('history-btn');
+    // ▼▼▼ 删除从这里开始的所有代码 ▼▼▼
+    const topSitesBar = document.getElementById('topSitesBar');
+    let topSitesHoverTimeout;
 
+    topSitesBar.addEventListener('mouseenter', () => {
+        clearTimeout(topSitesHoverTimeout);
+        topSitesHoverTimeout = setTimeout(() => {
+            topSitesBar.classList.add('expanded');
+        }, 250);
+    });
+
+    topSitesBar.addEventListener('mouseleave', () => {
+        clearTimeout(topSitesHoverTimeout);
+        topSitesBar.classList.remove('expanded');
+    });
+    // ▲▲▲ 删除到这里结束 ▲▲▲
     let isModuleVisible = false;
 
     const showModules = () => {
