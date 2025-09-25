@@ -320,10 +320,16 @@ function renderBookmarks(bookmarks, parentElement, level) {
     // 统一的渲染后调整逻辑
     setTimeout(() => {
         if (container.contains(column)) {
+            // 第一步：智能缩放，这部分保持不变
             adjustColumnWidths(container);
-        }
-        if (level > 0) {
-            container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+
+            // 第二步（增强版）：请求浏览器在下一次“绘制”准备好时，再执行滚动
+            // 这可以确保滚动动画的开始时机绝对完美，避免任何潜在的视觉抖动
+            requestAnimationFrame(() => {
+                if (level > 0) {
+                    container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+                }
+            });
         }
     }, 0);
 }
@@ -964,7 +970,7 @@ function handleContextMenuAction(action, element) {
                 // 使用通用选择器，可以同时找到主区域和侧边栏的书签
                 const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
                 if (item && item.dataset.url) {
-                    if (action === 'open') chrome.tabs.create({ url: item.dataset.url });
+                    if (action === 'open') window.open(item.dataset.url, '_blank');
                     else if (action === 'openNew') chrome.windows.create({ url: item.dataset.url });
                     else if (action === 'openIncognito') chrome.windows.create({ url: item.dataset.url, incognito: true });
                 }
@@ -977,7 +983,7 @@ function handleContextMenuAction(action, element) {
                     children.forEach(child => {
                         // 只打开书签，忽略子文件夹
                         if (child.url) {
-                            chrome.tabs.create({ url: child.url });
+                            window.open(child.url, '_blank');
                         }
                     });
                 });

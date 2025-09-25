@@ -8,27 +8,14 @@
       "topSites",
       "favicon",
       "windows",
-      "tabs",
       "clipboardWrite"
   ],
   "chrome_url_overrides": {
       "newtab": "newtab.html"
   },
-
-    "icons": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-  },
-
-  "web_accessible_resources": [
-      {
-          "resources": [
-              "img/*.svg"
-          ],
-          "matches": [
-              "<all_urls>"
-          ]
-      }
-  ]
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
