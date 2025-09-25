@@ -895,12 +895,12 @@ input:checked+.slider:before {
 }
 
 /* 浅色模式下：GitHub 图标压成黑色 */
-[data-theme="light"] .bookmark-item[data-url*="github.com"] .bookmark-icon {
+[data-theme="light"] .is-github-link .bookmark-icon {
     filter: brightness(0) saturate(100%);
 }
 
 /* 深色模式下：GitHub 图标压成白色 */
-[data-theme="dark"] .bookmark-item[data-url*="github.com"] .bookmark-icon {
+[data-theme="dark"] .is-github-link .bookmark-icon {
     filter: brightness(0) invert(1);
 }
 
