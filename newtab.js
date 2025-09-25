@@ -509,51 +509,73 @@ function makeColumnResizable(column) {
     });
 }
 
+let resizing = false;
+
 function adjustColumnWidths(container) {
-    const columns = Array.from(container.querySelectorAll('.bookmark-column'));
-    if (columns.length === 0) return;
+    if (resizing) return; // 防止重复计算
+    resizing = true;
 
-    const gap = parseInt(window.getComputedStyle(container).gap) || 20;
-    const containerWidth = container.clientWidth;
-    const DEFAULT_COL_WIDTH = 280;
-
-    columns.forEach(col => {
-        if (!col.dataset.userResized) {
-            col.style.width = '';
+    requestAnimationFrame(() => {
+        const columns = Array.from(container.querySelectorAll('.bookmark-column'));
+        if (columns.length === 0) {
+            resizing = false;
+            return;
         }
-    });
 
-    const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
+        const gap = parseInt(window.getComputedStyle(container).gap) || 20;
+        const containerWidth = container.clientWidth;
+        const DEFAULT_COL_WIDTH = 280;
+        const MIN_COL_WIDTH = 180;
 
-    if (totalWidth > containerWidth) {
-        const overflow = totalWidth - containerWidth;
-        const columnsToShrink = columns.slice(0, -1);
-        let totalShrinkableWidth = columnsToShrink.reduce((sum, col) => sum + col.offsetWidth, 0);
-
-        if (columnsToShrink.length > 0) {
-            for (const col of columnsToShrink) {
-                const proportion = col.offsetWidth / totalShrinkableWidth;
-                const shrinkAmount = overflow * proportion;
-                const newWidth = col.offsetWidth - shrinkAmount;
-                col.style.width = `${Math.max(180, newWidth)}px`;
+        // 重置未锁定的列
+        columns.forEach(col => {
+            if (!col.dataset.userResized && col.dataset.locked !== 'true') {
+                col.style.width = '';
             }
-        }
-    } else {
-        const availableSpace = containerWidth - totalWidth;
-        const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH);
-        if (columnsToEnlarge.length > 0) {
-            let totalEnlargePotential = columnsToEnlarge.reduce((sum, col) => sum + (DEFAULT_COL_WIDTH - col.offsetWidth), 0);
-            if (totalEnlargePotential > 0) {
-                for (const col of columnsToEnlarge) {
-                    const potential = DEFAULT_COL_WIDTH - col.offsetWidth;
-                    const proportion = potential / totalEnlargePotential;
-                    const enlargeAmount = availableSpace * proportion;
-                    const newWidth = col.offsetWidth + enlargeAmount;
-                    col.style.width = `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px`;
+        });
+
+        const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
+
+        if (totalWidth > containerWidth) {
+            // 需要压缩 → 压缩前面的列
+            const overflow = totalWidth - containerWidth;
+            const columnsToShrink = columns.slice(0, -1).filter(col => col.dataset.locked !== 'true');
+            let totalShrinkableWidth = columnsToShrink.reduce((sum, col) => sum + col.offsetWidth, 0);
+
+            if (columnsToShrink.length > 0 && totalShrinkableWidth > 0) {
+                for (const col of columnsToShrink) {
+                    const proportion = col.offsetWidth / totalShrinkableWidth;
+                    const shrinkAmount = overflow * proportion;
+                    let newWidth = col.offsetWidth - shrinkAmount;
+
+                    if (newWidth <= MIN_COL_WIDTH) {
+                        newWidth = MIN_COL_WIDTH;
+                        col.dataset.locked = 'true'; // 打锁，不再继续缩小
+                    }
+
+                    col.style.width = `${newWidth}px`;
+                }
+            }
+        } else {
+            // 未溢出 → 尝试放大不足默认宽度的列
+            const availableSpace = containerWidth - totalWidth;
+            const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH);
+            if (columnsToEnlarge.length > 0) {
+                let totalEnlargePotential = columnsToEnlarge.reduce((sum, col) => sum + (DEFAULT_COL_WIDTH - col.offsetWidth), 0);
+                if (totalEnlargePotential > 0) {
+                    for (const col of columnsToEnlarge) {
+                        const potential = DEFAULT_COL_WIDTH - col.offsetWidth;
+                        const proportion = potential / totalEnlargePotential;
+                        const enlargeAmount = availableSpace * proportion;
+                        const newWidth = col.offsetWidth + enlargeAmount;
+                        col.style.width = `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px`;
+                    }
                 }
             }
         }
-    }
+
+        resizing = false;
+    });
 }
 
 // --- 拖拽逻辑 ---
