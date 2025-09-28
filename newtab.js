@@ -511,8 +511,11 @@ function makeColumnResizable(column) {
 
 let resizing = false;
 
+// ==================================================================
+// --- 这是针对“跳变”问题的最终修复版 (请整体替换) ---
+// ==================================================================
 function adjustColumnWidths(container) {
-    if (resizing) return; // 防止重复计算
+    if (resizing) return;
     resizing = true;
 
     requestAnimationFrame(() => {
@@ -527,39 +530,43 @@ function adjustColumnWidths(container) {
         const DEFAULT_COL_WIDTH = 280;
         const MIN_COL_WIDTH = 180;
 
-        // 重置未锁定的列
-        columns.forEach(col => {
-            if (!col.dataset.userResized && col.dataset.locked !== 'true') {
-                col.style.width = '';
-            }
-        });
+        // 1. 【核心修正】不再首先重置所有列的宽度。
+        //    直接基于当前 DOM 的实时状态进行计算，避免不必要的“跳变”。
 
+        // 2. 计算当前总宽度和溢出量
         const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
+        let overflow = totalWidth - containerWidth;
 
-        if (totalWidth > containerWidth) {
-            // 需要压缩 → 压缩前面的列
-            const overflow = totalWidth - containerWidth;
-            const columnsToShrink = columns.slice(0, -1).filter(col => col.dataset.locked !== 'true');
-            let totalShrinkableWidth = columnsToShrink.reduce((sum, col) => sum + col.offsetWidth, 0);
+        // 3. 【压缩逻辑】当空间不足时，从右至左逐级压缩
+        if (overflow > 0) {
+            // 我们从倒数第二列（新打开列的直接父级）开始，向前迭代
+            for (let i = columns.length - 2; i >= 0; i--) {
+                const col = columns[i];
 
-            if (columnsToShrink.length > 0 && totalShrinkableWidth > 0) {
-                for (const col of columnsToShrink) {
-                    const proportion = col.offsetWidth / totalShrinkableWidth;
-                    const shrinkAmount = overflow * proportion;
-                    let newWidth = col.offsetWidth - shrinkAmount;
+                // 跳过用户手动调整过的列
+                if (col.dataset.userResized) continue;
 
-                    if (newWidth <= MIN_COL_WIDTH) {
-                        newWidth = MIN_COL_WIDTH;
-                        col.dataset.locked = 'true'; // 打锁，不再继续缩小
-                    }
+                const currentWidth = col.offsetWidth;
+                // 计算当前列可以被压缩的空间
+                const shrinkableWidth = currentWidth - MIN_COL_WIDTH;
 
-                    col.style.width = `${newWidth}px`;
+                if (shrinkableWidth > 0) {
+                    // 计算实际需要从当前列压缩的宽度
+                    const shrinkAmount = Math.min(overflow, shrinkableWidth);
+
+                    col.style.width = `${currentWidth - shrinkAmount}px`;
+                    overflow -= shrinkAmount; // 更新剩余的溢出量
                 }
+
+                // 如果溢出已经处理完毕，则提前结束循环
+                if (overflow <= 0) break;
             }
-        } else {
-            // 未溢出 → 尝试放大不足默认宽度的列
+        }
+        // 4. 【放大逻辑】当空间富余时，按比例恢复列宽
+        else {
             const availableSpace = containerWidth - totalWidth;
-            const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH);
+            const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH && !col.dataset.userResized);
+
             if (columnsToEnlarge.length > 0) {
                 let totalEnlargePotential = columnsToEnlarge.reduce((sum, col) => sum + (DEFAULT_COL_WIDTH - col.offsetWidth), 0);
                 if (totalEnlargePotential > 0) {
@@ -568,15 +575,23 @@ function adjustColumnWidths(container) {
                         const proportion = potential / totalEnlargePotential;
                         const enlargeAmount = availableSpace * proportion;
                         const newWidth = col.offsetWidth + enlargeAmount;
+                        // 核心：确保放大的列不会超过其默认宽度
                         col.style.width = `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px`;
                     }
                 }
             }
         }
 
+        // 5. 自动滚动到最新列的逻辑保持不变
+        container.scrollTo({
+            left: container.scrollWidth,
+            behavior: 'smooth'
+        });
+
         resizing = false;
     });
 }
+
 
 // --- 拖拽逻辑 ---
 function handleDragStart(e) {
