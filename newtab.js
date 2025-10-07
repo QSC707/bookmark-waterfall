@@ -175,6 +175,34 @@ function isValidUrl(string) {
     }
 }
 
+// ▼▼▼ 从这里开始添加新代码 ▼▼▼
+
+/**
+ * 创建一个可复用的悬停意图监听器。
+ * @param {function} callback - 延迟时间到达后要执行的回调函数。
+ * @param {number} [delay=500] - 悬停的延迟时间 (毫秒)。
+ * @returns {{handleMouseEnter: function, handleMouseLeave: function}} - 返回包含两个事件处理函数的对象。
+ */
+function createHoverIntent(callback, delay = 500) {
+    let hoverTimeout;
+
+    const handleMouseEnter = () => {
+        // 统一在这里检查全局开关
+        if (!isHoverEnabled) return;
+
+        clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(callback, delay);
+    };
+
+    const handleMouseLeave = () => {
+        clearTimeout(hoverTimeout);
+    };
+
+    return { handleMouseEnter, handleMouseLeave };
+}
+
+// ▲▲▲ 新代码添加到这里结束 ▲▲▲
+
 // --- 多选相关函数 ---
 function clearSelection() {
     selectedItems.clear();
@@ -1711,8 +1739,8 @@ document.addEventListener('DOMContentLoaded', function () {
             isModuleVisible = false;
         }
     };
-
-    historyBtn.addEventListener('click', () => {
+    // --- 优化后：将打开历史记录的操作封装并应用通用悬停逻辑 ---
+    const openHistoryWindow = () => {
         if (historyWindowId !== null) {
             chrome.windows.get(historyWindowId, {}, (win) => {
                 if (chrome.runtime.lastError) {
@@ -1725,7 +1753,14 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             createNewHistoryWindow();
         }
-    });
+    };
+
+    const { handleMouseEnter: openHistoryOnHover, handleMouseLeave: cancelOpenHistory } = createHoverIntent(openHistoryWindow);
+
+    historyBtn.addEventListener('click', openHistoryWindow);
+    historyBtn.addEventListener('mouseenter', openHistoryOnHover);
+    historyBtn.addEventListener('mouseleave', cancelOpenHistory);
+
 
     function createNewHistoryWindow() {
         chrome.windows.getCurrent({}, (currentWindow) => {
@@ -1838,11 +1873,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.THEME) === 'system') applyTheme('system');
     });
 
-    let hoverTimeout;
+    // --- 优化后：为G按钮应用通用悬停逻辑 ---
+    const { handleMouseEnter: showModulesOnHover, handleMouseLeave: cancelShowModules } = createHoverIntent(showModules);
+
     toggleVerticalBtn.addEventListener('click', (e) => { e.stopPropagation(); isModuleVisible ? hideModules() : showModules(); });
-    toggleVerticalBtn.addEventListener('mouseenter', () => { clearTimeout(hoverTimeout); hoverTimeout = setTimeout(showModules, 500); });
-    toggleVerticalBtn.addEventListener('mouseleave', () => clearTimeout(hoverTimeout));
-    verticalModules.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
+    toggleVerticalBtn.addEventListener('mouseenter', showModulesOnHover);
+    toggleVerticalBtn.addEventListener('mouseleave', cancelShowModules);
+    verticalModules.addEventListener('mouseenter', cancelShowModules); // 鼠标进入面板本身时也应该取消计时
 
     document.addEventListener('click', (e) => {
         const isClickOutsideActiveAreas = !e.target.closest('.bookmark-item') &&
