@@ -201,7 +201,87 @@ function createHoverIntent(callback, delay = 500) {
     return { handleMouseEnter, handleMouseLeave };
 }
 
+
+// ▼▼▼ 从这里开始添加新的辅助函数 ▼▼▼
+
+/**
+ * 创建单个面包屑项
+ * @param {string} text - 显示的文本
+ * @param {string} id - 书签ID
+ * @returns {HTMLElement}
+ */
+function createBreadcrumbItem(text, id) {
+    const item = document.createElement('span');
+    item.className = 'breadcrumb-item';
+    item.textContent = sanitizeText(text);
+    item.dataset.id = id;
+    return item;
+}
+
+/**
+ * 创建面包屑分隔符
+ * @returns {HTMLElement}
+ */
+function createBreadcrumbSeparator() {
+    const separator = document.createElement('span');
+    separator.className = 'breadcrumb-separator';
+    separator.textContent = '>';
+    return separator;
+}
+
 // ▲▲▲ 新代码添加到这里结束 ▲▲▲
+
+/**
+ * [V2 - 优化版] 更新面包屑导航栏
+ */
+function updateBreadcrumbs() {
+    const container = document.getElementById('breadcrumbContainer');
+    if (!container) return;
+
+    // 1. 获取新的路径数据
+    const highlightedItems = Array.from(document.querySelectorAll('.bookmark-item.highlighted'));
+    highlightedItems.sort((a, b) => {
+        const levelA = parseInt(a.closest('.bookmark-column').dataset.level, 10);
+        const levelB = parseInt(b.closest('.bookmark-column').dataset.level, 10);
+        return levelA - levelB;
+    });
+
+    // 2. 构造新的完整路径 ID 列表
+    const newPathIds = [CONSTANTS.BOOKMARKS_BAR_ID, ...highlightedItems.map(item => item.dataset.id)];
+    
+    // 3. 获取当前 DOM 上的旧路径 ID 列表
+    const currentCrumbs = container.querySelectorAll('.breadcrumb-item');
+    const oldPathIds = Array.from(currentCrumbs).map(crumb => crumb.dataset.id);
+
+    // 4. 智能比较和更新
+    let i = 0;
+    while (i < newPathIds.length && i < oldPathIds.length && newPathIds[i] === oldPathIds[i]) {
+        i++; // 找到第一个不匹配的位置
+    }
+
+    // 移除多余的旧节点
+    while (oldPathIds.length > i) {
+        container.lastChild.remove(); // 移除面包屑项
+        container.lastChild.remove(); // 移除它前面的分隔符
+        oldPathIds.pop();
+    }
+
+    // 添加新增的节点
+    const fragment = document.createDocumentFragment();
+    for (let j = i; j < newPathIds.length; j++) {
+        if (j > 0) { // 第一个元素前不需要分隔符
+             fragment.appendChild(createBreadcrumbSeparator());
+        }
+        const itemData = highlightedItems[j - 1]; // j=0 是书签栏，没有 itemData
+        const text = (j === 0) ? '书签栏' : itemData.dataset.title;
+        fragment.appendChild(createBreadcrumbItem(text, newPathIds[j]));
+    }
+    
+    // 如果 fragment 中有内容，则一次性添加到 DOM
+    if (fragment.hasChildNodes()) {
+        container.appendChild(fragment);
+    }
+}
 
 // --- 多选相关函数 ---
 function clearSelection() {
@@ -444,6 +524,7 @@ function handleFolderClick(folderItem, bookmarkId) {
             if (parseInt(col.dataset.level) > level) col.remove();
         });
     }
+    updateBreadcrumbs();
 }
 
 // --- [最终版] 智能悬停核心函数 ---
@@ -1698,6 +1779,58 @@ document.addEventListener('DOMContentLoaded', function () {
     const pageOverlay = document.getElementById('pageOverlay');
     const hoverDelaySettingItem = document.getElementById('hover-delay-setting-item');
     const hoverDelayInput = document.getElementById('hover-delay-input');
+    // ▼▼▼ 从这里开始添加新代码 ▼▼▼
+
+    const breadcrumbContainer = document.getElementById('breadcrumbContainer');
+
+    // 初始化面包屑
+    updateBreadcrumbs();
+
+    // 为面包屑容器添加点击事件（事件委托）
+  // --- [V3 - 最终修复版] 为面包屑容器添加点击事件 ---
+    breadcrumbContainer.addEventListener('click', (e) => {
+        const crumb = e.target.closest('.breadcrumb-item');
+        if (!crumb) return;
+
+        const folderId = crumb.dataset.id;
+
+        // 点击“书签栏”的逻辑，保持不变
+        if (folderId === CONSTANTS.BOOKMARKS_BAR_ID) {
+            document.querySelectorAll('.bookmark-item.highlighted').forEach(i => i.classList.remove('highlighted'));
+            document.querySelectorAll('#bookmarkContainer .bookmark-column').forEach(col => col.remove());
+            updateBreadcrumbs();
+            return;
+        }
+
+        const targetFolderItem = document.querySelector(`.bookmark-item.highlighted[data-id="${folderId}"]`);
+        if (targetFolderItem) {
+            // 获取被点击的文件夹本身所在的层级
+            const level = parseInt(targetFolderItem.closest('.bookmark-column').dataset.level, 10);
+
+            // ▼▼▼ 核心修复逻辑 ▼▼▼
+
+            // 1. 移除所有在它内容列 **之后** 的列。
+            // 它的内容列层级是 `level + 1`，所以我们要移除 > `level + 1` 的所有列。
+            document.querySelectorAll('#bookmarkContainer .bookmark-column').forEach(col => {
+                if (parseInt(col.dataset.level) > level + 1) {
+                    col.remove();
+                }
+            });
+
+            // 2. 移除所有在它 **之后** 的高亮项。
+            document.querySelectorAll('.bookmark-item.highlighted').forEach(item => {
+                const itemLevel = parseInt(item.closest('.bookmark-column').dataset.level, 10);
+                if (itemLevel > level) {
+                    item.classList.remove('highlighted');
+                }
+            });
+
+            // 3. 更新面包屑
+            updateBreadcrumbs();
+        }
+    });
+
+    // ▲▲▲ 新代码添加到这里结束 ▲▲▲
     const historyBtn = document.getElementById('history-btn');
     // ...
     const topSitesBar = document.getElementById('topSitesBar');

@@ -15,7 +15,7 @@
         </div>
 
     </header>
-
+    <div id="breadcrumbContainer" class="breadcrumb-container"></div>
     <main class="main-container">
         <div id="bookmarkContainer" class="bookmark-container"></div>
 
@@ -44,111 +44,111 @@
     </div>
 
 
-        <div id="topSitesBar" class="top-sites-bar">
-            <div id="topSitesContent" class="top-sites-content">
+    <div id="topSitesBar" class="top-sites-bar">
+        <div id="topSitesContent" class="top-sites-content">
+        </div>
+    </div>
+
+    <div id="sidebar-toggle-container">
+        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">G</button>
+    </div>
+
+
+    <div id="contextMenu" class="context-menu"></div>
+    <div id="toast" class="toast"></div>
+
+    <div id="moveDialog" class="move-dialog">
+        <div class="move-dialog-content">
+            <div class="move-dialog-header">
+                <h3>移动到...</h3>
+            </div>
+            <div class="move-dialog-body">
+                <div id="bookmarkTree" class="bookmark-tree"></div>
+            </div>
+            <div class="move-dialog-footer">
+                <button id="cancelMove" class="dialog-button">取消</button>
+                <button id="confirmMove" class="dialog-button primary">移动</button>
             </div>
         </div>
+    </div>
 
-        <div id="sidebar-toggle-container">
-            <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">G</button>
-        </div>
-
-
-        <div id="contextMenu" class="context-menu"></div>
-        <div id="toast" class="toast"></div>
-
-        <div id="moveDialog" class="move-dialog">
-            <div class="move-dialog-content">
-                <div class="move-dialog-header">
-                    <h3>移动到...</h3>
-                </div>
-                <div class="move-dialog-body">
-                    <div id="bookmarkTree" class="bookmark-tree"></div>
-                </div>
-                <div class="move-dialog-footer">
-                    <button id="cancelMove" class="dialog-button">取消</button>
-                    <button id="confirmMove" class="dialog-button primary">移动</button>
-                </div>
+    <div id="editDialog" class="edit-dialog">
+        <div class="edit-dialog-content">
+            <div class="edit-dialog-header">
+                <h3 id="editDialogTitle"></h3>
+            </div>
+            <div class="edit-dialog-body">
+                <input type="text" id="editDialogInput" class="edit-dialog-input">
+                <div id="editDialogError" class="edit-dialog-error"></div>
+            </div>
+            <div class="edit-dialog-footer">
+                <button id="cancelEdit" class="dialog-button">取消</button>
+                <button id="confirmEdit" class="dialog-button primary">确定</button>
             </div>
         </div>
+    </div>
 
-        <div id="editDialog" class="edit-dialog">
-            <div class="edit-dialog-content">
-                <div class="edit-dialog-header">
-                    <h3 id="editDialogTitle"></h3>
-                </div>
-                <div class="edit-dialog-body">
-                    <input type="text" id="editDialogInput" class="edit-dialog-input">
-                    <div id="editDialogError" class="edit-dialog-error"></div>
-                </div>
-                <div class="edit-dialog-footer">
-                    <button id="cancelEdit" class="dialog-button">取消</button>
-                    <button id="confirmEdit" class="dialog-button primary">确定</button>
-                </div>
+    <div id="confirmDialog" class="edit-dialog confirm-dialog">
+        <div class="edit-dialog-content">
+            <div class="edit-dialog-header">
+                <h3 id="confirmDialogTitle"></h3>
+            </div>
+            <div class="edit-dialog-body">
+                <p id="confirmDialogMessage" class="confirm-message"></p>
+            </div>
+            <div class="edit-dialog-footer">
+                <button id="cancelConfirm" class="dialog-button">取消</button>
+                <button id="confirmConfirm" class="dialog-button primary">确定</button>
             </div>
         </div>
+    </div>
 
-        <div id="confirmDialog" class="edit-dialog confirm-dialog">
-            <div class="edit-dialog-content">
-                <div class="edit-dialog-header">
-                    <h3 id="confirmDialogTitle"></h3>
-                </div>
-                <div class="edit-dialog-body">
-                    <p id="confirmDialogMessage" class="confirm-message"></p>
-                </div>
-                <div class="edit-dialog-footer">
-                    <button id="cancelConfirm" class="dialog-button">取消</button>
-                    <button id="confirmConfirm" class="dialog-button primary">确定</button>
-                </div>
+    <div id="propertiesDialog" class="edit-dialog">
+        <div class="edit-dialog-content">
+            <div class="edit-dialog-header">
+                <h3 id="propertiesDialogTitle">属性</h3>
+            </div>
+            <div id="propertiesDialogBody" class="properties-dialog-body">
+            </div>
+            <div class="edit-dialog-footer">
+                <button id="closeProperties" class="dialog-button primary">关闭</button>
             </div>
         </div>
+    </div>
 
-        <div id="propertiesDialog" class="edit-dialog">
-            <div class="edit-dialog-content">
-                <div class="edit-dialog-header">
-                    <h3 id="propertiesDialogTitle">属性</h3>
-                </div>
-                <div id="propertiesDialogBody" class="properties-dialog-body">
-                </div>
-                <div class="edit-dialog-footer">
-                    <button id="closeProperties" class="dialog-button primary">关闭</button>
+    <div id="settings-panel" class="settings-panel">
+        <label class="module-header">设置</label>
+        <div class="settings-content">
+            <div class="setting-item">
+                <span class="setting-label">主题模式</span>
+                <div class="theme-options">
+                    <button class="theme-option" data-theme-value="dark">深色</button>
+                    <button class="theme-option" data-theme-value="light">浅色</button>
+                    <button class="theme-option" data-theme-value="system">系统</button>
                 </div>
             </div>
-        </div>
-
-        <div id="settings-panel" class="settings-panel">
-            <label class="module-header">设置</label>
-            <div class="settings-content">
-                <div class="setting-item">
-                    <span class="setting-label">主题模式</span>
-                    <div class="theme-options">
-                        <button class="theme-option" data-theme-value="dark">深色</button>
-                        <button class="theme-option" data-theme-value="light">浅色</button>
-                        <button class="theme-option" data-theme-value="system">系统</button>
-                    </div>
-                </div>
-                <div class="setting-item">
-                    <span class="setting-label">悬停打开文件夹</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="hover-toggle-switch">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item" id="hover-delay-setting-item">
-                    <span class="setting-label">悬停延迟 (ms)</span>
-                    <input type="number" min="200" max="2000" step="50" class="delay-input" id="hover-delay-input">
-                </div>
+            <div class="setting-item">
+                <span class="setting-label">悬停打开文件夹</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="hover-toggle-switch">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item" id="hover-delay-setting-item">
+                <span class="setting-label">悬停延迟 (ms)</span>
+                <input type="number" min="200" max="2000" step="50" class="delay-input" id="hover-delay-input">
             </div>
         </div>
+    </div>
 
-        <div id="pageOverlay" class="page-overlay"></div>
-        <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
-        <button id="history-btn" class="settings-btn" title="历史记录">📖</button>
+    <div id="pageOverlay" class="page-overlay"></div>
+    <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
+    <button id="history-btn" class="settings-btn" title="历史记录">📖</button>
 
-        <div class="resizing-overlay" style="display: none;"></div>
-        <div class="resize-indicator"></div>
+    <div class="resizing-overlay" style="display: none;"></div>
+    <div class="resize-indicator"></div>
 
-        <script src="newtab.js"></script>
+    <script src="newtab.js"></script>
 </body>
 
 </html>
