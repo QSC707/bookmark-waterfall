@@ -819,7 +819,7 @@ function showContextMenu(e, bookmarkElement, column) {
     } else if (!rightClickedId) {
         clearSelection();
     }
-    
+
     const selectionSize = selectedItems.size;
     const hasBookmarkInSelection = Array.from(selectedItems).some(id => {
         const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
@@ -832,7 +832,7 @@ function showContextMenu(e, bookmarkElement, column) {
         menuHtml += `<li id="openIncognito"><img src="/img/open_new.svg" class="menu-icon">在隐身模式中打开</li>`;
         menuHtml += `<hr>`;
         menuHtml += `<li id="removeTopSite"><img src="/img/delete.svg" class="menu-icon">移除</li>`;
-    } 
+    }
     else if (selectionSize > 0) {
         if (selectionSize > 1) {
             if (hasBookmarkInSelection) {
@@ -870,7 +870,7 @@ function showContextMenu(e, bookmarkElement, column) {
         menuHtml += `<li id="delete"><img src="/img/delete.svg" class="menu-icon">删除${selectionSize > 1 ? ` (${selectionSize})` : ''}</li>`;
     }
 
-    if (column && !isModuleItem && !isTopSiteItem) { 
+    if (column && !isModuleItem && !isTopSiteItem) {
         if (menuHtml !== '') menuHtml += `<hr>`;
         menuHtml += `<li id="newFolder"><img src="/img/folder.svg" class="menu-icon">新建文件夹</li><hr>`;
         menuHtml += `<li id="${CONSTANTS.SORT_TYPES.ALPHA_ASC}"><img src="/img/sort_asc.svg" class="menu-icon">排序：由 A 到 Z</li>`;
@@ -891,12 +891,12 @@ function showContextMenu(e, bookmarkElement, column) {
     if (isTopSiteItem) {
         const H_OFFSET = 5;  // 水平偏移
         const V_OFFSET = 10; // 垂直偏移 (让菜单向下移动10像素)
-        
+
         // ▼▼▼ 核心修改：在这里应用垂直偏移 ▼▼▼
-        top = e.clientY + V_OFFSET; 
-        
-        left = e.clientX - menuWidth - H_OFFSET; 
-        
+        top = e.clientY + V_OFFSET;
+
+        left = e.clientX - menuWidth - H_OFFSET;
+
         if (left < H_OFFSET) {
             left = e.clientX + H_OFFSET;
         }
@@ -909,7 +909,7 @@ function showContextMenu(e, bookmarkElement, column) {
     if (top + menuHeight > winHeight) {
         top = winHeight - menuHeight - 5;
     }
-    
+
     contextMenu.style.left = `${left}px`;
     contextMenu.style.top = `${top}px`;
 
@@ -1254,7 +1254,7 @@ function showMoveDialog(bookmarkElement, idsToMove) {
             const sub = item.querySelector('.sub-folder'),
                 icon = item.querySelector('.expand-icon');
             if (sub && sub.hasChildNodes()) {
-                icon.textContent = '▶';
+                icon.textContent = '⯈'; // 更轻、更现代
                 icon.onclick = (e) => {
                     e.stopPropagation();
                     sub.classList.toggle('is-hidden');
