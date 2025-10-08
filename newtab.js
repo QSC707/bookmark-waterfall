@@ -574,46 +574,45 @@ function adjustColumnWidths(container) {
             return;
         }
 
+        // --- ▼▼▼ 恢复到真正有效的核心修复代码 ▼▼▼ ---
+        const firstColumn = columns[0];
+        let firstColumnMarginLeft = 0;
+        
+        // 检查是否存在第一列，并且它就是我们应用了特殊样式的列
+        if (firstColumn && firstColumn.dataset.level === "1") {
+            // 读取浏览器实时计算出的 margin-left 值，这是唯一精确的办法
+            const style = window.getComputedStyle(firstColumn);
+            firstColumnMarginLeft = parseFloat(style.marginLeft);
+        }
+        // --- ▲▲▲ 修复代码结束 ▲▲▲ ---
+
         const gap = parseInt(window.getComputedStyle(container).gap) || 20;
-        const containerWidth = container.clientWidth;
+        
+        // 从容器总宽度中，减去第一列的动态左边距，得到真正可用的宽度
+        const availableWidth = container.clientWidth - firstColumnMarginLeft;
         const DEFAULT_COL_WIDTH = 280;
         const MIN_COL_WIDTH = 180;
 
-        // 1. 【核心修正】不再首先重置所有列的宽度。
-        //    直接基于当前 DOM 的实时状态进行计算，避免不必要的“跳变”。
-
-        // 2. 计算当前总宽度和溢出量
         const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
-        let overflow = totalWidth - containerWidth;
+        let overflow = totalWidth - availableWidth;
 
-        // 3. 【压缩逻辑】当空间不足时，从右至左逐级压缩
+        // 后续的压缩和放大逻辑会基于这个正确的宽度进行计算
         if (overflow > 0) {
-            // 我们从倒数第二列（新打开列的直接父级）开始，向前迭代
             for (let i = columns.length - 2; i >= 0; i--) {
                 const col = columns[i];
-
-                // 跳过用户手动调整过的列
                 if (col.dataset.userResized) continue;
-
                 const currentWidth = col.offsetWidth;
-                // 计算当前列可以被压缩的空间
                 const shrinkableWidth = currentWidth - MIN_COL_WIDTH;
-
                 if (shrinkableWidth > 0) {
-                    // 计算实际需要从当前列压缩的宽度
                     const shrinkAmount = Math.min(overflow, shrinkableWidth);
-
                     col.style.width = `${currentWidth - shrinkAmount}px`;
-                    overflow -= shrinkAmount; // 更新剩余的溢出量
+                    overflow -= shrinkAmount;
                 }
-
-                // 如果溢出已经处理完毕，则提前结束循环
                 if (overflow <= 0) break;
             }
         }
-        // 4. 【放大逻辑】当空间富余时，按比例恢复列宽
         else {
-            const availableSpace = containerWidth - totalWidth;
+            const spaceToEnlarge = availableWidth - totalWidth;
             const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH && !col.dataset.userResized);
 
             if (columnsToEnlarge.length > 0) {
@@ -622,16 +621,14 @@ function adjustColumnWidths(container) {
                     for (const col of columnsToEnlarge) {
                         const potential = DEFAULT_COL_WIDTH - col.offsetWidth;
                         const proportion = potential / totalEnlargePotential;
-                        const enlargeAmount = availableSpace * proportion;
+                        const enlargeAmount = spaceToEnlarge * proportion;
                         const newWidth = col.offsetWidth + enlargeAmount;
-                        // 核心：确保放大的列不会超过其默认宽度
                         col.style.width = `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px`;
                     }
                 }
             }
         }
-
-        // 5. 自动滚动到最新列的逻辑保持不变
+        
         container.scrollTo({
             left: container.scrollWidth,
             behavior: 'smooth'
