@@ -463,10 +463,10 @@ body {
 .settings-btn {
     position: fixed;
     z-index: 1002;
-    background-color: rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    /* --- 核心修改：默认状态下完全透明 --- */
+    background-color: transparent;
+    border: none;
+    /* --- 其他样式保持不变 --- */
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -489,7 +489,7 @@ body {
 
 .sidebar-toggle-btn:hover {
     opacity: 1;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: var(--hover-bg); /* <-- 使用变量，确保主题统一 */
 }
 
 .settings-btn {
@@ -508,7 +508,7 @@ body {
 .settings-btn:hover {
     opacity: 1;
     transform: rotate(45deg);
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: var(--hover-bg); /* <-- 使用变量，确保主题统一 */
 }
 
 .context-menu {
@@ -1279,7 +1279,7 @@ body.is-resizing .resize-indicator {
 }
 
 #history-btn:hover {
-    transform: rotate(0deg); /* 历史记录按钮不需要旋转动画 */
+    transform: none; /* 确保不应用任何变形效果 */
 }
 
 
@@ -1355,4 +1355,13 @@ body.is-resizing .resize-indicator {
     margin: 0 6px;
     color: var(--module-header-color);
     font-size: 14px;
+}
+
+/* --- [新增] 内联SVG图标统一样式 --- */
+.sidebar-toggle-btn svg,
+.settings-btn svg {
+    width: 18px;  /* 调整为您认为合适的尺寸 */
+    height: 18px; /* 调整为您认为合适的尺寸 */
+    stroke: currentColor; /* 核心：让图标颜色继承按钮的文字颜色 */
+    pointer-events: none; /* 防止SVG本身拦截鼠标点击事件 */
 }
