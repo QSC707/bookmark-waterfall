@@ -1634,7 +1634,7 @@ async function displayRecentBookmarks() {
 
             const urlSpan = document.createElement('span');
             urlSpan.className = 'bookmark-item-url';
-            urlSpan.textContent = item.url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+           urlSpan.textContent = item.url; // <--- 修改的就是这一行！
 
             pathUrlWrapper.append(urlSpan, pathSpan);
 
