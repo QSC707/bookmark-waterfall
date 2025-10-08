@@ -417,7 +417,7 @@ body {
 
 #sidebar-toggle-container {
     position: absolute;
-    top: 25px;
+    top: 72.2px; /* <-- 修改这里 */
     right: 0;
     height: 44px;
     display: flex;
@@ -450,6 +450,7 @@ body {
     font-size: 16px;
     writing-mode: horizontal-tb;
     text-orientation: mixed;
+    background-color: var(--highlighted-bg); /* <-- 添加这一行 */
 }
 
 .sidebar-toggle-btn:hover {
@@ -1167,7 +1168,7 @@ body.is-resizing .resize-indicator {
 }
 
 #history-btn {
-    top: 31px;
+    top: 78px; /* <-- 修改这里 */
     right: 56px;
     width: 32px;
     height: 32px;
@@ -1176,6 +1177,7 @@ body.is-resizing .resize-indicator {
     bottom: auto;
     left: auto;
     transform-origin: center;
+     background-color: var(--highlighted-bg); /* <-- 添加这一行 */
 }
 
 #history-btn:hover {
