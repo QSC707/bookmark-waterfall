@@ -276,7 +276,7 @@ function updateBreadcrumbs() {
     for (let j = i; j < newPathIds.length; j++) {
         // 只有在容器不为空或片段中已有内容时才添加分隔符
         if (container.hasChildNodes() || fragment.hasChildNodes()) {
-             fragment.appendChild(createBreadcrumbSeparator());
+            fragment.appendChild(createBreadcrumbSeparator());
         }
         const itemData = highlightedItems[j - 1]; // j=0 是书签栏，没有 itemData
         const text = (j === 0) ? '书签栏' : itemData.dataset.title;
@@ -428,16 +428,41 @@ function createBookmarkItem(bookmark, index) {
     item.dataset.title = bookmark.title || 'No Title';
     item.draggable = true;
 
-    const icon = document.createElement('img');
-    icon.className = 'bookmark-icon';
     const isFolder = !bookmark.url;
+    let icon;
+
     if (isFolder) {
-        icon.src = '/img/folder_icon.svg';
+        // 为文件夹创建内联的SVG图标
+        icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        icon.setAttribute('class', 'bookmark-icon');
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttributeNS(null, 'href', '#icon-folder');
+        icon.appendChild(use);
     } else {
-        icon.src = '';
+        // 为书签创建<img>标签，用于懒加载网站图标
+        icon = document.createElement('img');
+        icon.className = 'bookmark-icon';
+        // 【核心修复】使用一个1x1的透明像素作为初始src，防止onerror被错误触发
+        icon.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
         icon.dataset.src = getIconUrl(bookmark.url);
+
+        // 当网站图标加载失败时的备用处理
+        icon.onerror = (e) => {
+            // 防止无限循环
+            if (e.target.dataset.fallback) return;
+
+            const fallbackIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            fallbackIcon.setAttribute('class', 'bookmark-icon');
+            fallbackIcon.dataset.fallback = 'true'; // 标记为备用图标
+            const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            use.setAttributeNS(null, 'href', '#icon-folder');
+            fallbackIcon.appendChild(use);
+
+            if (icon.parentNode) {
+                icon.parentNode.replaceChild(fallbackIcon, icon);
+            }
+        };
     }
-    icon.onerror = () => icon.src = '/img/folder_icon.svg';
 
     const title = document.createElement('span');
     title.textContent = sanitizeText(bookmark.title || 'No Title');
@@ -454,7 +479,7 @@ function createBookmarkItem(bookmark, index) {
         item.classList.add('is-github-link');
     }
 
-    // --- [清理后] 的事件监听 ---
+    // --- 事件监听器部分保持不变 ---
     item.addEventListener('mouseenter', () => currentlyHoveredItem = item);
     item.addEventListener('mouseleave', () => currentlyHoveredItem = null);
 
@@ -490,7 +515,6 @@ function createBookmarkItem(bookmark, index) {
         }
     });
 
-    // --- 应用最终版的悬停逻辑 ---
     if (isFolder) {
         item.addEventListener('mouseenter', () => {
             startHoverIntent(item);
@@ -500,7 +524,6 @@ function createBookmarkItem(bookmark, index) {
         });
     }
 
-    // --- 拖放事件监听器 ---
     item.addEventListener('dragstart', handleDragStart);
     item.addEventListener('dragend', handleDragEnd);
     item.addEventListener('dragover', handleDragOver);
@@ -944,7 +967,7 @@ function showContextMenu(e, bookmarkElement, column) {
         const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
         return item && !item.classList.contains('is-folder');
     });
-    
+
     if (isTopSiteItem) {
         menuItems.push(createMenuItem('open', 'icon-open', '新标签打开'));
         // [修改] 调用新的 icon-open-new
@@ -1328,9 +1351,13 @@ function showMoveDialog(bookmarkElement, idsToMove) {
             const expandIcon = document.createElement('span');
             expandIcon.className = 'expand-icon';
 
-            const folderIcon = document.createElement('img');
-            folderIcon.src = '/img/folder_icon.svg';
-            folderIcon.className = 'folder-icon';
+            // ▼ 请将这段【新代码】粘贴到刚才删除的位置
+            const folderIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            folderIcon.setAttribute('class', 'folder-icon');
+            const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            use.setAttributeNS(null, 'href', '#icon-folder');
+            folderIcon.appendChild(use);
+            // ▲ 粘贴完成
 
             const title = document.createElement('span');
             title.textContent = node.title || (node.id === CONSTANTS.BOOKMARKS_BAR_ID ? '书签栏' : '其他书签');
@@ -1796,7 +1823,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateBreadcrumbs();
 
     // 为面包屑容器添加点击事件（事件委托）
-  // --- [V3 - 最终修复版] 为面包屑容器添加点击事件 ---
+    // --- [V3 - 最终修复版] 为面包屑容器添加点击事件 ---
     breadcrumbContainer.addEventListener('click', (e) => {
         const crumb = e.target.closest('.breadcrumb-item');
         if (!crumb) return;
