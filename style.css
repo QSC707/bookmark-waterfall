@@ -4,7 +4,8 @@
 
 /* --- 1. 变量与色彩体系 --- */
 :root {
-    color-scheme: dark; /* 新增：告知浏览器此为深色方案 */
+    color-scheme: dark;
+    /* 新增：告知浏览器此为深色方案 */
     --bg-color: #2a2734;
     --text-color: #dcdcdc;
     --header-bg: rgba(42, 39, 52, 0.7);
@@ -29,7 +30,8 @@
 }
 
 [data-theme="light"] {
-    color-scheme: light; /* 新增：告知浏览器此为浅色方案 */
+    color-scheme: light;
+    /* 新增：告知浏览器此为浅色方案 */
     --bg-color: #f7f7f7;
     --text-color: #333;
     --header-bg: rgba(255, 255, 255, 0.7);
@@ -61,7 +63,8 @@ body {
     background-color: var(--bg-color);
     display: grid;
     grid-template-columns: 1fr 70px;
-    grid-template-rows: auto auto 1fr;
+    /* ▼▼▼ 恢复为两行布局 ▼▼▼ */
+    grid-template-rows: auto 1fr;
 }
 
 .page-header {
@@ -73,13 +76,14 @@ body {
 
 .main-container {
     display: flex;
+    flex-direction: column; /* 保持垂直排列 */
     flex: 1;
-    overflow: hidden;
+    overflow-y: hidden; /* 隐藏垂直滚动条 */
+    overflow-x: auto;   /* ▼▼▼ 修改1: 将横向滚动条移到这里 ▼▼▼ */
     padding-right: 0;
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 2;
 }
-
 /* --- 3. 顶部结构美化 --- */
 .header-image {
     width: 100%;
@@ -219,16 +223,17 @@ body {
     transition: opacity 0.15s 0.1s ease-in;
 }
 
-/* --- 5. 主视图区域卡片式美化 --- */
 .bookmark-container {
     display: flex;
     flex: 1;
-    height: 100%;
-    overflow-x: auto;
-    padding: 20px 0 20px 0;
+    /* ▼▼▼ 修改2: 移除这里的横向滚动条 ▼▼▼ */
+    /* overflow-x: auto; */ 
+    padding: 20px 0 0 0; /* 修改内边距，底部留空给面包屑 */
     gap: 20px;
     scroll-behavior: smooth;
     box-sizing: border-box;
+    /* 新增：确保列不会被压缩 */
+    min-height: 0;
 }
 
 .bookmark-column {
@@ -417,7 +422,8 @@ body {
 
 #sidebar-toggle-container {
     position: absolute;
-    top: 72.2px; /* <-- 修改这里 */
+    top: 72.2px;
+    /* <-- 修改这里 */
     right: 0;
     height: 44px;
     display: flex;
@@ -450,7 +456,8 @@ body {
     font-size: 16px;
     writing-mode: horizontal-tb;
     text-orientation: mixed;
-    background-color: var(--highlighted-bg); /* <-- 添加这一行 */
+    background-color: var(--highlighted-bg);
+    /* <-- 添加这一行 */
 }
 
 .sidebar-toggle-btn:hover {
@@ -659,7 +666,8 @@ input:checked+.slider:before {
     width: 520px;
 }
 
-.move-dialog-content { /* Keep this for specific layout */
+.move-dialog-content {
+    /* Keep this for specific layout */
     max-height: 80vh;
     display: flex;
     flex-direction: column;
@@ -783,7 +791,7 @@ input:checked+.slider:before {
     font-size: 14px;
     border-radius: 6px;
     margin: 0 4px;
-    align-items: center; 
+    align-items: center;
 }
 
 /* 新增的SVG图标样式 */
@@ -793,11 +801,11 @@ input:checked+.slider:before {
     opacity: 0.9;
     filter: var(--context-menu-icon-filter);
     /* 核心样式，让SVG继承文字颜色 */
-    stroke: currentColor; 
+    stroke: currentColor;
     /* 对于线条图标，通常不需要填充 */
-    fill: none; 
+    fill: none;
     /* 定义线条粗细和样式，确保美观 */
-    stroke-width: 2.5; 
+    stroke-width: 2.5;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
@@ -858,7 +866,8 @@ input:checked+.slider:before {
 }
 
 .hide-scrollbar {
-    scrollbar-width: none; /* For Firefox */
+    scrollbar-width: none;
+    /* For Firefox */
 }
 
 /* --- 11. 统一的入场动画 --- */
@@ -944,7 +953,8 @@ input:checked+.slider:before {
     background-color: var(--input-bg);
     color: var(--module-header-color);
     border: 1px solid var(--input-border);
-    border-radius: 8px; /* <-- 添加这一行，可以根据喜好调整数值 */
+    border-radius: 8px;
+    /* <-- 添加这一行，可以根据喜好调整数值 */
 }
 
 /* ▼▼▼ 修复：调整日期选择器图标颜色以适应主题 ▼▼▼ */
@@ -1168,7 +1178,8 @@ body.is-resizing .resize-indicator {
 }
 
 #history-btn {
-    top: 78px; /* <-- 修改这里 */
+    top: 78px;
+    /* <-- 修改这里 */
     right: 56px;
     width: 32px;
     height: 32px;
@@ -1177,7 +1188,8 @@ body.is-resizing .resize-indicator {
     bottom: auto;
     left: auto;
     transform-origin: center;
-     background-color: var(--highlighted-bg); /* <-- 添加这一行 */
+    background-color: var(--highlighted-bg);
+    /* <-- 添加这一行 */
 }
 
 #history-btn:hover {
@@ -1198,19 +1210,20 @@ body.is-resizing .resize-indicator {
 .breadcrumb-container {
     display: flex;
     align-items: center;
-    padding: 4px 20px;
+    /* ▼▼▼ 修改3: 靠左对齐并调整内边距 ▼▼▼ */
+    padding: 4px 20px 8px 20px; 
     min-height: 20px;
     overflow-x: auto;
     white-space: nowrap;
-    grid-row: 2;
-    grid-column: 1 / 3;
-    justify-content: center;
+    justify-content: flex-start; /* 从 flex-end 改为 flex-start (靠左) */
+    flex-shrink: 0;
 }
 
 .breadcrumb-item {
-    font-size: 13px;
+    /* ▼▼▼ 修改3: 缩小字体和内边距 ▼▼▼ */
+    font-size: 12px;
+    padding: 4px 5px;
     cursor: pointer;
-    padding: 6px 6px;
     border-radius: 6px;
     transition: background-color 0.2s;
 }
@@ -1220,9 +1233,10 @@ body.is-resizing .resize-indicator {
 }
 
 .breadcrumb-separator {
-    margin: 0 6px;
+    /* ▼▼▼ 修改4: 缩小字体和外边距 ▼▼▼ */
+    margin: 0 5px;
+    font-size: 13px;
     color: var(--module-header-color);
-    font-size: 14px;
 }
 
 /* --- 16. 内联SVG图标统一样式 --- */
@@ -1263,8 +1277,11 @@ body.is-resizing .resize-indicator {
 
 /* --- 补充修复：确保所有书签列的垂直滚动条都隐藏 --- */
 .column-content-wrapper {
-    scrollbar-width: none; /* For Firefox */
+    scrollbar-width: none;
+    /* For Firefox */
 }
+
 .column-content-wrapper::-webkit-scrollbar {
-    display: none; /* For Webkit browsers */
+    display: none;
+    /* For Webkit browsers */
 }
