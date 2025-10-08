@@ -46,6 +46,11 @@
     --module-header-color: #555;
     --module-header-border-color: #eee;
     --context-menu-icon-filter: invert(0.8);
+
+    .menu-icon {
+        filter: invert(15%);
+    }
+
     --input-bg: rgba(0, 0, 0, 0.05);
     --input-border: rgba(0, 0, 0, 0.1);
     --input-text: #111;
@@ -78,12 +83,14 @@ body {
 .main-container {
     display: flex;
     flex: 1;
-    overflow: hidden; /* <-- 从 overflow: auto 恢复 */
+    overflow: hidden;
+    /* <-- 从 overflow: auto 恢复 */
     padding-right: 0;
     grid-column: 1;
     grid-row: 2;
     /* ▼▼▼ 移除 flex-direction: column ▼▼▼ */
 }
+
 /* --- 3. 顶部结构美化 --- */
 .header-image {
     width: 100%;
@@ -125,9 +132,13 @@ body {
     padding-top: 20px;
     padding-bottom: 20px;
     background-color: transparent;
+    /* 恢复透明 */
     border: none;
+    /* 移除边框 */
     box-shadow: none;
+    /* 移除阴影 */
     opacity: 0.2;
+    /* 恢复初始透明度，保留悬停效果 */
     transition: opacity 0.2s ease-out, width 0.2s ease-out;
     z-index: 1002;
     overflow: hidden;
@@ -164,8 +175,12 @@ body {
     height: 36px;
     width: 36px;
     border-radius: 50%;
+    /* --- ▼▼▼ 在这里应用背景效果 ▼▼▼ --- */
+    background-color: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
     border: 1px solid var(--header-border);
-    background-color: var(--highlighted-bg);
+    /* --- ▲▲▲ 修改结束 ▲▲▲ --- */
     box-sizing: border-box;
     flex-shrink: 0;
     position: relative;
@@ -182,7 +197,8 @@ body {
 
 .top-site-item:hover {
     background-color: var(--hover-bg);
-    border-left: 2px solid var(--dialog-primary-bg);
+    box-shadow: inset 0 0 0 1px var(--dialog-primary-bg);
+    /* <-- 使用内部阴影模拟描边 */
 }
 
 .top-site-icon {
@@ -196,7 +212,7 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     transition: all 0.2s ease-out, filter 0.2s ease-out;
-    filter: grayscale(100%);
+    filter: grayscale(70%);
 }
 
 .top-sites-bar:hover .top-site-icon {
@@ -227,8 +243,10 @@ body {
 .bookmark-container {
     display: flex;
     flex: 1;
-    height: 100%; /* <-- 恢复 height: 100% */
-    overflow-x: auto; /* <-- 恢复 overflow-x: auto */
+    height: 100%;
+    /* <-- 恢复 height: 100% */
+    overflow-x: auto;
+    /* <-- 恢复 overflow-x: auto */
     padding: 20px 0 20px 0;
     gap: 20px;
     scroll-behavior: smooth;
@@ -1209,11 +1227,12 @@ body.is-resizing .resize-indicator {
 .breadcrumb-container {
     display: flex;
     align-items: center;
-    padding: 4px 20px 8px 20px; 
+    padding: 4px 20px 8px 20px;
     min-height: 20px;
     overflow-x: auto;
     white-space: nowrap;
-    justify-content: center; /* <-- 修改为 center */
+    justify-content: center;
+    /* <-- 修改为 center */
     flex-shrink: 0;
 }
 
