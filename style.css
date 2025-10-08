@@ -1,9 +1,10 @@
 /* ================================================================== */
-/* --- 最终修复与美化版样式 (Final Fix & Polish) --- */
+/* --- 最终修复与美化版样式 (Final Corrected Version 3.0) --- */
 /* ================================================================== */
 
 /* --- 1. 变量与色彩体系 --- */
 :root {
+    color-scheme: dark; /* 新增：告知浏览器此为深色方案 */
     --bg-color: #2a2734;
     --text-color: #dcdcdc;
     --header-bg: rgba(42, 39, 52, 0.7);
@@ -28,6 +29,7 @@
 }
 
 [data-theme="light"] {
+    color-scheme: light; /* 新增：告知浏览器此为浅色方案 */
     --bg-color: #f7f7f7;
     --text-color: #333;
     --header-bg: rgba(255, 255, 255, 0.7);
@@ -49,7 +51,6 @@
 }
 
 /* --- 2. 核心布局与背景 --- */
-/* <<< *** MODIFIED START *** >>> */
 body {
     margin: 0;
     padding: 0;
@@ -60,16 +61,13 @@ body {
     background-color: var(--bg-color);
     display: grid;
     grid-template-columns: 1fr 70px;
-    /* ▼▼▼ 核心修改：从两行(auto 1fr)变为三行(auto auto 1fr) ▼▼▼ */
     grid-template-rows: auto auto 1fr;
-    /* 页头 | 面包屑 | 主内容 */
 }
 
 .page-header {
     position: relative;
     z-index: 100;
     flex-shrink: 0;
-    /* 让Header横跨所有列 */
     grid-column: 1 / 3;
 }
 
@@ -79,12 +77,8 @@ body {
     overflow: hidden;
     padding-right: 0;
     grid-column: 1;
-    /* ▼▼▼ 核心修改：将其位置从第2行移动到第3行 ▼▼▼ */
     grid-row: 3;
 }
-
-/* <<< *** MODIFIED END *** >>> */
-
 
 /* --- 3. 顶部结构美化 --- */
 .header-image {
@@ -115,11 +109,7 @@ body {
     -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
-/* ================================================================== */
-/* --- 4. 右侧“经常访问”竖条 (JS延迟展开最终版) --- */
-/* ================================================================== */
-
-/* 侧边栏主容器 (保持fixed浮动，以实现垂直居中和展开效果) */
+/* --- 4. 右侧“经常访问”竖条 --- */
 .top-sites-bar {
     position: fixed;
     top: 50%;
@@ -141,15 +131,12 @@ body {
 
 .top-sites-bar:hover {
     opacity: 1;
-    /* 鼠标悬停时，完全不透明 */
 }
 
 .top-sites-bar.expanded {
-    /* <<< 修改 */
     width: 220px;
 }
 
-/* 内容区域的容器 */
 .top-sites-content {
     display: flex;
     flex-direction: column;
@@ -162,12 +149,10 @@ body {
 }
 
 .top-sites-bar.expanded .top-sites-content {
-    /* <<< 修改 */
     align-items: flex-start;
     padding: 0 10px;
 }
 
-/* 单个书签项 */
 .top-site-item {
     display: flex;
     align-items: center;
@@ -177,7 +162,6 @@ body {
     border-radius: 50%;
     border: 1px solid var(--header-border);
     background-color: var(--highlighted-bg);
-    /* <<< 修改这里 */
     box-sizing: border-box;
     flex-shrink: 0;
     position: relative;
@@ -188,21 +172,15 @@ body {
 .top-sites-bar.expanded .top-site-item {
     width: 100%;
     padding: 8px 10px;
-    /* 调整垂直内边距以保持整体高度一致 */
     border-radius: 18px;
-    /* 调整圆角为新高度的一半，保持完美胶囊形 */
     gap: 10px;
-    /* 稍微减小图标与文字的间距 */
 }
 
 .top-site-item:hover {
     background-color: var(--hover-bg);
-    /* 保留轻微的背景色变化 */
     border-left: 2px solid var(--dialog-primary-bg);
-    /* 核心修改: 仅将左侧边框加粗并设为主题色 */
 }
 
-/* 书签图标 */
 .top-site-icon {
     width: 20px;
     height: 20px;
@@ -215,7 +193,6 @@ body {
     transform: translate(-50%, -50%);
     transition: all 0.2s ease-out, filter 0.2s ease-out;
     filter: grayscale(100%);
-    /* 默认状态为单色 */
 }
 
 .top-sites-bar:hover .top-site-icon {
@@ -223,12 +200,10 @@ body {
 }
 
 .top-sites-bar.expanded .top-site-icon {
-    /* <<< 修改 */
     position: static;
     transform: none;
 }
 
-/* 书签标题 */
 .top-site-title {
     font-size: 13px;
     color: var(--link-color);
@@ -240,37 +215,28 @@ body {
 }
 
 .top-sites-bar.expanded .top-site-title {
-    /* <<< 修改 */
     opacity: 1;
     transition: opacity 0.15s 0.1s ease-in;
 }
 
 /* --- 5. 主视图区域卡片式美化 --- */
-/* 找到这个样式 */
 .bookmark-container {
     display: flex;
     flex: 1;
     height: 100%;
     overflow-x: auto;
-    /* ▼▼▼ 修改这一行 ▼▼▼ */
     padding: 20px 0 20px 0;
-    /* 在顶部和底部增加20px的内边距 */
     gap: 20px;
     scroll-behavior: smooth;
-    /* ▼▼▼ 新增这一行 ▼▼▼ */
     box-sizing: border-box;
-    /* 确保内边距不会增加容器的总高度 */
 }
 
-/* 找到这个样式 */
 .bookmark-column {
     background-color: var(--card-bg);
     backdrop-filter: blur(10px) saturate(150%);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
     border: 1px solid var(--header-border);
-    /* ▼▼▼ 修改这一行 ▼▼▼ */
     border-radius: 12px;
-    /* 原来是 12px 12px 0 0 */
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
     padding: 8px;
     flex-shrink: 0;
@@ -278,10 +244,7 @@ body {
     height: 100%;
     box-sizing: border-box;
     transition: width 0.2s ease;
-    /* 平滑缩放 */
 }
-
-
 
 .column-content-wrapper {
     height: 100%;
@@ -308,7 +271,6 @@ body {
     border-radius: 6px;
     transition: background-color 0.2s;
     position: relative;
-    /* 为伪元素定位提供参考 */
 }
 
 .bookmark-item:hover {
@@ -361,8 +323,7 @@ body {
     height: 18px;
 }
 
-
-/* --- 6. 拖拽与多选样式 (最终修复版) --- */
+/* --- 6. 拖拽与多选样式 --- */
 .bookmark-item::before,
 .bookmark-item::after {
     content: '';
@@ -408,29 +369,20 @@ body {
     border-right: 2px solid var(--dialog-primary-bg);
 }
 
-/* 将其修改为：*/
 .bookmark-item.selected,
 .vertical-modules a.selected,
 .top-site-item.selected {
-    /* <--- 新增这一行 */
     background-color: transparent !important;
     outline: 2px dashed var(--dialog-primary-bg);
     outline-offset: -2px;
 }
 
-/* 确保虚线框状态下文字颜色不变 */
 .bookmark-item.selected .bookmark-title {
     color: var(--text-color);
 }
 
-
-/* --- 7. 所有弹出层统一琉璃效果 --- */
-.context-menu,
-.settings-panel,
-.move-dialog-content,
-.edit-dialog-content,
-.vertical-modules,
-.toast {
+/* --- 7. UTILITY: 统一琉璃效果 --- */
+.glass-effect {
     background-color: var(--dialog-bg);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
@@ -439,29 +391,18 @@ body {
     border-radius: 12px;
 }
 
-
-/* --- 8. 右侧按钮和面板定位 (V2 - 居中浮动窗口) --- */
+/* --- 8. 右侧按钮和面板定位 --- */
 .vertical-modules {
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0.98);
     display: flex;
-    /* <<< 维持 Flexbox 布局 */
     flex-direction: column;
-
-    /* --- 核心修复 --- */
     width: clamp(500px, 50vw, 720px);
     height: 85vh;
-    /* <<< 恢复为固定的 height */
-    /* <<< 直接设定一个明确的高度 */
-    /* 移除了 max-height 和 height: auto */
-
     z-index: 1001;
     overflow: hidden;
-    /* 保持 overflow: hidden 以维持圆角效果 */
-
-    /* (动画和可见性样式保持不变) */
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
@@ -489,10 +430,8 @@ body {
 .settings-btn {
     position: fixed;
     z-index: 1002;
-    /* --- 核心修改：默认状态下完全透明 --- */
     background-color: transparent;
     border: none;
-    /* --- 其他样式保持不变 --- */
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -516,7 +455,6 @@ body {
 .sidebar-toggle-btn:hover {
     opacity: 1;
     background-color: var(--hover-bg);
-    /* <-- 使用变量，确保主题统一 */
 }
 
 .settings-btn {
@@ -524,15 +462,11 @@ body {
     z-index: 10000;
     bottom: 20px;
     right: 20px;
-    /* 改为右侧定位 */
     color: var(--module-header-color);
     width: 36px;
-    /* 缩小尺寸 */
     height: 36px;
-    /* 缩小尺寸 */
     border-radius: 50%;
     font-size: 18px;
-    /* 缩小图标 */
     opacity: 0.6;
 }
 
@@ -540,13 +474,11 @@ body {
     opacity: 1;
     transform: rotate(45deg);
     background-color: var(--hover-bg);
-    /* <-- 使用变量，确保主题统一 */
 }
 
 .context-menu {
     position: fixed;
     z-index: 2001;
-    /* <<< 修改：确保它比对话框(2000)还高 */
     width: 200px;
     display: none;
     padding: 6px;
@@ -555,9 +487,7 @@ body {
 .settings-panel {
     position: fixed;
     bottom: 74px;
-    /* 保持在按钮上方 */
     right: 20px;
-    /* 改为右侧对齐 */
     z-index: 1001;
     width: 300px;
     opacity: 0;
@@ -566,13 +496,11 @@ body {
     transition: all 0.25s ease;
 }
 
-
 .settings-panel.visible {
     opacity: 1;
     transform: translateY(0);
     visibility: visible;
 }
-
 
 .move-dialog,
 .edit-dialog,
@@ -586,13 +514,6 @@ body {
     z-index: 2000;
     justify-content: center;
     align-items: center;
-    /* <<< 修改：从 flex-start 改为 center */
-}
-
-/* --- 对话框内容区 (找到这个选择器) --- */
-.move-dialog-content,
-.edit-dialog-content {
-    width: 520px;
 }
 
 .dialog-button {
@@ -718,40 +639,43 @@ input:checked+.slider:before {
     font-weight: bold;
 }
 
-.move-dialog-header,
-.edit-dialog-header {
+/* --- 9. UTILITY: 对话框通用样式 --- */
+.dialog-header {
     padding: 12px 16px;
     border-bottom: 1px solid var(--header-border);
 }
 
-.move-dialog-header h3,
-.edit-dialog-header h3 {
+.dialog-header h3 {
     font-size: 14px;
     font-weight: 500;
     color: var(--text-color);
     margin: 0;
 }
 
-.move-dialog-body,
-.edit-dialog-body {
+/* ▼▼▼ 修复：恢复对话框尺寸 ▼▼▼ */
+.move-dialog-content,
+.edit-dialog-content {
+    width: 520px;
+}
+
+.move-dialog-content { /* Keep this for specific layout */
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-body {
     padding: 16px;
     flex: 1;
     overflow-y: auto;
 }
 
-.move-dialog-footer,
-.edit-dialog-footer {
+.dialog-footer {
     padding: 12px 16px;
     border-top: 1px solid var(--header-border);
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-}
-
-.move-dialog-content {
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
 }
 
 .bookmark-tree {
@@ -824,23 +748,6 @@ input:checked+.slider:before {
     display: none;
 }
 
-.edit-dialog-input {
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-    background-color: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: 6px;
-    color: var(--input-text);
-    font-size: 14px;
-}
-
-.edit-dialog-input:focus {
-    border-color: var(--input-focus-border);
-    outline: none;
-    box-shadow: 0 0 0 2px var(--input-focus-border);
-}
-
 .edit-dialog-error {
     color: var(--error-text);
     font-size: 12px;
@@ -895,25 +802,16 @@ input:checked+.slider:before {
     font-size: 13px;
 }
 
-
-/* --- 修改后 (V9) --- */
 .module-header {
     padding: 14px 16px;
-    /* 增加垂直内边距 */
     font-size: 15px;
-    /* 稍微增大字体 */
     font-weight: 500;
-    /* 字体加重 */
     color: var(--text-color);
-    /* 使用主文本颜色，更清晰 */
     border-bottom: 1px solid var(--module-header-border-color);
     text-align: center;
-    /* <<< 核心：让文字居中 */
     flex-shrink: 0;
-    /* 防止在 Flex 布局中被压缩 */
 }
 
-/* --- Toast (保持不变) --- */
 .toast {
     visibility: hidden;
     min-width: 250px;
@@ -936,34 +834,16 @@ input:checked+.slider:before {
     transform: translateX(-50%) translateY(-10px);
 }
 
-
-/* ================================================================== */
-/* --- 10. 隐藏滚动条 --- */
-/* ================================================================== */
-
-/* 适用于所有可滚动的元素... */
-.column-content-wrapper::-webkit-scrollbar,
-/* <-- 已修改 */
-.module-content::-webkit-scrollbar,
-.move-dialog-body::-webkit-scrollbar {
+/* --- 10. UTILITY: 隐藏滚动条 --- */
+.hide-scrollbar::-webkit-scrollbar {
     display: none;
 }
 
-/* 为 Firefox 浏览器提供兼容 */
-.column-content-wrapper,
-/* <-- 已修改 */
-.module-content,
-.move-dialog-body {
-    scrollbar-width: none;
+.hide-scrollbar {
+    scrollbar-width: none; /* For Firefox */
 }
 
-/* ================================================================== */
-/* --- 11. 统一的入场动画 (Unified Entrance Animation) --- */
-/* ================================================================== */
-
-/* 这是您设计的最终动画效果的 Keyframes。
-  它将被应用于所有弹出的窗口和视图，以确保视觉风格的统一。
-*/
+/* --- 11. 统一的入场动画 --- */
 @keyframes balanced-column-appear {
     from {
         opacity: 0;
@@ -976,60 +856,40 @@ input:checked+.slider:before {
     }
 }
 
-/* 将您设计的动画应用到所有需要它的元素上：
-  - data-level="1" 的新书签列
-  - 右键菜单
-  - 所有对话框（移动、编辑、确认）
-  - 侧边栏模块（如“最近添加的书签”）
-*/
 .bookmark-container>.bookmark-column[data-level="1"],
 .context-menu,
 .move-dialog-content,
 .edit-dialog-content {
     animation: balanced-column-appear 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     will-change: opacity, transform;
-    /* 提示浏览器提前优化 */
 }
 
-/* 浅色模式下：GitHub 图标压成黑色 */
+
+/* --- 12. 特殊图标样式 --- */
 [data-theme="light"] .is-github-link .bookmark-icon {
     filter: brightness(0) saturate(100%);
 }
 
-/* 深色模式下：GitHub 图标压成白色 */
 [data-theme="dark"] .is-github-link .bookmark-icon {
     filter: brightness(0) invert(1);
 }
 
-/* --- V25: 根源修正 (Root Cause Fix - The Definitive & Final Version) --- */
-/* ================================================================== */
-
-/* --- 模块整体容器与布局 --- */
+/* --- 13. 最近添加模块样式 --- */
 #recentBookmarksModule {
     display: grid;
-    /* <<< 恢复 grid 布局 */
     grid-template-rows: auto auto 1fr;
-    /* <<< 恢复 grid 布局 */
     height: 100%;
-    /* <<< 恢复 grid 布局 */
     overflow: hidden;
 }
 
-/* --- 模块标题 --- */
-/* (您在文件 832 行的 .module-header 居中样式是正确的，无需改动) */
-
-/* --- 工具栏 (V2 - 响应式优化版) --- */
 .recent-bookmarks-toolbar {
     padding: 8px 12px;
-    /* 稍微减少内边距 */
     border-bottom: 1px solid var(--module-header-border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    /* 允许换行 */
     gap: 10px;
-    /* 调整元素间距 */
 }
 
 .date-filter {
@@ -1038,21 +898,42 @@ input:checked+.slider:before {
     gap: 8px;
 }
 
-.date-input {
+/* --- UTILITY: 输入框样式 --- */
+.input-base {
+    box-sizing: border-box;
     background-color: var(--input-bg);
     border: 1px solid var(--input-border);
-    color: var(--module-header-color);
-    padding: 6px 10px;
     border-radius: 6px;
-    font-size: 13px;
-    outline: none;
+    color: var(--input-text);
+    font-size: 14px;
     transition: all 0.2s ease;
 }
 
-.date-input:focus {
+.input-base:focus {
     border-color: var(--input-focus-border);
+    outline: none;
     box-shadow: 0 0 0 2px var(--input-focus-border);
 }
+
+.edit-dialog-input {
+    width: 100%;
+    padding: 10px;
+}
+
+.date-input {
+    padding: 6px 10px;
+    font-size: 13px;
+    background-color: var(--input-bg);
+    color: var(--module-header-color);
+    border: 1px solid var(--input-border);
+    border-radius: 8px; /* <-- 添加这一行，可以根据喜好调整数值 */
+}
+
+/* ▼▼▼ 修复：调整日期选择器图标颜色以适应主题 ▼▼▼ */
+.date-input::-webkit-calendar-picker-indicator {
+    filter: var(--context-menu-icon-filter);
+}
+
 
 .date-filter span {
     color: var(--module-header-color);
@@ -1065,15 +946,12 @@ input:checked+.slider:before {
     padding: 4px;
 }
 
-/* --- [V4 - 最终简约版] 筛选按钮样式 --- */
 .filter-btn {
     border: none;
     background-color: transparent;
     color: var(--module-header-color);
     padding: 4px 12px;
-    /* 减小按钮尺寸 */
     font-size: 12px;
-    /* 减小字体大小 */
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
@@ -1091,44 +969,26 @@ input:checked+.slider:before {
 
 .filter-btn.active {
     background-color: var(--highlighted-bg);
-    /* <<< 核心修改：使用低调的高亮背景色 */
     color: var(--text-color);
-    /* <<< 核心修改：使用主文本颜色 */
     font-weight: 500;
-    /* 字体加重保持不变 */
     cursor: default;
 }
 
-/* --- 内容区/书签列表 (V37 - 终极简化版) --- */
 #recentBookmarksModule .module-content {
     --timeline-left-offset: 28px;
-    /* 时间轴的X坐标 */
     --item-left-padding: 10px;
-    /* 内容的左内边距 */
-
     overflow-y: auto;
     position: relative;
     padding: 2px 20px 20px var(--item-left-padding);
-    /* <<< 将顶部的 12px 改为 4px */
-
-
-    /* 核心: 使用背景图创建一条绝对连续的垂直线 */
     background-image: linear-gradient(var(--input-border), var(--input-border));
     background-size: 1.5px 100%;
     background-repeat: no-repeat;
     background-position: var(--timeline-left-offset) 0;
 }
 
-
-
-/* 日期分组标题 (V38 - 左对齐版) */
 .timeline-date-header {
-
-    /* 2. 让其作为块级元素正常向左排列 */
     display: block;
     width: fit-content;
-
-    /* 3. 基础视觉样式 (保持不变) */
     position: relative;
     z-index: 2;
     font-size: 12px;
@@ -1139,19 +999,13 @@ input:checked+.slider:before {
     border-radius: 16px;
     padding: 4px 12px;
     margin-top: 8px;
-    /* 从 20px 减小 */
     margin-bottom: 8px;
-    /* 从 20px 减小 */
 }
 
-/* --- 书签条目 --- */
 #recentBookmarksModule .module-content>a {
     padding: 6px 10px;
-    /* <<< 将垂直的 8px 改为 6px */
-    /* 垂直内边距从 12px 减小到 8px */
     display: flex;
     margin-left: 32px;
-    /* <<< 修改为 margin-left */
     align-items: flex-start;
     gap: 14px;
     border-radius: 8px;
@@ -1164,8 +1018,6 @@ input:checked+.slider:before {
     background-color: var(--hover-bg);
 }
 
-
-/* 图标、内容、元信息等样式 */
 #recentBookmarksModule .module-content>a .module-icon {
     width: 20px;
     height: 20px;
@@ -1192,11 +1044,8 @@ input:checked+.slider:before {
     margin-bottom: 2px;
 }
 
-
 .bookmark-meta-info {
     display: flex;
-    /* justify-content: space-between; */
-    /* <<< 删除这一行 */
     align-items: flex-start;
     gap: 16px;
 }
@@ -1207,10 +1056,10 @@ input:checked+.slider:before {
     gap: 4px;
     min-width: 0;
     flex-grow: 1;
-    /* <<< 新增这一行 */
 }
 
-.bookmark-item-path {
+.bookmark-item-path,
+.bookmark-item-url {
     font-size: 12px;
     color: var(--module-header-color);
     white-space: nowrap;
@@ -1219,12 +1068,7 @@ input:checked+.slider:before {
 }
 
 .bookmark-item-url {
-    font-size: 12px;
-    color: var(--module-header-color);
     opacity: 0.6;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .bookmark-item-date {
@@ -1235,23 +1079,18 @@ input:checked+.slider:before {
     padding-top: 1px;
 }
 
-
-
-/* --- 书签属性对话框 (V39 - 美化版) --- */
-
+/* --- 属性对话框 --- */
 .properties-dialog-body {
     padding: 20px 24px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    /* 增加行间距 */
 }
 
 .prop-item {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    /* 标签和内容之间的间距 */
 }
 
 .prop-label {
@@ -1264,7 +1103,6 @@ input:checked+.slider:before {
     font-size: 14px;
     color: var(--text-color);
     word-break: break-all;
-    /* 确保长URL可以换行 */
     line-height: 1.5;
     background-color: var(--input-bg);
     padding: 8px 12px;
@@ -1272,34 +1110,22 @@ input:checked+.slider:before {
     border: 1px solid var(--input-border);
 }
 
-
-
-/* ================================================================== */
-/* --- 13. 可调整列宽功能样式 (Resizable Columns) --- */
-/* ================================================================== */
-
-/* 为书签列容器启用相对定位，以便定位 Handle 和 Line */
+/* --- 14. 可调整列宽功能样式 --- */
 .bookmark-column {
     position: relative;
-    /* 为宽度变化添加动画，以实现需求中的“缩小动画” */
     transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 拖动 Handle 的样式 */
 .resize-handle {
     position: absolute;
     top: 0;
     right: -10px;
-    /* 定位到列的右边距区域，不占用列本身空间 */
     width: 20px;
-    /* 增加可点击区域 */
     height: 100%;
     cursor: col-resize;
-    /* 鼠标悬停时显示拖动光标 */
     z-index: 1;
 }
 
-/* 拖动时覆盖整个页面的遮罩，防止鼠标事件被其他元素捕获 */
 .resizing-overlay {
     position: fixed;
     top: 0;
@@ -1308,99 +1134,64 @@ input:checked+.slider:before {
     height: 100vh;
     cursor: col-resize;
     z-index: 9998;
-    /* 确保在最顶层 */
 }
 
-/* 拖动时显示的提示线条 */
 .resize-indicator {
     position: fixed;
     top: 0;
-    /* top 和 height 会由 JS 动态设置 */
     width: 1.5px;
-    /* 改为更细的线条 */
     background-color: var(--dialog-primary-bg);
     display: none;
     z-index: 9999;
 }
 
-/* 当开始拖动时，让提示线显示出来 */
 body.is-resizing .resize-indicator {
     display: block;
 }
 
 #history-btn {
     top: 31px;
-    /* 和G按钮垂直对齐 */
     right: 56px;
-    /* 放在G按钮左侧，间隔8px */
     width: 32px;
-    /* 统一尺寸 */
     height: 32px;
-    /* 统一尺寸 */
     font-size: 16px;
-    /* 统一字体大小 */
     border-radius: 8px;
-    /* 统一圆角 */
     bottom: auto;
-    /* 覆盖.settings-btn的样式 */
     left: auto;
-    /* 覆盖.settings-btn的样式 */
     transform-origin: center;
 }
 
 #history-btn:hover {
     transform: none;
-    /* 确保不应用任何变形效果 */
 }
 
-
-/* --- [新增] 悬停延迟输入框样式 --- */
 .delay-input {
     width: 80px;
     padding: 6px 10px;
-    box-sizing: border-box;
-    background-color: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: 6px;
-    color: var(--input-text);
-    font-size: 14px;
     text-align: right;
-}
-
-.delay-input:focus {
-    border-color: var(--input-focus-border);
-    outline: none;
 }
 
 #hover-delay-setting-item {
     transition: opacity 0.3s ease;
 }
 
-
-
-/* --- 面包屑导航栏样式 (V3 - 居中显示) --- */
+/* --- 15. 面包屑导航栏样式 --- */
 .breadcrumb-container {
     display: flex;
     align-items: center;
     padding: 4px 20px;
-    /* background-color: var(--card-bg); */
-    /* border-top: 1px solid var(--header-border); */
-    /* border-bottom: 1px solid var(--header-border); */
     min-height: 20px;
     overflow-x: auto;
     white-space: nowrap;
     grid-row: 2;
     grid-column: 1 / 3;
     justify-content: center;
-    /* ▼▼▼ 新增这一行，让内部元素居中对齐 ▼▼▼ */
 }
 
 .breadcrumb-item {
     font-size: 13px;
-    /* 字体从 13px 增大到 15px */
     cursor: pointer;
     padding: 6px 6px;
-    /* 增大了内边距，让点击区域更大 */
     border-radius: 6px;
     transition: background-color 0.2s;
 }
@@ -1415,55 +1206,46 @@ body.is-resizing .resize-indicator {
     font-size: 14px;
 }
 
-/* --- [新增] 内联SVG图标统一样式 --- */
+/* --- 16. 内联SVG图标统一样式 --- */
 .sidebar-toggle-btn svg,
 .settings-btn svg {
     width: 18px;
-    /* 调整为您认为合适的尺寸 */
     height: 18px;
-    /* 调整为您认为合适的尺寸 */
     stroke: currentColor;
-    /* 核心：让图标颜色继承按钮的文字颜色 */
     pointer-events: none;
-    /* 防止SVG本身拦截鼠标点击事件 */
 }
 
-
-/* ================================================================== */
-/* --- 14. 全局滚动条美化 (最终独立样式版) --- */
-/* ================================================================== */
-
-/* --- 适用于所有基于 Webkit 的浏览器 (Chrome, Edge, Safari) --- */
-
-/* 定义滚动条整体样式 */
+/* --- 17. 全局滚动条美化 --- */
 ::-webkit-scrollbar {
     width: 14px;
     height: 14px;
 }
 
-/* 滚动条轨道 */
 ::-webkit-scrollbar-track {
     background: transparent;
 }
 
-/* 滚动条滑块 */
 ::-webkit-scrollbar-thumb {
-    /* ▼▼▼ 核心修改：直接在这里设置独立的初始透明度 ▼▼▼ */
-    background-color: rgba(128, 128, 128, 0.15); /* 使用一个中性的灰色，并设置更低的透明度 */
+    background-color: rgba(128, 128, 128, 0.15);
     border-radius: 10px;
     border: 4px solid transparent;
     background-clip: content-box;
     transition: background-color 0.2s ease;
 }
 
-/* 鼠标悬停在滑块上 */
 ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(128, 128, 128, 0.4); /* 悬停时颜色加深 */
+    background-color: rgba(128, 128, 128, 0.4);
 }
 
-/* --- 为 Firefox 浏览器提供兼容 --- */
 * {
     scrollbar-width: thin;
-    /* ▼▼▼ 核心修改：同样使用独立的颜色值 ▼▼▼ */
     scrollbar-color: rgba(128, 128, 128, 0.15) transparent;
+}
+
+/* --- 补充修复：确保所有书签列的垂直滚动条都隐藏 --- */
+.column-content-wrapper {
+    scrollbar-width: none; /* For Firefox */
+}
+.column-content-wrapper::-webkit-scrollbar {
+    display: none; /* For Webkit browsers */
 }

@@ -13,13 +13,12 @@
         <div id="headerImage" class="header-image">
             <img src="/img/bilbil.avif" alt="Header Image" class="header-bg-image">
         </div>
-
     </header>
     <div id="breadcrumbContainer" class="breadcrumb-container"></div>
     <main class="main-container">
         <div id="bookmarkContainer" class="bookmark-container"></div>
 
-        <div class="vertical-modules">
+        <div class="vertical-modules glass-effect">
             <section class="module" id="recentBookmarksModule">
                 <label class="module-header">最近添加的书签</label>
                 <div class="recent-bookmarks-toolbar">
@@ -34,13 +33,10 @@
                         <button class="filter-btn" data-days="1">今天</button>
                     </div>
                 </div>
-                <div class="module-content"></div>
+                <div class="module-content hide-scrollbar"></div>
             </section>
         </div>
     </main>
-
-
-
 
     <div id="topSitesBar" class="top-sites-bar">
         <div id="topSitesContent" class="top-sites-content">
@@ -57,19 +53,16 @@
         </button>
     </div>
 
-
-    <div id="contextMenu" class="context-menu"></div>
-    <div id="toast" class="toast"></div>
+    <div id="contextMenu" class="context-menu glass-effect"></div>
+    <div id="toast" class="toast glass-effect"></div>
 
     <div id="moveDialog" class="move-dialog">
-        <div class="move-dialog-content">
-            <div class="move-dialog-header">
+        <div class="move-dialog-content glass-effect">
+            <div class="dialog-header">
                 <h3>移动到...</h3>
             </div>
-            <div class="move-dialog-body">
-                <div id="bookmarkTree" class="bookmark-tree"></div>
-            </div>
-            <div class="move-dialog-footer">
+            <div class="dialog-body hide-scrollbar" id="bookmarkTree"></div>
+            <div class="dialog-footer">
                 <button id="cancelMove" class="dialog-button">取消</button>
                 <button id="confirmMove" class="dialog-button primary">移动</button>
             </div>
@@ -77,15 +70,15 @@
     </div>
 
     <div id="editDialog" class="edit-dialog">
-        <div class="edit-dialog-content">
-            <div class="edit-dialog-header">
+        <div class="edit-dialog-content glass-effect">
+            <div class="dialog-header">
                 <h3 id="editDialogTitle"></h3>
             </div>
-            <div class="edit-dialog-body">
-                <input type="text" id="editDialogInput" class="edit-dialog-input">
+            <div class="dialog-body">
+                <input type="text" id="editDialogInput" class="input-base edit-dialog-input">
                 <div id="editDialogError" class="edit-dialog-error"></div>
             </div>
-            <div class="edit-dialog-footer">
+            <div class="dialog-footer">
                 <button id="cancelEdit" class="dialog-button">取消</button>
                 <button id="confirmEdit" class="dialog-button primary">确定</button>
             </div>
@@ -93,14 +86,14 @@
     </div>
 
     <div id="confirmDialog" class="edit-dialog confirm-dialog">
-        <div class="edit-dialog-content">
-            <div class="edit-dialog-header">
+        <div class="edit-dialog-content glass-effect">
+            <div class="dialog-header">
                 <h3 id="confirmDialogTitle"></h3>
             </div>
-            <div class="edit-dialog-body">
+            <div class="dialog-body">
                 <p id="confirmDialogMessage" class="confirm-message"></p>
             </div>
-            <div class="edit-dialog-footer">
+            <div class="dialog-footer">
                 <button id="cancelConfirm" class="dialog-button">取消</button>
                 <button id="confirmConfirm" class="dialog-button primary">确定</button>
             </div>
@@ -108,19 +101,19 @@
     </div>
 
     <div id="propertiesDialog" class="edit-dialog">
-        <div class="edit-dialog-content">
-            <div class="edit-dialog-header">
+        <div class="edit-dialog-content glass-effect">
+            <div class="dialog-header">
                 <h3 id="propertiesDialogTitle">属性</h3>
             </div>
-            <div id="propertiesDialogBody" class="properties-dialog-body">
+            <div id="propertiesDialogBody" class="dialog-body">
             </div>
-            <div class="edit-dialog-footer">
+            <div class="dialog-footer">
                 <button id="closeProperties" class="dialog-button primary">关闭</button>
             </div>
         </div>
     </div>
 
-    <div id="settings-panel" class="settings-panel">
+    <div id="settings-panel" class="settings-panel glass-effect">
         <label class="module-header">设置</label>
         <div class="settings-content">
             <div class="setting-item">
@@ -140,7 +133,7 @@
             </div>
             <div class="setting-item" id="hover-delay-setting-item">
                 <span class="setting-label">悬停延迟 (ms)</span>
-                <input type="number" min="200" max="2000" step="50" class="delay-input" id="hover-delay-input">
+                <input type="number" min="200" max="2000" step="50" class="input-base delay-input" id="hover-delay-input">
             </div>
         </div>
     </div>
