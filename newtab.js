@@ -230,15 +230,14 @@ function createBreadcrumbSeparator() {
 }
 
 // ▲▲▲ 新代码添加到这里结束 ▲▲▲
-
 /**
- * [V2 - 优化版] 更新面包屑导航栏
+ * [V4 - 高性能版] 更新面包屑导航栏
  */
 function updateBreadcrumbs() {
     const container = document.getElementById('breadcrumbContainer');
     if (!container) return;
 
-    // 1. 获取新的路径数据
+    // 1. 获取新的高亮项目
     const highlightedItems = Array.from(document.querySelectorAll('.bookmark-item.highlighted'));
     highlightedItems.sort((a, b) => {
         const levelA = parseInt(a.closest('.bookmark-column').dataset.level, 10);
@@ -246,43 +245,49 @@ function updateBreadcrumbs() {
         return levelA - levelB;
     });
 
-    // 2. 构造新的完整路径 ID 列表
-    const newPathIds = [CONSTANTS.BOOKMARKS_BAR_ID, ...highlightedItems.map(item => item.dataset.id)];
-    
-    // 3. 获取当前 DOM 上的旧路径 ID 列表
+    // 2. 根据是否有高亮项目，确定新的路径
+    //    - 如果有，路径是 [书签栏, 文件夹1, 文件夹2, ...]
+    //    - 如果没有，路径是 [] (空)
+    const newPathIds = highlightedItems.length > 0
+        ? [CONSTANTS.BOOKMARKS_BAR_ID, ...highlightedItems.map(item => item.dataset.id)]
+        : [];
+
+    // 3. 获取当前DOM中的旧路径
     const currentCrumbs = container.querySelectorAll('.breadcrumb-item');
     const oldPathIds = Array.from(currentCrumbs).map(crumb => crumb.dataset.id);
 
-    // 4. 智能比较和更新
+    // 4. 智能比较并以最小代价更新DOM
     let i = 0;
     while (i < newPathIds.length && i < oldPathIds.length && newPathIds[i] === oldPathIds[i]) {
         i++; // 找到第一个不匹配的位置
     }
 
-    // 移除多余的旧节点
+    // 从后往前移除不再需要的旧节点
     while (oldPathIds.length > i) {
         container.lastChild.remove(); // 移除面包屑项
-        container.lastChild.remove(); // 移除它前面的分隔符
+        if (container.lastChild) {    // 如果前面还有分隔符，也移除
+            container.lastChild.remove();
+        }
         oldPathIds.pop();
     }
 
-    // 添加新增的节点
+    // 创建一个文档片段来高效地添加新节点
     const fragment = document.createDocumentFragment();
     for (let j = i; j < newPathIds.length; j++) {
-        if (j > 0) { // 第一个元素前不需要分隔符
+        // 只有在容器不为空或片段中已有内容时才添加分隔符
+        if (container.hasChildNodes() || fragment.hasChildNodes()) {
              fragment.appendChild(createBreadcrumbSeparator());
         }
         const itemData = highlightedItems[j - 1]; // j=0 是书签栏，没有 itemData
         const text = (j === 0) ? '书签栏' : itemData.dataset.title;
         fragment.appendChild(createBreadcrumbItem(text, newPathIds[j]));
     }
-    
-    // 如果 fragment 中有内容，则一次性添加到 DOM
+
+    // 一次性将所有新节点添加到DOM
     if (fragment.hasChildNodes()) {
         container.appendChild(fragment);
     }
 }
-
 // --- 多选相关函数 ---
 function clearSelection() {
     selectedItems.clear();
