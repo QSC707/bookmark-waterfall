@@ -910,13 +910,18 @@ function hideContextMenu() {
     }
 }
 // ==================================================================
-// --- 这是微调后的 showContextMenu 函数 (请整体替换) ---
+// --- 这是最终图标更新后的 showContextMenu 函数 (请整体替换) ---
 // ==================================================================
 function showContextMenu(e, bookmarkElement, column) {
     const contextMenu = document.getElementById('contextMenu');
-    contextMenu.innerHTML = '';
+    contextMenu.innerHTML = ''; // 清空旧菜单
     const ul = document.createElement('ul');
-    let menuHtml = '';
+    let menuItems = []; // 使用数组来管理菜单项，更清晰
+
+    const createMenuItem = (id, iconId, text) => {
+        return `<li id="${id}"><svg class="menu-icon" aria-hidden="true"><use xlink:href="#${iconId}"></use></svg>${text}</li>`;
+    };
+    const createSeparator = () => `<hr>`;
 
     const rightClickedId = bookmarkElement?.dataset.id;
     const isModuleItem = bookmarkElement?.closest('.vertical-modules');
@@ -939,62 +944,71 @@ function showContextMenu(e, bookmarkElement, column) {
         const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
         return item && !item.classList.contains('is-folder');
     });
-
+    
     if (isTopSiteItem) {
-        menuHtml += `<li id="open"><img src="/img/open.svg" class="menu-icon">新标签打开</li>`;
-        menuHtml += `<li id="openNew"><img src="/img/open_new.svg" class="menu-icon">新窗口打开</li>`;
-        menuHtml += `<li id="openIncognito"><img src="/img/open_new.svg" class="menu-icon">在隐身模式中打开</li>`;
-        menuHtml += `<hr>`;
-        menuHtml += `<li id="removeTopSite"><img src="/img/delete.svg" class="menu-icon">移除</li>`;
+        menuItems.push(createMenuItem('open', 'icon-open', '新标签打开'));
+        // [修改] 调用新的 icon-open-new
+        menuItems.push(createMenuItem('openNew', 'icon-open-new', '新窗口打开'));
+        // [修改] 调用新的 icon-open-incognito
+        menuItems.push(createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'));
+        menuItems.push(createSeparator());
+        menuItems.push(createMenuItem('removeTopSite', 'icon-delete', '移除'));
     }
     else if (selectionSize > 0) {
         if (selectionSize > 1) {
             if (hasBookmarkInSelection) {
-                menuHtml += `<li id="open"><img src="/img/open_all.svg" class="menu-icon">打开全部 (${selectionSize})</li>`;
-                menuHtml += `<li id="openNew"><img src="/img/open_new.svg" class="menu-icon">新窗口打开全部 (${selectionSize})</li>`;
-                menuHtml += `<li id="openIncognito"><img src="/img/open_new.svg" class="menu-icon">隐身模式打开全部 (${selectionSize})</li>`;
-                menuHtml += `<hr>`;
+                menuItems.push(createMenuItem('open', 'icon-open-all', `打开全部 (${selectionSize})`));
+                // [修改] 调用新的 icon-open-new
+                menuItems.push(createMenuItem('openNew', 'icon-open-new', `新窗口打开全部 (${selectionSize})`));
+                // [修改] 调用新的 icon-open-incognito
+                menuItems.push(createMenuItem('openIncognito', 'icon-open-incognito', `隐身模式打开全部 (${selectionSize})`));
+                menuItems.push(createSeparator());
             }
         } else {
             const isFolder = bookmarkElement && bookmarkElement.classList.contains('is-folder');
             if (isFolder) {
-                menuHtml += `<li id="openAll"><img src="/img/open_all.svg" class="menu-icon">打开文件夹内所有书签</li><hr>`;
+                menuItems.push(createMenuItem('openAll', 'icon-open-all', '打开文件夹内所有书签'));
+                menuItems.push(createSeparator());
             } else {
-                menuHtml += `<li id="open"><img src="/img/open.svg" class="menu-icon">新标签打开</li>`;
-                menuHtml += `<li id="openNew"><img src="/img/open_new.svg" class="menu-icon">新窗口打开</li>`;
-                menuHtml += `<li id="openIncognito"><img src="/img/open_new.svg" class="menu-icon">在隐身模式中打开</li>`;
-                menuHtml += `<hr>`;
+                menuItems.push(createMenuItem('open', 'icon-open', '新标签打开'));
+                // [修改] 调用新的 icon-open-new
+                menuItems.push(createMenuItem('openNew', 'icon-open-new', '新窗口打开'));
+                // [修改] 调用新的 icon-open-incognito
+                menuItems.push(createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'));
+                menuItems.push(createSeparator());
             }
         }
 
         if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
-            menuHtml += `<li id="editUrl"><img src="/img/edit.svg" class="menu-icon">修改网址</li>`;
+            menuItems.push(createMenuItem('editUrl', 'icon-edit', '修改网址'));
         }
         if (selectionSize === 1) {
-            menuHtml += `<li id="rename"><img src="/img/rename.svg" class="menu-icon">重命名</li>`;
+            // [修改] 调用新的 icon-rename
+            menuItems.push(createMenuItem('rename', 'icon-rename', '重命名'));
         }
-        menuHtml += `<li id="move"><img src="/img/move.svg" class="menu-icon">移动${selectionSize > 1 ? ` (${selectionSize})` : ''}到...</li>`;
+        menuItems.push(createMenuItem('move', 'icon-move', `移动${selectionSize > 1 ? ` (${selectionSize})` : ''}到...`));
         if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
-            menuHtml += `<li id="copyUrl"><img src="/img/copy.svg" class="menu-icon">复制网址</li>`;
+            menuItems.push(createMenuItem('copyUrl', 'icon-copy', '复制网址'));
         }
         if (selectionSize === 1) {
-            menuHtml += `<li id="properties"><img src="/img/rename.svg" class="menu-icon">属性</li>`;
+            menuItems.push(createMenuItem('properties', 'icon-properties', '属性'));
         }
-        menuHtml += `<hr>`;
-        menuHtml += `<li id="delete"><img src="/img/delete.svg" class="menu-icon">删除${selectionSize > 1 ? ` (${selectionSize})` : ''}</li>`;
+        menuItems.push(createSeparator());
+        menuItems.push(createMenuItem('delete', 'icon-delete', `删除${selectionSize > 1 ? ` (${selectionSize})` : ''}`));
     }
 
     if (column && !isModuleItem && !isTopSiteItem) {
-        if (menuHtml !== '') menuHtml += `<hr>`;
-        menuHtml += `<li id="newFolder"><img src="/img/folder.svg" class="menu-icon">新建文件夹</li><hr>`;
-        menuHtml += `<li id="${CONSTANTS.SORT_TYPES.ALPHA_ASC}"><img src="/img/sort_asc.svg" class="menu-icon">排序：由 A 到 Z</li>`;
-        menuHtml += `<li id="${CONSTANTS.SORT_TYPES.ALPHA_DESC}"><img src="/img/sort_desc.svg" class="menu-icon">排序：由 Z 到 A</li>`;
-        menuHtml += `<li id="${CONSTANTS.SORT_TYPES.DATE_NEW}"><img src="/img/sort_asc.svg" class="menu-icon">排序：从新到旧</li>`;
-        menuHtml += `<li id="${CONSTANTS.SORT_TYPES.DATE_OLD}"><img src="/img/sort_desc.svg" class="menu-icon">排序：从旧到新</li>`;
-        menuHtml += `<li id="${CONSTANTS.SORT_TYPES.VISIT}"><img src="/img/sort_asc.svg" class="menu-icon">排序：按上次打开</li>`;
+        if (menuItems.length > 0) menuItems.push(createSeparator());
+        menuItems.push(createMenuItem('newFolder', 'icon-folder-plus', '新建文件夹'));
+        menuItems.push(createSeparator());
+        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.ALPHA_ASC, 'icon-sort-alpha-asc', '排序：由 A 到 Z'));
+        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.ALPHA_DESC, 'icon-sort-alpha-desc', '排序：由 Z 到 A'));
+        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.DATE_NEW, 'icon-sort-date-desc', '排序：从新到旧'));
+        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.DATE_OLD, 'icon-sort-date-asc', '排序：从旧到新'));
+        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.VISIT, 'icon-sort-visit', '排序：按上次打开'));
     }
 
-    ul.innerHTML = menuHtml;
+    ul.innerHTML = menuItems.join('');
     contextMenu.appendChild(ul);
     contextMenu.style.display = 'block';
 
@@ -1003,26 +1017,17 @@ function showContextMenu(e, bookmarkElement, column) {
     let left = e.clientX, top = e.clientY;
 
     if (isTopSiteItem) {
-        const H_OFFSET = 5;  // 水平偏移
-        const V_OFFSET = 10; // 垂直偏移 (让菜单向下移动10像素)
-
-        // ▼▼▼ 核心修改：在这里应用垂直偏移 ▼▼▼
+        const H_OFFSET = 5;
+        const V_OFFSET = 10;
         top = e.clientY + V_OFFSET;
-
         left = e.clientX - menuWidth - H_OFFSET;
-
         if (left < H_OFFSET) {
             left = e.clientX + H_OFFSET;
         }
     }
 
-    // 统一的边界检查
-    if (left + menuWidth > winWidth) {
-        left = winWidth - menuWidth - 5;
-    }
-    if (top + menuHeight > winHeight) {
-        top = winHeight - menuHeight - 5;
-    }
+    if (left + menuWidth > winWidth) left = winWidth - menuWidth - 5;
+    if (top + menuHeight > winHeight) top = winHeight - menuHeight - 5;
 
     contextMenu.style.left = `${left}px`;
     contextMenu.style.top = `${top}px`;
@@ -1031,7 +1036,6 @@ function showContextMenu(e, bookmarkElement, column) {
     contextMenu.relatedColumn = column;
     document.body.dataset.contextMenuOpen = 'true';
 }
-
 function handleContextMenuAction(action, element) {
     const selectionSize = selectedItems.size;
     const selectedIds = Array.from(selectedItems);

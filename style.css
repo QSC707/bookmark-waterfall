@@ -782,6 +782,23 @@ input:checked+.slider:before {
     font-size: 14px;
     border-radius: 6px;
     margin: 0 4px;
+    align-items: center; 
+}
+
+/* 新增的SVG图标样式 */
+.menu-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.9;
+    filter: var(--context-menu-icon-filter);
+    /* 核心样式，让SVG继承文字颜色 */
+    stroke: currentColor; 
+    /* 对于线条图标，通常不需要填充 */
+    fill: none; 
+    /* 定义线条粗细和样式，确保美观 */
+    stroke-width: 2.5; 
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .context-menu ul li:hover {
