@@ -274,16 +274,11 @@ body {
 }
 
 .bookmark-column[data-level="1"] {
-    margin-left: max(20px, calc((120vw - 1600px) / 2));
     border-left: none;
     transition: none;
 }
 
-@media screen and (max-width: 1240px) {
-    .bookmark-column[data-level="1"] {
-        margin-left: 20px;
-    }
-}
+
 
 .bookmark-item {
     cursor: pointer;

@@ -562,12 +562,14 @@ let resizing = false;
 
 
 // ==================================================================
-// --- 这是最终的、经过性能优化的函数版本 (请整体替换) ---
+// --- 这是完美还原原始布局且性能最优的最终版本 (请整体替换) ---
 // ==================================================================
 function adjustColumnWidths(container) {
+    // resizing 标志位保持不变，防止重复执行
     if (resizing) return;
     resizing = true;
 
+    // requestAnimationFrame 确保动画流畅
     requestAnimationFrame(() => {
         const columns = Array.from(container.querySelectorAll('.bookmark-column'));
         if (columns.length === 0) {
@@ -575,29 +577,31 @@ function adjustColumnWidths(container) {
             return;
         }
 
-        // --- 核心优化 ---
-        // 1. 我们从 CSS 中明确知道 gap 是 20px。将其作为常量可以避免一次昂贵的 getComputedStyle 调用。
-        const gap = 20; 
-        const firstColumn = columns[0];
+        const gap = 20;
         let availableWidth = container.clientWidth;
+        const firstColumn = columns[0];
 
-        // 2. 将整个函数中唯一一次必要的 DOM “读取”操作集中在这里。
-        //    这是解决问题的核心，且在 rAF 中执行，性能影响极小。
+        // --- 核心修正 ---
+        // 在 JS 中精确地、高性能地复现原始 CSS 的计算逻辑
         if (firstColumn && firstColumn.dataset.level === "1") {
-            const firstColumnStyle = window.getComputedStyle(firstColumn);
-            availableWidth -= parseFloat(firstColumnStyle.marginLeft);
+            // 这行代码现在和您原始的 CSS 效果完全等价
+            const calculatedMargin = Math.max(20, (1.2 * window.innerWidth - 1600) / 2);
+            
+            // 直接将计算结果写入样式，避免了昂贵的 getComputedStyle 调用
+            firstColumn.style.marginLeft = `${calculatedMargin}px`;
+            availableWidth -= calculatedMargin;
         }
-        // --- 优化结束 ---
+        // --- 修正结束 ---
 
         const DEFAULT_COL_WIDTH = 280;
         const MIN_COL_WIDTH = 180;
 
-        // 后续所有的计算都基于这次读取的结果，不再与 DOM 发生任何交互，性能达到最优。
+        // 后续的宽度压缩和放大逻辑保持不变
         const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
         let overflow = totalWidth - availableWidth;
 
         if (overflow > 0) {
-            // ... (压缩逻辑保持不变)
+            // 压缩逻辑
             for (let i = columns.length - 2; i >= 0; i--) {
                 const col = columns[i];
                 if (col.dataset.userResized) continue;
@@ -610,9 +614,8 @@ function adjustColumnWidths(container) {
                 }
                 if (overflow <= 0) break;
             }
-        }
-        else {
-            // ... (放大逻辑保持不变)
+        } else {
+            // 放大逻辑
             const availableSpace = availableWidth - totalWidth;
             const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH && !col.dataset.userResized);
 
