@@ -572,6 +572,11 @@ function makeColumnResizable(column) {
 let resizing = false;
 
 
+
+
+
+/* 文件: newtab.js */
+
 /**
  * 在宽屏下计算一个动态的左边距，以实现视觉上的居中效果。
  * @returns {number} - 计算出的左边距值。
@@ -583,9 +588,8 @@ function calculateCenteredMargin() {
     return Math.max(gap, (factor * window.innerWidth - breakpoint) / 2);
 }
 
-
 // ==================================================================
-// --- 这是对智能聚焦进行最终优化的版本 (请整体替换) ---
+// --- 这是重构并兼容了居中对齐的最终版函数 (请整体替换) ---
 // ==================================================================
 function adjustColumnWidths(container) {
     if (resizing) return;
@@ -603,19 +607,18 @@ function adjustColumnWidths(container) {
         const availableWidth = container.clientWidth;
         const DEFAULT_COL_WIDTH = CONSTANTS.LAYOUT.DEFAULT_COL_WIDTH;
         const MIN_COL_WIDTH = CONSTANTS.LAYOUT.MIN_COL_WIDTH;
+        const newStyles = new Map();
 
         const columnData = columns.map(col => ({
             el: col,
-            width: col.offsetWidth,
+            currentWidth: col.offsetWidth,
             userResized: col.dataset.userResized === 'true',
-            // ▼▼▼ 新增读取level，为居中对齐逻辑做准备 ▼▼▼
-            level: col.dataset.level
+            canResize: col.dataset.userResized !== 'true'
         }));
-
-        // --- 2. 布局计算 (Calculate Phase) ---
+        
+        // ▼▼▼ 新增：兼容居中对齐算法 ▼▼▼
         let effectiveAvailableWidth = availableWidth;
         let marginLeft = 0;
-
         const firstColumn = columns[0];
         const shouldCenterAlign = firstColumn &&
             firstColumn.dataset.level === "1" &&
@@ -623,103 +626,111 @@ function adjustColumnWidths(container) {
 
         if (shouldCenterAlign) {
             marginLeft = calculateCenteredMargin();
+            // 减去左边距，得到真正可用于放置列的宽度
             effectiveAvailableWidth -= marginLeft;
         }
+        // ▲▲▲ 兼容代码结束 ▲▲▲
 
-        // ▼▼▼ 【核心补充】恢复 totalWidth 的计算 ▼▼▼
-        const totalWidth = columnData.reduce((sum, data) => sum + data.width, 0) + (columnData.length - 1) * gap;
-        let overflow = totalWidth - effectiveAvailableWidth;
-        const newStyles = new Map();
-        // ▲▲▲ 补充结束 ▲▲▲
+        // --- 2. 核心布局计算 (Calculate Phase) ---
+        const totalCurrentWidth = columnData.reduce((sum, data) => sum + data.currentWidth, 0) + (columnData.length - 1) * gap;
+        const resizableColumns = columnData.filter(data => data.canResize);
 
+        // CASE 1: 内容溢出，需要收缩
+        // 使用 effectiveAvailableWidth 进行判断
+        if (totalCurrentWidth > effectiveAvailableWidth) {
+            const overflowWidth = totalCurrentWidth - effectiveAvailableWidth;
+            
+            const totalShrinkableSpace = resizableColumns.reduce((sum, data) => {
+                return sum + Math.max(0, data.currentWidth - MIN_COL_WIDTH);
+            }, 0);
 
-        // ▼▼▼ 【核心补充】恢复完整的收缩/放大逻辑 ▼▼▼
-        if (overflow > 0) {
-            // 需要收缩
-            const shrinkableColumns = [];
-            let totalShrinkablePotential = 0;
-            // 最后一列不参与自动收缩，以保证其内容完整性
-            for (let i = 0; i < columnData.length - 1; i++) {
-                const data = columnData[i];
-                if (!data.userResized) {
-                    const potential = data.width - MIN_COL_WIDTH;
-                    if (potential > 0) {
-                        shrinkableColumns.push(data);
-                        totalShrinkablePotential += potential;
+            if (totalShrinkableSpace >= overflowWidth) {
+                for (const data of resizableColumns) {
+                    const shrinkableAmount = Math.max(0, data.currentWidth - MIN_COL_WIDTH);
+                    if (shrinkableAmount > 0) {
+                        const proportion = shrinkableAmount / totalShrinkableSpace;
+                        const reduction = overflowWidth * proportion;
+                        const newWidth = data.currentWidth - reduction;
+                        newStyles.set(data.el, { width: `${newWidth}px` });
                     }
                 }
             }
-            if (totalShrinkablePotential > 0) {
-                for (const data of shrinkableColumns) {
-                    const potential = data.width - MIN_COL_WIDTH;
-                    const proportion = potential / totalShrinkablePotential;
-                    const shrinkAmount = overflow * proportion;
-                    const newWidth = data.width - shrinkAmount;
-                    newStyles.set(data.el, { width: `${Math.max(MIN_COL_WIDTH, newWidth)}px` });
-                }
-            }
+        
+        // CASE 2: 空间有富余，可以放大
         } else {
-            // 空间有富余，可以放大
-            const availableSpace = effectiveAvailableWidth - totalWidth;
-            const columnsToEnlarge = columnData.filter(data => data.width < DEFAULT_COL_WIDTH && !data.userResized);
+            // 使用 effectiveAvailableWidth 计算可用空间
+            const availableSpace = effectiveAvailableWidth - totalCurrentWidth;
+            
+            const columnsToEnlarge = resizableColumns.filter(data => data.currentWidth < DEFAULT_COL_WIDTH);
+
             if (columnsToEnlarge.length > 0) {
-                const totalEnlargePotential = columnsToEnlarge.reduce((sum, data) => sum + (DEFAULT_COL_WIDTH - data.width), 0);
+                const totalEnlargePotential = columnsToEnlarge.reduce((sum, data) => {
+                    return sum + (DEFAULT_COL_WIDTH - data.currentWidth);
+                }, 0);
+
                 if (totalEnlargePotential > 0) {
                     for (const data of columnsToEnlarge) {
-                        const potential = DEFAULT_COL_WIDTH - data.width;
+                        const potential = DEFAULT_COL_WIDTH - data.currentWidth;
                         const proportion = potential / totalEnlargePotential;
-                        const enlargeAmount = availableSpace * proportion;
-                        const newWidth = data.width + enlargeAmount;
-                        newStyles.set(data.el, { width: `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px` });
+                        const enlargeAmount = Math.min(availableSpace * proportion, potential);
+                        const newWidth = data.currentWidth + enlargeAmount;
+                        newStyles.set(data.el, { width: `${newWidth}px` });
                     }
                 }
             }
         }
-        // ▲▲▲ 补充结束 ▲▲▲
-
 
         // --- 3. 布局写入 (Write Phase) ---
-        // ▼▼▼ 【笔误修正】使用 firstColumn 变量 ▼▼▼
-        if (marginLeft > 0 && firstColumn) {
+        // ▼▼▼ 新增：写入边距样式 ▼▼▼
+        if (firstColumn) {
             firstColumn.style.marginLeft = `${marginLeft}px`;
-        } else if (firstColumn) {
-            firstColumn.style.marginLeft = '0px';
         }
-        // ▲▲▲ 修正结束 ▲▲▲
+        // ▲▲▲ 写入结束 ▲▲▲
 
         newStyles.forEach((style, el) => {
             el.style.width = style.width;
         });
 
-        // --- 4. 智能聚焦滚动 (Smart Scroll Phase) - v3.1 Polished ---
+        // --- 4. 最终智能聚焦滚动 ---
         requestAnimationFrame(() => {
-            let scrollTarget = container.scrollWidth;
+            let scrollTarget = 0;
+            // 重新获取所有列的最终宽度，并加上边距
+            const finalColumns = Array.from(container.querySelectorAll('.bookmark-column'));
+            const finalTotalWidth = finalColumns.reduce((sum, col) => sum + col.offsetWidth, 0) + (finalColumns.length - 1) * gap + marginLeft;
 
-            if (columns.length > 1) {
-                const lastColumn = columns[columns.length - 1];
-                const secondToLastColumn = columns[columns.length - 2];
+            // 使用原始的 availableWidth 进行判断
+            if (finalTotalWidth > availableWidth) {
+                let visibleWidth = 0;
+                let firstVisibleColumnIndex = finalColumns.length - 1;
 
-                const contentWidthFromSecondLast = container.scrollWidth - secondToLastColumn.offsetLeft;
+                for (let i = finalColumns.length - 1; i >= 0; i--) {
+                    const currentCol = finalColumns[i];
+                    const colWidth = currentCol.offsetWidth;
+                    const widthToAdd = (visibleWidth === 0) ? colWidth : colWidth + gap;
 
-                if (container.clientWidth > contentWidthFromSecondLast + gap) {
-                    scrollTarget = secondToLastColumn.offsetLeft - gap;
-                } else {
-                    const alignRightTarget = lastColumn.offsetLeft + lastColumn.offsetWidth - container.clientWidth + gap;
-                    const alignLeftTarget = secondToLastColumn.offsetLeft - gap;
-                    scrollTarget = Math.min(alignRightTarget, alignLeftTarget);
+                    // 使用 effectiveAvailableWidth 判断能容纳的列
+                    if (visibleWidth + widthToAdd <= effectiveAvailableWidth) {
+                        visibleWidth += widthToAdd;
+                        firstVisibleColumnIndex = i;
+                    } else {
+                        break; 
+                    }
                 }
+                
+                scrollTarget = finalColumns[firstVisibleColumnIndex].offsetLeft;
             }
 
             container.scrollTo({
-                left: Math.max(0, scrollTarget),
+                // 滚动时需要减去边距，因为 offsetLeft 已经包含了边距
+                left: Math.max(0, scrollTarget - marginLeft),
                 behavior: 'smooth'
             });
-            
-            // ▼▼▼ 【重要】将解锁操作移到所有异步操作之后 ▼▼▼
+
             resizing = false;
         });
     });
 }
+
 // --- 拖拽逻辑 ---
 function handleDragStart(e) {
     isDragging = true;
