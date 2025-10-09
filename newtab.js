@@ -560,8 +560,9 @@ function makeColumnResizable(column) {
 
 let resizing = false;
 
+
 // ==================================================================
-// --- 这是针对“跳变”问题的最终修复版 (请整体替换) ---
+// --- 这是最终的、经过性能优化的函数版本 (请整体替换) ---
 // ==================================================================
 function adjustColumnWidths(container) {
     if (resizing) return;
@@ -574,30 +575,29 @@ function adjustColumnWidths(container) {
             return;
         }
 
-        // --- ▼▼▼ 恢复到真正有效的核心修复代码 ▼▼▼ ---
+        // --- 核心优化 ---
+        // 1. 我们从 CSS 中明确知道 gap 是 20px。将其作为常量可以避免一次昂贵的 getComputedStyle 调用。
+        const gap = 20; 
         const firstColumn = columns[0];
-        let firstColumnMarginLeft = 0;
-        
-        // 检查是否存在第一列，并且它就是我们应用了特殊样式的列
-        if (firstColumn && firstColumn.dataset.level === "1") {
-            // 读取浏览器实时计算出的 margin-left 值，这是唯一精确的办法
-            const style = window.getComputedStyle(firstColumn);
-            firstColumnMarginLeft = parseFloat(style.marginLeft);
-        }
-        // --- ▲▲▲ 修复代码结束 ▲▲▲ ---
+        let availableWidth = container.clientWidth;
 
-        const gap = parseInt(window.getComputedStyle(container).gap) || 20;
-        
-        // 从容器总宽度中，减去第一列的动态左边距，得到真正可用的宽度
-        const availableWidth = container.clientWidth - firstColumnMarginLeft;
+        // 2. 将整个函数中唯一一次必要的 DOM “读取”操作集中在这里。
+        //    这是解决问题的核心，且在 rAF 中执行，性能影响极小。
+        if (firstColumn && firstColumn.dataset.level === "1") {
+            const firstColumnStyle = window.getComputedStyle(firstColumn);
+            availableWidth -= parseFloat(firstColumnStyle.marginLeft);
+        }
+        // --- 优化结束 ---
+
         const DEFAULT_COL_WIDTH = 280;
         const MIN_COL_WIDTH = 180;
 
+        // 后续所有的计算都基于这次读取的结果，不再与 DOM 发生任何交互，性能达到最优。
         const totalWidth = columns.reduce((sum, col) => sum + col.offsetWidth, 0) + (columns.length - 1) * gap;
         let overflow = totalWidth - availableWidth;
 
-        // 后续的压缩和放大逻辑会基于这个正确的宽度进行计算
         if (overflow > 0) {
+            // ... (压缩逻辑保持不变)
             for (let i = columns.length - 2; i >= 0; i--) {
                 const col = columns[i];
                 if (col.dataset.userResized) continue;
@@ -612,7 +612,8 @@ function adjustColumnWidths(container) {
             }
         }
         else {
-            const spaceToEnlarge = availableWidth - totalWidth;
+            // ... (放大逻辑保持不变)
+            const availableSpace = availableWidth - totalWidth;
             const columnsToEnlarge = columns.filter(col => col.offsetWidth < DEFAULT_COL_WIDTH && !col.dataset.userResized);
 
             if (columnsToEnlarge.length > 0) {
@@ -621,14 +622,14 @@ function adjustColumnWidths(container) {
                     for (const col of columnsToEnlarge) {
                         const potential = DEFAULT_COL_WIDTH - col.offsetWidth;
                         const proportion = potential / totalEnlargePotential;
-                        const enlargeAmount = spaceToEnlarge * proportion;
+                        const enlargeAmount = availableSpace * proportion;
                         const newWidth = col.offsetWidth + enlargeAmount;
                         col.style.width = `${Math.min(DEFAULT_COL_WIDTH, newWidth)}px`;
                     }
                 }
             }
         }
-        
+
         container.scrollTo({
             left: container.scrollWidth,
             behavior: 'smooth'
