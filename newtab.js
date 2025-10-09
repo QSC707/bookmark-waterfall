@@ -579,17 +579,26 @@ let resizing = false;
 
 /**
  * 在宽屏下计算一个动态的左边距，以实现视觉上的居中效果。
+ * 优化版：确保在任何屏幕宽度下都有合理的最小边距。
  * @returns {number} - 计算出的左边距值。
  */
 function calculateCenteredMargin() {
     const factor = CONSTANTS.LAYOUT.CENTER_ALIGN_SCALE_FACTOR;
     const breakpoint = CONSTANTS.LAYOUT.CENTER_ALIGN_BREAKPOINT;
     const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
-    return Math.max(gap, (factor * window.innerWidth - breakpoint) / 2);
+    const windowWidth = window.innerWidth;
+
+    // 始终保持至少一个 gap 的最小边距
+    if (windowWidth <= breakpoint) {
+        return gap;
+    }
+
+    // 宽屏时使用动态计算，但确保不小于 gap
+    return Math.max(gap, (factor * windowWidth - breakpoint) / 2);
 }
 
 // ==================================================================
-// --- 这是重构并兼容了居中对齐的最终版函数 (请整体替换) ---
+// --- 优化版：平滑动画 + 稳定布局算法 ---
 // ==================================================================
 function adjustColumnWidths(container) {
     if (resizing) return;
@@ -615,21 +624,13 @@ function adjustColumnWidths(container) {
             userResized: col.dataset.userResized === 'true',
             canResize: col.dataset.userResized !== 'true'
         }));
-        
-        // ▼▼▼ 新增：兼容居中对齐算法 ▼▼▼
-        let effectiveAvailableWidth = availableWidth;
-        let marginLeft = 0;
-        const firstColumn = columns[0];
-        const shouldCenterAlign = firstColumn &&
-            firstColumn.dataset.level === "1" &&
-            window.innerWidth > CONSTANTS.LAYOUT.CENTER_ALIGN_BREAKPOINT;
 
-        if (shouldCenterAlign) {
-            marginLeft = calculateCenteredMargin();
-            // 减去左边距，得到真正可用于放置列的宽度
-            effectiveAvailableWidth -= marginLeft;
-        }
-        // ▲▲▲ 兼容代码结束 ▲▲▲
+        // --- 计算左边距（始终计算，确保第一列有合理位置） ---
+        let marginLeft = calculateCenteredMargin();
+        const firstColumn = columns[0];
+
+        // 计算实际可用宽度（减去左边距）
+        let effectiveAvailableWidth = availableWidth - marginLeft;
 
         // --- 2. 核心布局计算 (Calculate Phase) ---
         const totalCurrentWidth = columnData.reduce((sum, data) => sum + data.currentWidth, 0) + (columnData.length - 1) * gap;
