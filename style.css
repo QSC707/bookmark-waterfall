@@ -852,10 +852,11 @@ input:checked+.slider:before {
 
 .toast {
     visibility: hidden;
-    min-width: 250px;
+    /* --- 核心修改 1: 移除了 min-width: 250px --- */
     color: var(--text-color);
     text-align: center;
-    padding: 12px 20px;
+    /* --- 核心修改 2: 减小了内边距，使其更紧凑 --- */
+    padding: 10px 16px;
     position: fixed;
     z-index: 9999;
     left: 50%;
@@ -864,6 +865,10 @@ input:checked+.slider:before {
     font-size: 14px;
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* --- 新增: 添加一个最大宽度，防止消息过长时拉得太宽 --- */
+    max-width: 500px;
+    /* --- 新增: 让宽度根据内容变化时更平滑 --- */
+    transition-property: all, width;
 }
 
 .toast.show {

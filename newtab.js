@@ -149,9 +149,11 @@ function showToast(message, duration = 2000) {
     const toast = document.getElementById('toast');
     if (toast) {
         toast.textContent = message;
-        toast.className = 'toast show';
+        // 核心修正：确保 glass-effect 类被保留
+        toast.className = 'toast glass-effect show';
         setTimeout(() => {
-            toast.className = 'toast';
+            // 恢复时也确保 glass-effect 类存在
+            toast.className = 'toast glass-effect';
         }, duration);
     }
 }
