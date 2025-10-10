@@ -71,7 +71,6 @@ let selectedItems = new Set();
 let lastClickedId = null;
 let allBookmarksFlat = [];
 let historyWindowId = null;
-let isMouseOverTopSitesBar = false;
 
 // 新增：记录第一列的初始边距，防止视觉跳跃
 let initialMarginLeft = null;
@@ -1302,16 +1301,6 @@ function hideContextMenu() {
     if (contextMenu.style.display === 'block') {
         contextMenu.style.display = 'none';
         delete document.body.dataset.contextMenuOpen;
-
-        // ▼▼▼ 新增的核心逻辑 ▼▼▼
-        // 当菜单关闭时，检查鼠标是否还在“经常访问”区域，如果不在，则收起它
-        if (!isMouseOverTopSitesBar) {
-            const topSitesBar = document.getElementById('topSitesBar');
-            if (topSitesBar) {
-                topSitesBar.classList.remove('expanded');
-            }
-        }
-        // ▲▲▲ 新增逻辑结束 ▲▲▲
     }
 }
 // ==================================================================
@@ -2090,53 +2079,6 @@ async function displayRecentBookmarks() {
     }
 }
 
-function displayTopSites() {
-    const container = document.getElementById('topSitesContent');
-    if (!container) return;
-    chrome.topSites.get((items) => {
-        container.innerHTML = '';
-
-        if (!items || items.length === 0) {
-            const emptyMsg = document.createElement('div');
-            emptyMsg.className = 'empty-folder-message';
-            emptyMsg.textContent = '暂无常访问网站';
-            emptyMsg.style.padding = '16px';
-            container.appendChild(emptyMsg);
-            return;
-        }
-
-        const fragment = document.createDocumentFragment();
-        items.slice(0, 15).forEach(item => {
-            const a = document.createElement('a');
-            a.className = 'top-site-item';
-            a.href = item.url;
-            a.target = '_blank';
-            // ▼▼▼ 在这里添加或修改 ▼▼▼
-            a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
-            a.dataset.id = item.url; // 使用 URL 作为唯一 ID
-            a.dataset.url = item.url;
-            // ▲▲▲ 添加结束 ▲▲▲
-
-            const icon = document.createElement('img');
-            icon.className = 'top-site-icon';
-            icon.src = '';
-            icon.dataset.src = getIconUrl(item.url);
-
-            const title = document.createElement('span');
-            title.className = 'top-site-title';
-            title.textContent = sanitizeText(item.title);
-
-            a.append(icon, title);
-
-            a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
-            a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
-
-            fragment.appendChild(a);
-        });
-        container.appendChild(fragment);
-        observeLazyImages(container);
-    });
-}
 
 // --- 其他功能 ---
 function handleSpacebarPreview(e) {
@@ -2203,28 +2145,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const hoverDelayInput = document.getElementById('hover-delay-input');
 
     const historyBtn = document.getElementById('history-btn');
-    // ...
-    const topSitesBar = document.getElementById('topSitesBar');
-    let topSitesHoverTimeout;
-
-    topSitesBar.addEventListener('mouseenter', () => {
-        isMouseOverTopSitesBar = true; // 更新状态：鼠标进入
-        clearTimeout(topSitesHoverTimeout);
-        topSitesHoverTimeout = setTimeout(() => {
-            topSitesBar.classList.add('expanded');
-        }, 500);
-    });
-
-    topSitesBar.addEventListener('mouseleave', () => {
-        isMouseOverTopSitesBar = false; // 更新状态：鼠标离开
-        clearTimeout(topSitesHoverTimeout);
-
-        // 核心修正：仅当右键菜单未打开时，才收起侧边栏
-        if (document.body.dataset.contextMenuOpen !== 'true') {
-            topSitesBar.classList.remove('expanded');
-        }
-    });
-
 
     let isModuleVisible = false;
 
@@ -2464,7 +2384,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // displayRecentBookmarks 现在使用 chrome.bookmarks.getRecent() API
         displayBookmarks(bookmarks);
         displayRecentBookmarks();
-        displayTopSites();
         observeLazyImages(document.body);
     };
 
