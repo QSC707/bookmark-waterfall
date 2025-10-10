@@ -1900,13 +1900,7 @@ function handleBookmarkRemoved(id, removeInfo) {
 
 // --- [最终修复版] handleBookmarkChanged 函数 ---
 function handleBookmarkChanged(id, changeInfo) {
-    // 首先，更新内存中的数据，这对于后续的筛选很重要
-    const bookmarkInData = allBookmarksFlat.find(bm => bm.id === id);
-    if (bookmarkInData) {
-        Object.assign(bookmarkInData, changeInfo);
-    }
-
-    // 然后，更新界面上所有匹配的元素
+    // 优化：直接更新界面上所有匹配的元素，无需维护内存中的书签数据
     document.querySelectorAll(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`).forEach(item => {
         if (changeInfo.title) {
             item.dataset.title = changeInfo.title;
@@ -1925,6 +1919,9 @@ function handleBookmarkChanged(id, changeInfo) {
             }
         }
     });
+
+    // 刷新最近书签模块以反映更改
+    refreshAllData();
 }
 
 // --- 侧边栏模块 (Modules) ---
@@ -1953,97 +1950,104 @@ async function displayRecentBookmarks() {
         const endTime = new Date(endDateInput.value).getTime() + (24 * 60 * 60 * 1000 - 1);
         container.innerHTML = '';
 
-        const filteredBookmarks = allBookmarksFlat
-            .filter(bm => bm.dateAdded >= startTime && bm.dateAdded <= endTime && bm.url)
-            .sort((a, b) => b.dateAdded - a.dateAdded);
+        // 使用 chrome.bookmarks.getRecent API 优化性能
+        // 获取最近100个书签，避免遍历所有书签
+        chrome.bookmarks.getRecent(100, async (items) => {
+            const filteredBookmarks = items
+                .filter(bm => {
+                    const itemDate = bm.dateAdded;
+                    return itemDate >= startTime && itemDate <= endTime && bm.url;
+                })
+                .sort((a, b) => b.dateAdded - a.dateAdded);
 
-        if (filteredBookmarks.length === 0) {
-            container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">该时段无书签</div>';
-            return;
-        }
-
-        const fragment = document.createDocumentFragment();
-        let lastDateString = '';
-
-        for (const item of filteredBookmarks) {
-            const currentDate = new Date(item.dateAdded);
-            const currentDateString = getRelativeDateString(currentDate);
-
-            if (currentDateString !== lastDateString) {
-                const dateHeader = document.createElement('div');
-                dateHeader.className = 'timeline-date-header';
-                dateHeader.textContent = currentDateString;
-                fragment.appendChild(dateHeader);
-                lastDateString = currentDateString;
+            if (filteredBookmarks.length === 0) {
+                container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">该时段无书签</div>';
+                return;
             }
 
-            const a = document.createElement('a');
-            a.href = item.url;
-            a.target = '_blank';
-            a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
-            a.dataset.id = item.id;
-            a.dataset.url = item.url;
-            a.dataset.parentId = item.parentId;
-            a.dataset.title = item.title;
+            const fragment = document.createDocumentFragment();
+            let lastDateString = '';
 
-            const icon = document.createElement('img');
-            icon.className = 'module-icon';
-            icon.src = '';
-            icon.dataset.src = getIconUrl(item.url);
+            for (const item of filteredBookmarks) {
+                const currentDate = new Date(item.dateAdded);
+                const currentDateString = getRelativeDateString(currentDate);
 
-            const contentWrapper = document.createElement('div');
-            contentWrapper.className = 'bookmark-content-wrapper';
+                if (currentDateString !== lastDateString) {
+                    const dateHeader = document.createElement('div');
+                    dateHeader.className = 'timeline-date-header';
+                    dateHeader.textContent = currentDateString;
+                    fragment.appendChild(dateHeader);
+                    lastDateString = currentDateString;
+                }
 
-            const title = document.createElement('span');
-            title.className = 'module-title';
-            title.textContent = sanitizeText(item.title);
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.target = '_blank';
+                a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
+                a.dataset.id = item.id;
+                a.dataset.url = item.url;
+                a.dataset.parentId = item.parentId;
+                a.dataset.title = item.title;
 
-            const metaInfo = document.createElement('div');
-            metaInfo.className = 'bookmark-meta-info';
+                const icon = document.createElement('img');
+                icon.className = 'module-icon';
+                icon.src = '';
+                icon.dataset.src = getIconUrl(item.url);
 
-            const pathUrlWrapper = document.createElement('div');
-            pathUrlWrapper.className = 'bookmark-path-url-wrapper';
+                const contentWrapper = document.createElement('div');
+                contentWrapper.className = 'bookmark-content-wrapper';
 
-            const pathSpan = document.createElement('span');
-            pathSpan.className = 'bookmark-item-path';
-            pathSpan.textContent = await getBookmarkPath(item.id);
+                const title = document.createElement('span');
+                title.className = 'module-title';
+                title.textContent = sanitizeText(item.title);
 
-            const urlSpan = document.createElement('span');
-            urlSpan.className = 'bookmark-item-url';
-            urlSpan.textContent = item.url; // <--- 修改的就是这一行！
+                const metaInfo = document.createElement('div');
+                metaInfo.className = 'bookmark-meta-info';
 
-            pathUrlWrapper.append(urlSpan, pathSpan);
+                const pathUrlWrapper = document.createElement('div');
+                pathUrlWrapper.className = 'bookmark-path-url-wrapper';
 
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'bookmark-item-date';
-            dateSpan.textContent = formatDateTime(item.dateAdded);
+                const pathSpan = document.createElement('span');
+                pathSpan.className = 'bookmark-item-path';
+                pathSpan.textContent = await getBookmarkPath(item.id);
 
-            metaInfo.append(pathUrlWrapper, dateSpan);
-            contentWrapper.append(title, metaInfo);
-            a.append(icon, contentWrapper);
+                const urlSpan = document.createElement('span');
+                urlSpan.className = 'bookmark-item-url';
+                urlSpan.textContent = item.url;
 
-            a.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                showContextMenu(e, a, a.closest('.vertical-modules'));
-            });
-            a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
-            a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
+                pathUrlWrapper.append(urlSpan, pathSpan);
 
-            a.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'bookmark-item-date';
+                dateSpan.textContent = formatDateTime(item.dateAdded);
+
+                metaInfo.append(pathUrlWrapper, dateSpan);
+                contentWrapper.append(title, metaInfo);
+                a.append(icon, contentWrapper);
+
+                a.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
-                }
-                if (!selectedItems.has(a.dataset.id)) {
-                    clearSelection();
-                    toggleSelection(a);
-                }
-            });
+                    showContextMenu(e, a, a.closest('.vertical-modules'));
+                });
+                a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
+                a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
 
-            fragment.appendChild(a);
-        }
-        container.appendChild(fragment);
-        observeLazyImages(container);
+                a.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                        e.preventDefault();
+                    }
+                    if (!selectedItems.has(a.dataset.id)) {
+                        clearSelection();
+                        toggleSelection(a);
+                    }
+                });
+
+                fragment.appendChild(a);
+            }
+            container.appendChild(fragment);
+            observeLazyImages(container);
+        });
     };
 
     const setDateRange = (days) => {
@@ -2450,8 +2454,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const initializeApp = (bookmarks) => {
-        allBookmarksFlat = [];
-        flattenBookmarks(bookmarks[0].children, allBookmarksFlat);
+        // 优化：移除初始加载时的 flattenBookmarks 调用
+        // displayRecentBookmarks 现在使用 chrome.bookmarks.getRecent() API
         displayBookmarks(bookmarks);
         displayRecentBookmarks();
         displayTopSites();
@@ -2460,11 +2464,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const refreshAllData = () => {
         setTimeout(() => {
-            chrome.bookmarks.getTree(bookmarks => {
-                allBookmarksFlat = [];
-                flattenBookmarks(bookmarks[0].children, allBookmarksFlat);
-                displayRecentBookmarks();
-            });
+            // 优化：直接刷新最近书签，无需遍历整个书签树
+            // displayRecentBookmarks 内部使用 chrome.bookmarks.getRecent() API
+            displayRecentBookmarks();
         }, 250);
     };
 
