@@ -17,21 +17,34 @@ const CONSTANTS = {
         HOVER_ENABLED: 'hoverToOpenEnabled',
         HOVER_DELAY: 'hoverDelay'
     },
-    // 优化后的布局常量 - 更智能的响应式设计
+    // 优化后的布局常量 - 内容驱动的响应式设计
     LAYOUT: {
         COLUMN_GAP: 20,              // 列之间的间隙 (px)
-        // 响应式列宽配置
+        // 响应式列宽配置 - 合理范围，让内容自适应
         RESPONSIVE_WIDTHS: {
-            SMALL: { min: 160, ideal: 220, max: 260 },    // < 1024px
-            MEDIUM: { min: 180, ideal: 260, max: 320 },   // 1024-1440px
-            LARGE: { min: 200, ideal: 280, max: 360 },    // 1440-1920px
-            XLARGE: { min: 220, ideal: 300, max: 400 }    // > 1920px
+            XSMALL: { min: 150, ideal: 200, max: 280 },   // < 900px (小屏平板/手机)
+            SMALL: { min: 160, ideal: 220, max: 320 },    // 900-1200px
+            MEDIUM: { min: 180, ideal: 240, max: 360 },   // 1200-1600px
+            LARGE: { min: 200, ideal: 260, max: 400 },    // 1600-1920px
+            XLARGE: { min: 220, ideal: 280, max: 450 },   // 1920-2560px
+            XXLARGE: { min: 240, ideal: 300, max: 500 }   // > 2560px (4K+)
         },
-        // 窗口宽度断点
+        // 窗口宽度断点 - 更细化
         BREAKPOINTS: {
-            SMALL: 1024,
-            MEDIUM: 1440,
-            LARGE: 1920
+            XSMALL: 900,
+            SMALL: 1200,
+            MEDIUM: 1600,
+            LARGE: 1920,
+            XLARGE: 2560
+        },
+        // 边距配置
+        MARGIN: {
+            MIN_BASE: 16,            // 基础最小边距
+            MIN_RATIO: 0.015,        // 动态最小边距比例（容器宽度的1.5%）
+            MAX: 120,                // 标准边距上限
+            CENTERING_THRESHOLD: 0.35, // 居中阈值：只有内容占比 < 35% 时才居中
+            FIXED_CONTENT_WIDTH: 382, // 固定的单列内容宽度，用于计算居中边距
+            WINDOW_CHANGE_THRESHOLD: 100 // 窗口宽度变化阈值 (px)
         },
         // 动画配置 - 简化并优化
         ANIMATION: {
@@ -58,6 +71,13 @@ let lastClickedId = null;
 let allBookmarksFlat = [];
 let historyWindowId = null;
 let isMouseOverTopSitesBar = false;
+
+// 新增：记录第一列的初始边距，防止视觉跳跃
+let initialMarginLeft = null;
+let savedMarginLeft = null; // 保存经过居中调整后的边距
+let marginWindowWidth = null; // 保存计算边距时的窗口宽度
+let currentColumnCount = 0;
+let needsRecenter = false; // 标记窗口放大后需要重新居中
 
 // --- 新增：智能悬停状态变量 (简化版) ---
 let hoverIntent = {
@@ -550,6 +570,14 @@ function handleFolderClick(folderItem, bookmarkId) {
         nextColumns.forEach(col => {
             if (parseInt(col.dataset.level) > level) col.remove();
         });
+        
+        // 如果关闭后没有列了，重置初始边距和居中标志
+        const remainingColumns = container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
+        if (remainingColumns.length === 0) {
+            initialMarginLeft = null;
+            currentColumnCount = 0;
+            needsRecenter = false;
+        }
     }
 }
 
@@ -683,57 +711,117 @@ function getResponsiveConfig() {
     const windowWidth = window.innerWidth;
     const { BREAKPOINTS, RESPONSIVE_WIDTHS } = CONSTANTS.LAYOUT;
 
-    if (windowWidth < BREAKPOINTS.SMALL) {
+    if (windowWidth < BREAKPOINTS.XSMALL) {
+        return RESPONSIVE_WIDTHS.XSMALL;
+    } else if (windowWidth < BREAKPOINTS.SMALL) {
         return RESPONSIVE_WIDTHS.SMALL;
     } else if (windowWidth < BREAKPOINTS.MEDIUM) {
         return RESPONSIVE_WIDTHS.MEDIUM;
     } else if (windowWidth < BREAKPOINTS.LARGE) {
         return RESPONSIVE_WIDTHS.LARGE;
-    } else {
+    } else if (windowWidth < BREAKPOINTS.XLARGE) {
         return RESPONSIVE_WIDTHS.XLARGE;
+    } else {
+        return RESPONSIVE_WIDTHS.XXLARGE;
     }
 }
 
 /**
- * 在宽屏下计算一个动态的左边距，以实现视觉上的居中效果。
- * 即使在小窗口下也保持合适的最小边距，确保视觉舒适性。
- * @returns {number} - 计算出的左边距值。
+ * 计算动态的左边距，基于窗口大小提供合理的留白。
+ * 使用更激进的增长曲线，让大窗口有足够的视觉呼吸空间。
+ * @param {number} [containerWidth] - 可选的容器宽度，默认使用 window.innerWidth
+ * @returns {number} - 计算出的左边距值（像素）
  */
-function calculateCenteredMargin() {
-    const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
-    const windowWidth = window.innerWidth;
+function calculateCenteredMargin(containerWidth = window.innerWidth) {
+    const { COLUMN_GAP, BREAKPOINTS, MARGIN } = CONSTANTS.LAYOUT;
+    
+    // 动态最小边距：基础值 + 容器宽度的一定比例
+    const dynamicMinMargin = Math.max(
+        MARGIN.MIN_BASE,
+        containerWidth * MARGIN.MIN_RATIO
+    );
 
-    // 定义一个最小边距，确保第一列不会贴边
-    const MIN_MARGIN = 20; // 至少 20px 的左边距
-
-    // 小窗口（< 1200px）：使用固定的最小边距
-    if (windowWidth < 1200) {
-        return MIN_MARGIN;
+    // 小窗口（< 1200px）：保持最小边距
+    if (containerWidth < BREAKPOINTS.SMALL) {
+        return Math.round(dynamicMinMargin);
     }
 
-    // 中等窗口（1200-1600px）：使用标准 gap，但不小于最小边距
-    if (windowWidth <= 1600) {
-        return Math.max(MIN_MARGIN, gap);
+    // 中等窗口（1200-1600px）：线性增长，从 20px 到 100px
+    if (containerWidth < BREAKPOINTS.MEDIUM) {
+        const progress = (containerWidth - BREAKPOINTS.SMALL) / (BREAKPOINTS.MEDIUM - BREAKPOINTS.SMALL);
+        const margin = 20 + progress * 80; // 20px -> 100px
+        return Math.round(Math.max(dynamicMinMargin, margin));
     }
 
-    // 宽屏时使用动态计算，但确保不小于最小边距
-    return Math.max(MIN_MARGIN, (1.2 * windowWidth - 1600) / 2);
+    // 大窗口（1600-1920px）：加速增长，从 100px 到 280px
+    if (containerWidth < BREAKPOINTS.LARGE) {
+        const progress = (containerWidth - BREAKPOINTS.MEDIUM) / (BREAKPOINTS.LARGE - BREAKPOINTS.MEDIUM);
+        const margin = 100 + progress * 180; // 100px -> 280px
+        return Math.round(Math.max(dynamicMinMargin, margin));
+    }
+
+    // 超大窗口（1920-2560px）：继续增长，从 280px 到 450px
+    if (containerWidth < BREAKPOINTS.XLARGE) {
+        const progress = (containerWidth - BREAKPOINTS.LARGE) / (BREAKPOINTS.XLARGE - BREAKPOINTS.LARGE);
+        const margin = 280 + progress * 170; // 280px -> 450px
+        return Math.round(margin);
+    }
+
+    // 4K+ 窗口（> 2560px）：从 450px 继续增长到 600px
+    const progress = Math.min(1, (containerWidth - BREAKPOINTS.XLARGE) / 1000);
+    const margin = 450 + progress * 150; // 450px -> 600px
+    return Math.round(margin);
+}
+
+// 应用居中边距调整（使用固定的单列宽度来计算）
+function applyCenteredMargin(marginLeft) {
+    const availableWidth = window.innerWidth;
+
+    // 边界检查：确保窗口宽度有效
+    if (availableWidth <= 0) {
+        return marginLeft;
+    }
+
+    // 使用常量中定义的固定单列宽度来计算内容占比
+    // 这样可以确保相同窗口大小下，边距始终一致
+    const fixedContentWidth = CONSTANTS.LAYOUT.MARGIN.FIXED_CONTENT_WIDTH;
+    const contentRatio = fixedContentWidth / availableWidth;
+
+    // 计算完美居中所需的边距
+    const baseMargin = marginLeft;
+    const perfectCenteringMargin = (availableWidth - fixedContentWidth) / 2;
+
+    // 渐进式居中系数：内容越少，居中效果越强
+    // 使用 Math.max 确保系数不为负数
+    const centeringFactor = Math.max(0,
+        (CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD - contentRatio) / CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD
+    );
+
+    const additionalMargin = (perfectCenteringMargin - baseMargin) * centeringFactor;
+    const finalMarginLeft = Math.max(0, baseMargin + additionalMargin);
+
+    // 保存计算结果
+    savedMarginLeft = finalMarginLeft;
+    marginWindowWidth = availableWidth;
+
+    return finalMarginLeft;
 }
 
 // ==================================================================
 // --- 恢复原始的平滑动画 + 稳定布局算法（只修复抖动） ---
 // ==================================================================
 function adjustColumnWidths(container) {
-    if (resizing) return;
+    if (!container || resizing) return;
     resizing = true;
 
     requestAnimationFrame(() => {
-        // --- 1. 布局读取 (Read Phase) ---
-        const columns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
-        if (columns.length === 0) {
-            resizing = false;
-            return;
-        }
+        try {
+            // --- 1. 布局读取 (Read Phase) ---
+            const columns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
+            if (columns.length === 0) {
+                resizing = false;
+                return;
+            }
 
         const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
         const availableWidth = container.clientWidth;
@@ -749,21 +837,61 @@ function adjustColumnWidths(container) {
             canResize: col.dataset.userResized !== 'true'
         }));
 
-        // --- 计算左边距（保持舒适的视觉边距） ---
+        // --- 智能布局策略：固定第一列位置，防止视觉跳跃 ---
         let marginLeft = 0;
+        const marginRight = CONSTANTS.LAYOUT.COLUMN_GAP;
         const firstColumn = columns[0];
+
+        // 检测列数变化
+        const newColumnCount = columns.length;
+        const columnsChanged = newColumnCount !== currentColumnCount;
 
         // 只有当第一列是 data-level="1" 时才计算边距
         if (firstColumn && firstColumn.dataset.level === "1") {
-            // 始终使用计算出的边距，该函数已确保最小值
-            marginLeft = calculateCenteredMargin();
+            if (columnsChanged) {
+                if (newColumnCount === 0) {
+                    // 场景1：所有列都关闭了，重置所有状态
+                    initialMarginLeft = null;
+                    savedMarginLeft = null;
+                    marginWindowWidth = null;
+                    needsRecenter = false;
+                } else if (newColumnCount === 1 && initialMarginLeft === null) {
+                    // 场景2：首次打开第一个书签 - 计算居中边距
+                    marginLeft = calculateCenteredMargin(availableWidth);
+                    marginLeft = applyCenteredMargin(marginLeft);
+                    initialMarginLeft = marginLeft;
+                } else if (newColumnCount > currentColumnCount) {
+                    // 场景3：打开新书签 - 使用保存的边距
+                    marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                }
+                currentColumnCount = newColumnCount;
+            } else {
+                // 列数没变，检查窗口变化
+                if (newColumnCount > 0) {
+                    const currentWindowWidth = availableWidth;
+                    const savedWindowWidth = marginWindowWidth || currentWindowWidth;
+                    const windowWidthDiff = Math.abs(currentWindowWidth - savedWindowWidth);
+
+                    if (windowWidthDiff > CONSTANTS.LAYOUT.MARGIN.WINDOW_CHANGE_THRESHOLD) {
+                        // 场景4：窗口显著变化 - 重新计算居中边距
+                        marginLeft = calculateCenteredMargin(availableWidth);
+                        marginLeft = applyCenteredMargin(marginLeft);
+                        initialMarginLeft = marginLeft;
+                    } else {
+                        // 场景5：窗口未显著变化 - 使用保存的边距
+                        marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                    }
+                } else {
+                    marginLeft = calculateCenteredMargin(availableWidth);
+                }
+            }
         }
 
-        // --- 2. 核心布局计算 (保持原始算法) ---
-        // 实际占用空间 = 左边距 + 所有列宽 + 列间隙
+        // --- 2. 核心布局计算（优化版） ---
+        // 实际占用空间 = 左边距 + 所有列宽 + 列间隙 + 右边距
         const columnsWidth = columnData.reduce((sum, data) => sum + data.currentWidth, 0);
         const gapsWidth = (columnData.length - 1) * gap;
-        const totalUsedWidth = marginLeft + columnsWidth + gapsWidth;
+        const totalUsedWidth = marginLeft + columnsWidth + gapsWidth + marginRight;
 
         const resizableColumns = columnData.filter(data => data.canResize);
 
@@ -772,67 +900,70 @@ function adjustColumnWidths(container) {
             // 溢出量 = 总占用宽度 - 可用宽度
             const overflowWidth = totalUsedWidth - availableWidth;
 
-            const totalShrinkableSpace = resizableColumns.reduce((sum, data) => {
+            // 优化：按照当前宽度排序，优先收缩较宽的列
+            const sortedResizable = [...resizableColumns].sort((a, b) => b.currentWidth - a.currentWidth);
+            
+            const totalShrinkableSpace = sortedResizable.reduce((sum, data) => {
                 return sum + Math.max(0, data.currentWidth - MIN_COL_WIDTH);
             }, 0);
 
             if (totalShrinkableSpace >= overflowWidth) {
-                for (const data of resizableColumns) {
+                // 使用权重收缩：较宽的列收缩更多
+                for (const data of sortedResizable) {
                     const shrinkableAmount = Math.max(0, data.currentWidth - MIN_COL_WIDTH);
                     if (shrinkableAmount > 0) {
+                        // 权重：当前可收缩空间占总可收缩空间的比例
                         const proportion = shrinkableAmount / totalShrinkableSpace;
                         const reduction = overflowWidth * proportion;
-                        const newWidth = data.currentWidth - reduction;
+                        const newWidth = Math.max(MIN_COL_WIDTH, data.currentWidth - reduction);
                         newStyles.set(data.el, { width: `${newWidth}px` });
+                    }
+                }
+            } else {
+                // 如果收缩空间不够，将所有可调整的列缩到最小
+                for (const data of sortedResizable) {
+                    if (data.currentWidth > MIN_COL_WIDTH) {
+                        newStyles.set(data.el, { width: `${MIN_COL_WIDTH}px` });
                     }
                 }
             }
 
-        // CASE 2: 空间有富余，可以放大
+        // CASE 2: 空间有富余，适度扩展（以内容为主，不强行填充）
         } else {
             // 可用空间 = 容器宽度 - 实际占用宽度
             const availableSpace = availableWidth - totalUsedWidth;
 
+            // 只扩展到 ideal 宽度，让内容自然呈现
             const columnsToEnlarge = resizableColumns.filter(data => data.currentWidth < DEFAULT_COL_WIDTH);
-
-            if (columnsToEnlarge.length > 0) {
+            
+            if (columnsToEnlarge.length > 0 && availableSpace > 0) {
                 const totalEnlargePotential = columnsToEnlarge.reduce((sum, data) => {
                     return sum + (DEFAULT_COL_WIDTH - data.currentWidth);
                 }, 0);
 
                 if (totalEnlargePotential > 0) {
-                    for (const data of columnsToEnlarge) {
-                        const potential = DEFAULT_COL_WIDTH - data.currentWidth;
-                        const proportion = potential / totalEnlargePotential;
-                        const enlargeAmount = Math.min(availableSpace * proportion, potential);
-                        const newWidth = data.currentWidth + enlargeAmount;
-                        newStyles.set(data.el, { width: `${newWidth}px` });
+                    if (totalEnlargePotential <= availableSpace) {
+                        // 空间足够，全部扩展到 ideal 宽度
+                        for (const data of columnsToEnlarge) {
+                            newStyles.set(data.el, { width: `${DEFAULT_COL_WIDTH}px` });
+                        }
+                    } else {
+                        // 空间不够，按比例扩展
+                        for (const data of columnsToEnlarge) {
+                            const potential = DEFAULT_COL_WIDTH - data.currentWidth;
+                            const proportion = potential / totalEnlargePotential;
+                            const enlargeAmount = availableSpace * proportion;
+                            const newWidth = data.currentWidth + enlargeAmount;
+                            newStyles.set(data.el, { width: `${newWidth}px` });
+                        }
                     }
                 }
             }
         }
 
-        // --- 3. 布局写入 (优化：减少抖动) ---
-        // 只对 data-level="1" 的列应用左边距
-        if (firstColumn && firstColumn.dataset.level === "1") {
-            const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
-            const marginDiff = Math.abs(marginLeft - currentMargin);
-
-            // 如果边距变化很大（>100px），说明是初次加载或窗口大小变化很大，不使用动画
-            if (marginDiff > 100 || !firstColumn.dataset.initialized) {
-                firstColumn.style.transition = 'none';
-                firstColumn.style.marginLeft = `${marginLeft}px`;
-                firstColumn.dataset.initialized = 'true';
-
-                firstColumn.offsetHeight; // 触发重排
-                firstColumn.style.transition = '';
-            } else {
-                // 小幅度变化时使用动画
-                firstColumn.style.marginLeft = `${marginLeft}px`;
-            }
-        }
-
-        // 批量应用宽度变化，减少抖动
+        // --- 3. 布局写入（优化：减少抖动 + 智能居中） ---
+        
+        // 先应用宽度变化
         const hasLargeChanges = Array.from(newStyles.entries()).some(([el, style]) => {
             const currentWidth = el.offsetWidth;
             const newWidth = parseFloat(style.width);
@@ -845,12 +976,6 @@ function adjustColumnWidths(container) {
                 el.style.transition = 'none';
                 el.style.width = style.width;
             });
-
-            requestAnimationFrame(() => {
-                newStyles.forEach((style, el) => {
-                    el.style.transition = '';
-                });
-            });
         } else {
             // 小变化时保持动画
             newStyles.forEach((style, el) => {
@@ -858,33 +983,103 @@ function adjustColumnWidths(container) {
             });
         }
 
-        // --- 4. 最终智能聚焦滚动 (优化版) ---
+        // 重新计算应用新宽度后的内容宽度，决定最终边距
+        let finalMarginLeft = marginLeft;
+        
+        if (firstColumn && firstColumn.dataset.level === "1") {
+            // 计算应用新宽度后的实际内容宽度
+            const newColumnsWidth = columnData.reduce((sum, data) => {
+                const newStyle = newStyles.get(data.el);
+                return sum + (newStyle ? parseFloat(newStyle.width) : data.currentWidth);
+            }, 0);
+            const newContentWidth = newColumnsWidth + (columnData.length - 1) * gap;
+
+            // 应用渐进式居中的条件：
+            // 1. 初始计算（列数变化且第一次打开或只有一列）
+            // 2. 窗口显著放大需要重新居中
+            const shouldApplyCentering = 
+                (columnsChanged && (initialMarginLeft === null || newColumnCount === 1)) || 
+                needsRecenter;
+            
+            if (shouldApplyCentering) {
+                // 计算内容占容器的比例
+                const contentRatio = newContentWidth / availableWidth;
+                
+                // 渐进式居中策略：只有内容真的很少时才适度居中
+                if (contentRatio < CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD) {
+                    // 计算完全居中需要的边距
+                    const perfectCenteringMargin = (availableWidth - newContentWidth) / 2;
+                    
+                    // 计算调整系数：内容越少，居中程度越高
+                    const centeringFactor = Math.max(0, (CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD - contentRatio) / CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD);
+                    
+                    // 计算基础边距
+                    const baseMargin = marginLeft;
+                    
+                    // 渐进式居中：基础边距 + (居中边距 - 基础边距) × 系数
+                    const additionalMargin = (perfectCenteringMargin - baseMargin) * centeringFactor;
+                    finalMarginLeft = Math.max(baseMargin, baseMargin + additionalMargin);
+                    
+                    // 更新保存的初始边距
+                    initialMarginLeft = finalMarginLeft;
+                    // 清除重新居中标记
+                    needsRecenter = false;
+                } else {
+                    needsRecenter = false; // 清除标记
+                }
+            }
+
+            // 应用边距
+            const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+            const marginDiff = Math.abs(finalMarginLeft - currentMargin);
+
+            // 边距变化大时禁用动画
+            if (marginDiff > 100 || !firstColumn.dataset.initialized) {
+                firstColumn.style.transition = 'none';
+                firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+                firstColumn.dataset.initialized = 'true';
+                firstColumn.offsetHeight; // 强制重排
+                firstColumn.style.transition = '';
+            } else {
+                firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+            }
+        }
+
+        // 恢复动画（如果之前禁用了）
+        if (hasLargeChanges) {
+            requestAnimationFrame(() => {
+                newStyles.forEach((style, el) => {
+                    el.style.transition = '';
+                });
+            });
+        }
+
+        // --- 4. 最终智能聚焦滚动（优化版 - 考虑右侧边距和居中） ---
         requestAnimationFrame(() => {
             let scrollTarget = 0;
             const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
 
-            // 获取第一列的实际左边距
+            // 获取第一列的实际左边距（使用最终计算的值）
             const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1" 
-                ? (parseFloat(firstColumn.style.marginLeft) || 0)
+                ? (parseFloat(firstColumn.style.marginLeft) || finalMarginLeft || 0)
                 : 0;
 
-            // 计算实际占用的总宽度
+            // 计算实际占用的总宽度（包含右边距）
             const finalColumnsWidth = finalColumns.reduce((sum, col) => sum + col.offsetWidth, 0);
             const finalGapsWidth = (finalColumns.length - 1) * gap;
-            const finalTotalWidth = firstColumnMargin + finalColumnsWidth + finalGapsWidth;
+            const finalTotalWidth = firstColumnMargin + finalColumnsWidth + finalGapsWidth + marginRight;
 
             // 判断是否需要滚动
             if (finalTotalWidth > availableWidth) {
-                // 从右往左计算能显示的列
-                let visibleWidth = 0;
+                // 从右往左计算能显示的列（考虑右侧边距）
+                let visibleWidth = marginRight; // 从右边距开始
                 let firstVisibleColumnIndex = finalColumns.length - 1;
-                // 注意：这里不再减去 marginLeft，因为滚动区域从0开始
                 const maxVisibleWidth = availableWidth;
 
                 for (let i = finalColumns.length - 1; i >= 0; i--) {
                     const currentCol = finalColumns[i];
                     const colWidth = currentCol.offsetWidth;
-                    const widthToAdd = (visibleWidth === 0) ? colWidth : colWidth + gap;
+                    const widthToAdd = (i === finalColumns.length - 1) ? colWidth : colWidth + gap;
 
                     if (visibleWidth + widthToAdd <= maxVisibleWidth) {
                         visibleWidth += widthToAdd;
@@ -895,13 +1090,20 @@ function adjustColumnWidths(container) {
                 }
 
                 // 计算滚动目标：让第一个可见列的左边缘对齐到容器左边缘
-                // 但要考虑到第一列可能有 marginLeft
+                // 考虑左边距和右边距
                 if (firstVisibleColumnIndex === 0 && firstColumnMargin > 0) {
                     // 如果第一个可见列就是第一列，保留其左边距
                     scrollTarget = 0;
                 } else {
-                    // 否则，滚动到该列的位置，确保完全可见
-                    scrollTarget = finalColumns[firstVisibleColumnIndex].offsetLeft - firstColumnMargin;
+                    // 否则，滚动到该列的位置
+                    // 如果是第一列，不减去边距；否则要确保完全可见
+                    const targetColumn = finalColumns[firstVisibleColumnIndex];
+                    scrollTarget = targetColumn.offsetLeft - firstColumnMargin;
+                    
+                    // 微调：确保不会让左侧列完全贴边
+                    if (firstVisibleColumnIndex > 0) {
+                        scrollTarget = Math.max(0, scrollTarget - 10);
+                    }
                 }
             } else {
                 // 内容不溢出，滚动到起始位置
@@ -921,6 +1123,11 @@ function adjustColumnWidths(container) {
 
             resizing = false;
         });
+        } catch (error) {
+            // 捕获并记录错误，防止阻塞
+            console.error('Error in adjustColumnWidths:', error);
+            resizing = false;
+        }
     });
 }
 
@@ -2100,7 +2307,9 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('scroll', hideContextMenu, true);
     window.addEventListener('resize', () => {
         hideContextMenu();
-        // 窗口大小变化时，重新检测书签栏对齐
+        // 窗口大小变化时，不重置初始边距，保持视图位置稳定
+        // initialMarginLeft 会在列数变化或全部关闭时才重置
+        
         const bookmarksBar = document.querySelector('.bookmark-column[data-level="0"]');
         if (bookmarksBar) {
             adjustBookmarksBarAlignment(bookmarksBar);
@@ -2108,26 +2317,36 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    // 优化：使用节流而不是防抖，让响应更及时
+    // 优化：使用节流+防抖组合，平衡响应速度和性能
     let resizeTimer;
+    let lastResizeTime = 0;
+    const THROTTLE_DELAY = 150; // 节流延迟（ms）
+    const DEBOUNCE_DELAY = 100; // 防抖延迟（ms）
+    
     const handleResize = () => {
-        // 立即执行一次，提供即时反馈
-        adjustColumnWidths(bookmarkContainer);
+        const now = Date.now();
+        
+        // 节流：如果距离上次执行超过阈值，立即执行
+        if (now - lastResizeTime >= THROTTLE_DELAY) {
+            adjustColumnWidths(bookmarkContainer);
+            lastResizeTime = now;
+        }
 
-        // 清除之前的定时器
+        // 防抖：清除之前的定时器，在停止调整后再执行一次
         clearTimeout(resizeTimer);
-
-        // 设置新的定时器，在停止调整大小后再执行一次
         resizeTimer = setTimeout(() => {
             adjustColumnWidths(bookmarkContainer);
-        }, 100);
+            lastResizeTime = Date.now();
+        }, DEBOUNCE_DELAY);
     };
 
-    const resizeObserver = new ResizeObserver(() => {
-        // 使用 requestAnimationFrame 确保不会阻塞渲染
-        requestAnimationFrame(handleResize);
-    });
-    resizeObserver.observe(bookmarkContainer);
+    // 使用 ResizeObserver 监听容器大小变化
+    if (window.ResizeObserver && bookmarkContainer) {
+        const resizeObserver = new ResizeObserver(() => {
+            requestAnimationFrame(() => handleResize());
+        });
+        resizeObserver.observe(bookmarkContainer);
+    }
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
