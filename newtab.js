@@ -64,6 +64,7 @@ let isDragging = false;
 let suppressHover = false;
 let draggedItem = null;
 let dragOverTimeout = null;
+let lastDragOverTarget = null;
 let previewWindowId = null;
 let currentlyHoveredItem = null;
 let selectedItems = new Set();
@@ -1136,7 +1137,7 @@ function handleDragEnd(e) {
     suppressHover = true;
 
     // 在短暂延迟后，重新启用悬停功能。
-    // 这就创建了一个“冷却期”，防止刚刚拖放的目标文件夹被意外打开。
+    // 这就创建了一个"冷却期"，防止刚刚拖放的目标文件夹被意外打开。
     setTimeout(() => {
         suppressHover = false;
     }, 700); // 300毫秒的冷却时间，足够用户移开鼠标
@@ -1147,6 +1148,7 @@ function handleDragEnd(e) {
     // 清理所有拖拽相关的样式
     document.querySelectorAll('.bookmark-item.dragging').forEach(el => el.classList.remove('dragging'));
     draggedItem = null;
+    lastDragOverTarget = null;
     document.querySelectorAll('.bookmark-item, .bookmark-column').forEach(el => {
         el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter', 'column-drag-over');
     });
@@ -1161,37 +1163,41 @@ function handleDragOver(e) {
         return;
     }
 
-    targetItem.parentElement.querySelectorAll('.bookmark-item').forEach(item => {
-        item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
-    });
-
     const rect = targetItem.getBoundingClientRect();
     const level = targetItem.closest('.bookmark-column').dataset.level;
     const isFolder = targetItem.classList.contains('is-folder');
 
+    // 计算新的拖动状态
+    let newClass = '';
     if (level == '0') {
-        if (e.clientX < rect.left + rect.width / 2) {
-            targetItem.classList.add('drag-over-before');
-        } else {
-            targetItem.classList.add('drag-over-after');
-        }
+        newClass = (e.clientX < rect.left + rect.width / 2) ? 'drag-over-before' : 'drag-over-after';
     } else {
         const y = e.clientY - rect.top;
         if (isFolder) {
             if (y < rect.height * 0.25) {
-                targetItem.classList.add('drag-over-top');
+                newClass = 'drag-over-top';
             } else if (y > rect.height * 0.75) {
-                targetItem.classList.add('drag-over-bottom');
+                newClass = 'drag-over-bottom';
             } else {
-                targetItem.classList.add('drag-enter');
+                newClass = 'drag-enter';
             }
         } else {
-            if (y < rect.height / 2) {
-                targetItem.classList.add('drag-over-top');
-            } else {
-                targetItem.classList.add('drag-over-bottom');
-            }
+            newClass = (y < rect.height / 2) ? 'drag-over-top' : 'drag-over-bottom';
         }
+    }
+
+    // 仅在状态变化时更新DOM,减少不必要的重绘
+    if (lastDragOverTarget !== targetItem || !targetItem.classList.contains(newClass)) {
+        // 清除上一个目标的样式
+        if (lastDragOverTarget && lastDragOverTarget !== targetItem) {
+            lastDragOverTarget.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
+        }
+
+        // 清除当前目标的所有拖动样式,然后添加新样式
+        targetItem.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
+        targetItem.classList.add(newClass);
+
+        lastDragOverTarget = targetItem;
     }
 }
 

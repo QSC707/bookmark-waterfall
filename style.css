@@ -411,11 +411,11 @@ body {
 }
 
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-before {
-    border-left: 2px solid var(--dialog-primary-bg);
+    box-shadow: -2px 0 0 0 var(--dialog-primary-bg);
 }
 
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-after {
-    border-right: 2px solid var(--dialog-primary-bg);
+    box-shadow: 2px 0 0 0 var(--dialog-primary-bg);
 }
 
 .bookmark-item.selected,
