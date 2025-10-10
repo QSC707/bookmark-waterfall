@@ -293,9 +293,9 @@ body {
     width: auto;
     height: 100%;
     box-sizing: border-box;
-    /* 优化：使用更平滑的过渡曲线，避免视觉抖动 */
-    transition: width 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                margin-left 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* 简化动画：更短的时长，更自然的缓动 */
+    transition: width 0.2s ease-out,
+                margin-left 0.2s ease-out;
 }
 
 .column-content-wrapper {
@@ -305,9 +305,9 @@ body {
 
 .bookmark-column[data-level="1"] {
     border-left: none;
-    /* 保留宽度和边距的平滑过渡，但移除其他过渡 */
-    transition: width 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                margin-left 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* 简化过渡效果 */
+    transition: width 0.2s ease-out,
+                margin-left 0.2s ease-out;
 }
 
 
@@ -919,24 +919,38 @@ input:checked+.slider:before {
     /* For Firefox */
 }
 
-/* --- 11. 统一的入场动画 --- */
-@keyframes balanced-column-appear {
+/* --- 11. 简化的入场动画 --- */
+@keyframes subtle-appear {
     from {
         opacity: 0;
-        transform: scale(0.995);
+        transform: translateY(4px);
     }
 
     to {
         opacity: 1;
-        transform: scale(1);
+        transform: translateY(0);
     }
 }
 
-.bookmark-container>.bookmark-column[data-level="1"],
+/* 只对非第一列的书签列使用入场动画 */
+.bookmark-container>.bookmark-column:not([data-level="1"]) {
+    animation: subtle-appear 0.15s ease-out forwards;
+}
+
+/* 第一列使用更微妙的淡入效果 */
+.bookmark-container>.bookmark-column[data-level="1"] {
+    animation: fade-in 0.2s ease-out forwards;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .context-menu,
 .move-dialog-content,
 .edit-dialog-content {
-    animation: balanced-column-appear 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: subtle-appear 0.15s ease-out forwards;
     will-change: opacity, transform;
 }
 
@@ -1190,7 +1204,7 @@ input:checked+.slider:before {
 /* --- 14. 可调整列宽功能样式 --- */
 .bookmark-column {
     position: relative;
-    transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    /* 移除冗余的过渡效果，因为已经在上面定义过了 */
 }
 
 .resize-handle {

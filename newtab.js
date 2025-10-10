@@ -14,16 +14,31 @@ const CONSTANTS = {
     },
     STORAGE_KEYS: {
         THEME: 'theme',
-        HOVER_ENABLED: 'hoverToOpenEnabled', // <-- 这里之前缺少了逗号
+        HOVER_ENABLED: 'hoverToOpenEnabled',
         HOVER_DELAY: 'hoverDelay'
     },
-    // ▼▼▼ 新增的常量对象 ▼▼▼
+    // 优化后的布局常量 - 更智能的响应式设计
     LAYOUT: {
         COLUMN_GAP: 20,              // 列之间的间隙 (px)
-        DEFAULT_COL_WIDTH: 280,      // 列的理想默认宽度 (px)
-        MIN_COL_WIDTH: 180,          // 列的最小允许宽度 (px)
-        CENTER_ALIGN_SCALE_FACTOR: 1.2, // 左边距计算的缩放因子
-        CENTER_ALIGN_BREAKPOINT: 1600   // 触发居中对齐的窗口宽度断点 (px)
+        // 响应式列宽配置
+        RESPONSIVE_WIDTHS: {
+            SMALL: { min: 160, ideal: 220, max: 260 },    // < 1024px
+            MEDIUM: { min: 180, ideal: 260, max: 320 },   // 1024-1440px
+            LARGE: { min: 200, ideal: 280, max: 360 },    // 1440-1920px
+            XLARGE: { min: 220, ideal: 300, max: 400 }    // > 1920px
+        },
+        // 窗口宽度断点
+        BREAKPOINTS: {
+            SMALL: 1024,
+            MEDIUM: 1440,
+            LARGE: 1920
+        },
+        // 动画配置 - 简化并优化
+        ANIMATION: {
+            DURATION: 200,           // 缩短动画时长 (ms)
+            EASING: 'ease-out',      // 更自然的缓动函数
+            SCROLL_BEHAVIOR: 'smooth' // 保持平滑滚动
+        }
     }
 };
 
@@ -309,8 +324,23 @@ function renderBookmarks(bookmarks, parentElement, level) {
             if (parseInt(col.dataset.level) >= level) col.remove();
         });
         column = document.createElement('div');
-        column.className = 'bookmark-column';
+        column.className = 'bookmark-column new-column'; // 添加标记类
         column.dataset.level = level;
+
+        // 如果是第一列且窗口很大，禁用初始动画
+        if (level === 1 && window.innerWidth > 1600) {
+            column.style.animation = 'none';
+            // 使用简单的淡入
+            setTimeout(() => {
+                column.style.animation = '';
+                column.style.opacity = '0';
+                column.style.transition = 'opacity 0.2s ease-out';
+                requestAnimationFrame(() => {
+                    column.style.opacity = '1';
+                });
+            }, 0);
+        }
+
         container.appendChild(column);
 
         const contentWrapper = document.createElement('div');
@@ -334,14 +364,28 @@ function renderBookmarks(bookmarks, parentElement, level) {
     column.addEventListener('dragleave', handleColumnDragLeave);
     column.addEventListener('drop', handleColumnDrop);
 
+    // 优化：减少不必要的滚动动画
     setTimeout(() => {
         if (container.contains(column)) {
             adjustColumnWidths(container);
-            requestAnimationFrame(() => {
-                if (level > 0) {
-                    container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
-                }
-            });
+            // 只在新增列时才滚动，而不是每次都滚动到最右边
+            if (level > 0 && column.classList.contains('new-column')) {
+                requestAnimationFrame(() => {
+                    // 使用更智能的滚动逻辑
+                    const columnRight = column.offsetLeft + column.offsetWidth;
+                    const containerWidth = container.clientWidth;
+
+                    // 只有当新列不在视口中时才滚动
+                    if (columnRight > container.scrollLeft + containerWidth) {
+                        container.scrollTo({
+                            left: column.offsetLeft - 20, // 留一点边距
+                            behavior: CONSTANTS.LAYOUT.ANIMATION.SCROLL_BEHAVIOR
+                        });
+                    }
+                });
+                // 移除标记类
+                setTimeout(() => column.classList.remove('new-column'), 300);
+            }
         }
     }, 0);
 }
@@ -558,14 +602,16 @@ function makeColumnResizable(column) {
             const deltaX = finalX - startX;
             let newWidth = startWidth + deltaX;
 
-
-            if (newWidth < CONSTANTS.LAYOUT.MIN_COL_WIDTH) {
-                newWidth = CONSTANTS.LAYOUT.MIN_COL_WIDTH;
+            // 使用响应式配置的最小宽度
+            const config = getResponsiveConfig();
+            if (newWidth < config.min) {
+                newWidth = config.min;
             }
 
             column.style.width = `${newWidth}px`;
             column.dataset.userResized = 'true';
 
+            // 调用优化后的列宽调整函数
             adjustColumnWidths(container);
         };
 
@@ -603,13 +649,30 @@ function adjustBookmarksBarAlignment(bookmarksBar) {
 }
 
 /**
+ * 获取当前窗口大小对应的响应式配置
+ * @returns {Object} - 包含 min, ideal, max 宽度的配置对象
+ */
+function getResponsiveConfig() {
+    const windowWidth = window.innerWidth;
+    const { BREAKPOINTS, RESPONSIVE_WIDTHS } = CONSTANTS.LAYOUT;
+
+    if (windowWidth < BREAKPOINTS.SMALL) {
+        return RESPONSIVE_WIDTHS.SMALL;
+    } else if (windowWidth < BREAKPOINTS.MEDIUM) {
+        return RESPONSIVE_WIDTHS.MEDIUM;
+    } else if (windowWidth < BREAKPOINTS.LARGE) {
+        return RESPONSIVE_WIDTHS.LARGE;
+    } else {
+        return RESPONSIVE_WIDTHS.XLARGE;
+    }
+}
+
+/**
  * 在宽屏下计算一个动态的左边距，以实现视觉上的居中效果。
- * 优化版：根据窗口大小动态调整边距，小窗口时减小边距以提供更多显示空间。
+ * 恢复原始版本：根据窗口大小动态调整边距，小窗口时减小边距以提供更多显示空间。
  * @returns {number} - 计算出的左边距值。
  */
 function calculateCenteredMargin() {
-    const factor = CONSTANTS.LAYOUT.CENTER_ALIGN_SCALE_FACTOR;
-    const breakpoint = CONSTANTS.LAYOUT.CENTER_ALIGN_BREAKPOINT;
     const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
     const windowWidth = window.innerWidth;
 
@@ -619,16 +682,16 @@ function calculateCenteredMargin() {
     }
 
     // 中等窗口（1200-1600px）：使用标准 gap
-    if (windowWidth <= breakpoint) {
+    if (windowWidth <= 1600) {
         return gap;
     }
 
     // 宽屏时使用动态计算，但确保不小于 gap
-    return Math.max(gap, (factor * windowWidth - breakpoint) / 2);
+    return Math.max(gap, (1.2 * windowWidth - 1600) / 2);
 }
 
 // ==================================================================
-// --- 优化版：平滑动画 + 稳定布局算法 ---
+// --- 恢复原始的平滑动画 + 稳定布局算法（带动画简化） ---
 // ==================================================================
 function adjustColumnWidths(container) {
     if (resizing) return;
@@ -636,7 +699,6 @@ function adjustColumnWidths(container) {
 
     requestAnimationFrame(() => {
         // --- 1. 布局读取 (Read Phase) ---
-        // 只选择书签列表视图的列（data-level > 0），排除顶部书签栏（data-level="0"）
         const columns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
         if (columns.length === 0) {
             resizing = false;
@@ -645,8 +707,9 @@ function adjustColumnWidths(container) {
 
         const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
         const availableWidth = container.clientWidth;
-        const DEFAULT_COL_WIDTH = CONSTANTS.LAYOUT.DEFAULT_COL_WIDTH;
-        const MIN_COL_WIDTH = CONSTANTS.LAYOUT.MIN_COL_WIDTH;
+        const config = getResponsiveConfig();
+        const DEFAULT_COL_WIDTH = config.ideal; // 使用响应式配置
+        const MIN_COL_WIDTH = config.min;
         const newStyles = new Map();
 
         const columnData = columns.map(col => ({
@@ -679,7 +742,7 @@ function adjustColumnWidths(container) {
         if (totalUsedWidth > availableWidth) {
             // 溢出量 = 总占用宽度 - 可用宽度
             const overflowWidth = totalUsedWidth - availableWidth;
-            
+
             const totalShrinkableSpace = resizableColumns.reduce((sum, data) => {
                 return sum + Math.max(0, data.currentWidth - MIN_COL_WIDTH);
             }, 0);
@@ -695,12 +758,12 @@ function adjustColumnWidths(container) {
                     }
                 }
             }
-        
+
         // CASE 2: 空间有富余，可以放大
         } else {
             // 可用空间 = 容器宽度 - 实际占用宽度
             const availableSpace = availableWidth - totalUsedWidth;
-            
+
             const columnsToEnlarge = resizableColumns.filter(data => data.currentWidth < DEFAULT_COL_WIDTH);
 
             if (columnsToEnlarge.length > 0) {
@@ -723,7 +786,23 @@ function adjustColumnWidths(container) {
         // --- 3. 布局写入 (Write Phase) ---
         // 只对 data-level="1" 的列应用左边距
         if (firstColumn && firstColumn.dataset.level === "1") {
-            firstColumn.style.marginLeft = `${marginLeft}px`;
+            const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+            const marginDiff = Math.abs(marginLeft - currentMargin);
+
+            // 如果边距变化很大（>100px），说明是初次加载或窗口大小变化很大，不使用动画
+            if (marginDiff > 100 || !firstColumn.dataset.initialized) {
+                // 直接设置，不使用过渡动画
+                firstColumn.style.transition = 'none';
+                firstColumn.style.marginLeft = `${marginLeft}px`;
+                firstColumn.dataset.initialized = 'true';
+
+                // 强制重排后恢复过渡
+                firstColumn.offsetHeight; // 触发重排
+                firstColumn.style.transition = '';
+            } else {
+                // 小幅度变化时使用动画
+                firstColumn.style.marginLeft = `${marginLeft}px`;
+            }
         }
 
         newStyles.forEach((style, el) => {
@@ -1958,11 +2037,24 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    const debouncedAdjust = debounce(() => {
+    // 优化：使用节流而不是防抖，让响应更及时
+    let resizeTimer;
+    const handleResize = () => {
+        // 立即执行一次，提供即时反馈
         adjustColumnWidths(bookmarkContainer);
-    }, 150);
-    const resizeObserver = new ResizeObserver(entries => {
-        debouncedAdjust();
+
+        // 清除之前的定时器
+        clearTimeout(resizeTimer);
+
+        // 设置新的定时器，在停止调整大小后再执行一次
+        resizeTimer = setTimeout(() => {
+            adjustColumnWidths(bookmarkContainer);
+        }, 100);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+        // 使用 requestAnimationFrame 确保不会阻塞渲染
+        requestAnimationFrame(handleResize);
     });
     resizeObserver.observe(bookmarkContainer);
 
