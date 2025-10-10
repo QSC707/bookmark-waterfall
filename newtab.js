@@ -584,6 +584,8 @@ function handleFolderClick(folderItem, bookmarkId) {
         const remainingColumns = container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
         if (remainingColumns.length === 0) {
             initialMarginLeft = null;
+            savedMarginLeft = null;
+            marginWindowWidth = null;
             currentColumnCount = 0;
             needsRecenter = false;
         }
@@ -870,8 +872,26 @@ function adjustColumnWidths(container) {
                     marginLeft = applyCenteredMargin(marginLeft);
                     initialMarginLeft = marginLeft;
                 } else if (newColumnCount > currentColumnCount) {
-                    // 场景3：打开新书签 - 使用保存的边距
-                    marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                    // 场景3：打开新书签 - 保持当前边距稳定
+                    // 直接使用当前第一列的实际边距，避免突然变化
+                    const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+
+                    // 如果当前已有边距，就保持它；否则计算新的
+                    if (currentActualMargin > 0) {
+                        marginLeft = currentActualMargin;
+                    } else {
+                        marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                    }
+                } else if (newColumnCount < currentColumnCount) {
+                    // 场景6：关闭书签（列数减少） - 保持当前边距稳定
+                    // 直接使用当前第一列的实际边距
+                    const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+
+                    if (currentActualMargin > 0) {
+                        marginLeft = currentActualMargin;
+                    } else {
+                        marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                    }
                 }
                 currentColumnCount = newColumnCount;
             } else {
@@ -887,8 +907,14 @@ function adjustColumnWidths(container) {
                         marginLeft = applyCenteredMargin(marginLeft);
                         initialMarginLeft = marginLeft;
                     } else {
-                        // 场景5：窗口未显著变化 - 使用保存的边距
-                        marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                        // 场景5：窗口未显著变化 - 保持当前边距稳定
+                        // 直接使用当前第一列的实际边距，避免反复计算导致的跳动
+                        const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+                        if (currentActualMargin > 0) {
+                            marginLeft = currentActualMargin;
+                        } else {
+                            marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
+                        }
                     }
                 } else {
                     marginLeft = calculateCenteredMargin(availableWidth);
@@ -1035,7 +1061,7 @@ function adjustColumnWidths(container) {
             const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
 
             // 获取第一列的实际左边距（使用最终计算的值）
-            const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1" 
+            const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1"
                 ? (parseFloat(firstColumn.style.marginLeft) || finalMarginLeft || 0)
                 : 0;
 
@@ -1065,20 +1091,17 @@ function adjustColumnWidths(container) {
                 }
 
                 // 计算滚动目标：让第一个可见列的左边缘对齐到容器左边缘
-                // 考虑左边距和右边距
-                if (firstVisibleColumnIndex === 0 && firstColumnMargin > 0) {
-                    // 如果第一个可见列就是第一列，保留其左边距
+                if (firstVisibleColumnIndex === 0) {
+                    // 如果第一个可见列就是第一列，不滚动（保留左边距）
                     scrollTarget = 0;
                 } else {
                     // 否则，滚动到该列的位置
-                    // 如果是第一列，不减去边距；否则要确保完全可见
+                    // offsetLeft 已经是相对于容器的绝对位置，直接使用即可
                     const targetColumn = finalColumns[firstVisibleColumnIndex];
-                    scrollTarget = targetColumn.offsetLeft - firstColumnMargin;
-                    
-                    // 微调：确保不会让左侧列完全贴边
-                    if (firstVisibleColumnIndex > 0) {
-                        scrollTarget = Math.max(0, scrollTarget - 10);
-                    }
+                    scrollTarget = targetColumn.offsetLeft;
+
+                    // 微调：稍微留一点空间，不要让列完全贴边
+                    scrollTarget = Math.max(0, scrollTarget - 10);
                 }
             } else {
                 // 内容不溢出，滚动到起始位置
