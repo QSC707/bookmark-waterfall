@@ -347,6 +347,15 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column.className = 'bookmark-column new-column'; // 添加标记类
         column.dataset.level = level;
 
+        // 如果是第一列，预先计算并应用边距，防止闪烁
+        if (level === 1 && initialMarginLeft === null) {
+            const availableWidth = container.clientWidth;
+            const baseMargin = calculateCenteredMargin(availableWidth);
+            const finalMargin = applyCenteredMargin(baseMargin);
+            initialMarginLeft = finalMargin;
+            column.style.marginLeft = `${finalMargin}px`;
+        }
+
         // 如果是第一列且窗口很大，禁用初始动画
         if (level === 1 && window.innerWidth > 1600) {
             column.style.animation = 'none';
@@ -983,65 +992,31 @@ function adjustColumnWidths(container) {
             });
         }
 
-        // 重新计算应用新宽度后的内容宽度，决定最终边距
-        let finalMarginLeft = marginLeft;
-        
-        if (firstColumn && firstColumn.dataset.level === "1") {
-            // 计算应用新宽度后的实际内容宽度
-            const newColumnsWidth = columnData.reduce((sum, data) => {
-                const newStyle = newStyles.get(data.el);
-                return sum + (newStyle ? parseFloat(newStyle.width) : data.currentWidth);
-            }, 0);
-            const newContentWidth = newColumnsWidth + (columnData.length - 1) * gap;
+        // 使用已计算的边距（在前面的场景逻辑中已经计算好了）
+        const finalMarginLeft = marginLeft;
 
-            // 应用渐进式居中的条件：
-            // 1. 初始计算（列数变化且第一次打开或只有一列）
-            // 2. 窗口显著放大需要重新居中
-            const shouldApplyCentering = 
-                (columnsChanged && (initialMarginLeft === null || newColumnCount === 1)) || 
-                needsRecenter;
-            
-            if (shouldApplyCentering) {
-                // 计算内容占容器的比例
-                const contentRatio = newContentWidth / availableWidth;
-                
-                // 渐进式居中策略：只有内容真的很少时才适度居中
-                if (contentRatio < CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD) {
-                    // 计算完全居中需要的边距
-                    const perfectCenteringMargin = (availableWidth - newContentWidth) / 2;
-                    
-                    // 计算调整系数：内容越少，居中程度越高
-                    const centeringFactor = Math.max(0, (CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD - contentRatio) / CONSTANTS.LAYOUT.MARGIN.CENTERING_THRESHOLD);
-                    
-                    // 计算基础边距
-                    const baseMargin = marginLeft;
-                    
-                    // 渐进式居中：基础边距 + (居中边距 - 基础边距) × 系数
-                    const additionalMargin = (perfectCenteringMargin - baseMargin) * centeringFactor;
-                    finalMarginLeft = Math.max(baseMargin, baseMargin + additionalMargin);
-                    
-                    // 更新保存的初始边距
-                    initialMarginLeft = finalMarginLeft;
-                    // 清除重新居中标记
-                    needsRecenter = false;
-                } else {
-                    needsRecenter = false; // 清除标记
-                }
+        if (firstColumn && firstColumn.dataset.level === "1") {
+            // 清除重新居中标记
+            if (needsRecenter) {
+                needsRecenter = false;
             }
 
             // 应用边距
             const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
             const marginDiff = Math.abs(finalMarginLeft - currentMargin);
 
-            // 边距变化大时禁用动画
-            if (marginDiff > 100 || !firstColumn.dataset.initialized) {
-                firstColumn.style.transition = 'none';
-                firstColumn.style.marginLeft = `${finalMarginLeft}px`;
-                firstColumn.dataset.initialized = 'true';
-                firstColumn.offsetHeight; // 强制重排
-                firstColumn.style.transition = '';
-            } else {
-                firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+            // 只有边距差异超过 1px 时才应用，避免微小抖动
+            if (marginDiff > 1) {
+                // 边距变化大时禁用动画
+                if (marginDiff > 100 || !firstColumn.dataset.initialized) {
+                    firstColumn.style.transition = 'none';
+                    firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+                    firstColumn.dataset.initialized = 'true';
+                    firstColumn.offsetHeight; // 强制重排
+                    firstColumn.style.transition = '';
+                } else {
+                    firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+                }
             }
         }
 
