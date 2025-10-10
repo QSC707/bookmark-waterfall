@@ -696,25 +696,28 @@ function getResponsiveConfig() {
 
 /**
  * 在宽屏下计算一个动态的左边距，以实现视觉上的居中效果。
- * 恢复原始版本：根据窗口大小动态调整边距，小窗口时减小边距以提供更多显示空间。
+ * 即使在小窗口下也保持合适的最小边距，确保视觉舒适性。
  * @returns {number} - 计算出的左边距值。
  */
 function calculateCenteredMargin() {
     const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
     const windowWidth = window.innerWidth;
 
-    // 小窗口（< 1200px）：使用更小的边距，优先保证内容显示
+    // 定义一个最小边距，确保第一列不会贴边
+    const MIN_MARGIN = 20; // 至少 20px 的左边距
+
+    // 小窗口（< 1200px）：使用固定的最小边距
     if (windowWidth < 1200) {
-        return Math.max(4, gap * 0.4); // 最小 4px，或 gap 的 40%
+        return MIN_MARGIN;
     }
 
-    // 中等窗口（1200-1600px）：使用标准 gap
+    // 中等窗口（1200-1600px）：使用标准 gap，但不小于最小边距
     if (windowWidth <= 1600) {
-        return gap;
+        return Math.max(MIN_MARGIN, gap);
     }
 
-    // 宽屏时使用动态计算，但确保不小于 gap
-    return Math.max(gap, (1.2 * windowWidth - 1600) / 2);
+    // 宽屏时使用动态计算，但确保不小于最小边距
+    return Math.max(MIN_MARGIN, (1.2 * windowWidth - 1600) / 2);
 }
 
 // ==================================================================
@@ -746,12 +749,13 @@ function adjustColumnWidths(container) {
             canResize: col.dataset.userResized !== 'true'
         }));
 
-        // --- 计算左边距（保持原始逻辑） ---
+        // --- 计算左边距（保持舒适的视觉边距） ---
         let marginLeft = 0;
         const firstColumn = columns[0];
 
         // 只有当第一列是 data-level="1" 时才计算边距
         if (firstColumn && firstColumn.dataset.level === "1") {
+            // 始终使用计算出的边距，该函数已确保最小值
             marginLeft = calculateCenteredMargin();
         }
 
@@ -854,22 +858,28 @@ function adjustColumnWidths(container) {
             });
         }
 
-        // --- 4. 最终智能聚焦滚动 (保持原始逻辑) ---
+        // --- 4. 最终智能聚焦滚动 (优化版) ---
         requestAnimationFrame(() => {
             let scrollTarget = 0;
             const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
 
+            // 获取第一列的实际左边距
+            const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1" 
+                ? (parseFloat(firstColumn.style.marginLeft) || 0)
+                : 0;
+
             // 计算实际占用的总宽度
             const finalColumnsWidth = finalColumns.reduce((sum, col) => sum + col.offsetWidth, 0);
             const finalGapsWidth = (finalColumns.length - 1) * gap;
-            const finalTotalWidth = marginLeft + finalColumnsWidth + finalGapsWidth;
+            const finalTotalWidth = firstColumnMargin + finalColumnsWidth + finalGapsWidth;
 
             // 判断是否需要滚动
             if (finalTotalWidth > availableWidth) {
                 // 从右往左计算能显示的列
                 let visibleWidth = 0;
                 let firstVisibleColumnIndex = finalColumns.length - 1;
-                const maxVisibleWidth = availableWidth - marginLeft;
+                // 注意：这里不再减去 marginLeft，因为滚动区域从0开始
+                const maxVisibleWidth = availableWidth;
 
                 for (let i = finalColumns.length - 1; i >= 0; i--) {
                     const currentCol = finalColumns[i];
@@ -884,7 +894,18 @@ function adjustColumnWidths(container) {
                     }
                 }
 
-                scrollTarget = finalColumns[firstVisibleColumnIndex].offsetLeft - marginLeft;
+                // 计算滚动目标：让第一个可见列的左边缘对齐到容器左边缘
+                // 但要考虑到第一列可能有 marginLeft
+                if (firstVisibleColumnIndex === 0 && firstColumnMargin > 0) {
+                    // 如果第一个可见列就是第一列，保留其左边距
+                    scrollTarget = 0;
+                } else {
+                    // 否则，滚动到该列的位置，确保完全可见
+                    scrollTarget = finalColumns[firstVisibleColumnIndex].offsetLeft - firstColumnMargin;
+                }
+            } else {
+                // 内容不溢出，滚动到起始位置
+                scrollTarget = 0;
             }
 
             // 只在需要时滚动，避免不必要的动画
