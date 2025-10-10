@@ -364,27 +364,54 @@ function renderBookmarks(bookmarks, parentElement, level) {
     column.addEventListener('dragleave', handleColumnDragLeave);
     column.addEventListener('drop', handleColumnDrop);
 
-    // 优化：减少不必要的滚动动画
+    // 优化：更智能的列宽调整和滚动
     setTimeout(() => {
         if (container.contains(column)) {
+            // 先调整列宽
             adjustColumnWidths(container);
-            // 只在新增列时才滚动，而不是每次都滚动到最右边
-            if (level > 0 && column.classList.contains('new-column')) {
-                requestAnimationFrame(() => {
-                    // 使用更智能的滚动逻辑
-                    const columnRight = column.offsetLeft + column.offsetWidth;
-                    const containerWidth = container.clientWidth;
 
-                    // 只有当新列不在视口中时才滚动
-                    if (columnRight > container.scrollLeft + containerWidth) {
+            // 新列的智能滚动逻辑
+            if (level > 0 && column.classList.contains('new-column')) {
+                // 延迟一下，等待列宽调整完成
+                setTimeout(() => {
+                    const currentScroll = container.scrollLeft;
+                    const containerWidth = container.clientWidth;
+                    const columnLeft = column.offsetLeft;
+                    const columnRight = columnLeft + column.offsetWidth;
+
+                    // 计算前一列的位置
+                    const prevColumn = column.previousElementSibling;
+                    let targetScroll = currentScroll;
+
+                    if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
+                        // 尝试同时显示前一列和当前列
+                        const prevLeft = prevColumn.offsetLeft;
+                        const totalWidth = columnRight - prevLeft;
+
+                        if (totalWidth <= containerWidth) {
+                            // 可以同时显示两列
+                            targetScroll = prevLeft - 20;
+                        } else {
+                            // 空间不够，优先显示新列
+                            targetScroll = Math.max(0, columnLeft - 40);
+                        }
+                    } else {
+                        // 没有前一列，直接显示当前列
+                        targetScroll = Math.max(0, columnLeft - 20);
+                    }
+
+                    // 只有当需要滚动时才执行
+                    const scrollDiff = Math.abs(targetScroll - currentScroll);
+                    if (scrollDiff > 10) {
                         container.scrollTo({
-                            left: column.offsetLeft - 20, // 留一点边距
-                            behavior: CONSTANTS.LAYOUT.ANIMATION.SCROLL_BEHAVIOR
+                            left: targetScroll,
+                            behavior: 'smooth'
                         });
                     }
-                });
-                // 移除标记类
-                setTimeout(() => column.classList.remove('new-column'), 300);
+
+                    // 移除标记类
+                    column.classList.remove('new-column');
+                }, 150); // 等待列宽调整
             }
         }
     }, 0);
@@ -691,7 +718,7 @@ function calculateCenteredMargin() {
 }
 
 // ==================================================================
-// --- 恢复原始的平滑动画 + 稳定布局算法（带动画简化） ---
+// --- 恢复原始的平滑动画 + 稳定布局算法（只修复抖动） ---
 // ==================================================================
 function adjustColumnWidths(container) {
     if (resizing) return;
@@ -708,7 +735,7 @@ function adjustColumnWidths(container) {
         const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
         const availableWidth = container.clientWidth;
         const config = getResponsiveConfig();
-        const DEFAULT_COL_WIDTH = config.ideal; // 使用响应式配置
+        const DEFAULT_COL_WIDTH = config.ideal;
         const MIN_COL_WIDTH = config.min;
         const newStyles = new Map();
 
@@ -719,7 +746,7 @@ function adjustColumnWidths(container) {
             canResize: col.dataset.userResized !== 'true'
         }));
 
-        // --- 计算左边距（只对第一个书签列表列 data-level="1" 应用） ---
+        // --- 计算左边距（保持原始逻辑） ---
         let marginLeft = 0;
         const firstColumn = columns[0];
 
@@ -728,8 +755,7 @@ function adjustColumnWidths(container) {
             marginLeft = calculateCenteredMargin();
         }
 
-        // --- 2. 核心布局计算 (Calculate Phase) ---
-        // 关键修复：正确计算宽度
+        // --- 2. 核心布局计算 (保持原始算法) ---
         // 实际占用空间 = 左边距 + 所有列宽 + 列间隙
         const columnsWidth = columnData.reduce((sum, data) => sum + data.currentWidth, 0);
         const gapsWidth = (columnData.length - 1) * gap;
@@ -738,7 +764,6 @@ function adjustColumnWidths(container) {
         const resizableColumns = columnData.filter(data => data.canResize);
 
         // CASE 1: 内容溢出，需要收缩
-        // 比较总占用宽度和容器可用宽度
         if (totalUsedWidth > availableWidth) {
             // 溢出量 = 总占用宽度 - 可用宽度
             const overflowWidth = totalUsedWidth - availableWidth;
@@ -783,7 +808,7 @@ function adjustColumnWidths(container) {
             }
         }
 
-        // --- 3. 布局写入 (Write Phase) ---
+        // --- 3. 布局写入 (优化：减少抖动) ---
         // 只对 data-level="1" 的列应用左边距
         if (firstColumn && firstColumn.dataset.level === "1") {
             const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
@@ -791,12 +816,10 @@ function adjustColumnWidths(container) {
 
             // 如果边距变化很大（>100px），说明是初次加载或窗口大小变化很大，不使用动画
             if (marginDiff > 100 || !firstColumn.dataset.initialized) {
-                // 直接设置，不使用过渡动画
                 firstColumn.style.transition = 'none';
                 firstColumn.style.marginLeft = `${marginLeft}px`;
                 firstColumn.dataset.initialized = 'true';
 
-                // 强制重排后恢复过渡
                 firstColumn.offsetHeight; // 触发重排
                 firstColumn.style.transition = '';
             } else {
@@ -805,14 +828,35 @@ function adjustColumnWidths(container) {
             }
         }
 
-        newStyles.forEach((style, el) => {
-            el.style.width = style.width;
+        // 批量应用宽度变化，减少抖动
+        const hasLargeChanges = Array.from(newStyles.entries()).some(([el, style]) => {
+            const currentWidth = el.offsetWidth;
+            const newWidth = parseFloat(style.width);
+            return Math.abs(currentWidth - newWidth) > 50;
         });
 
-        // --- 4. 最终智能聚焦滚动 ---
+        if (hasLargeChanges) {
+            // 大变化时禁用动画
+            newStyles.forEach((style, el) => {
+                el.style.transition = 'none';
+                el.style.width = style.width;
+            });
+
+            requestAnimationFrame(() => {
+                newStyles.forEach((style, el) => {
+                    el.style.transition = '';
+                });
+            });
+        } else {
+            // 小变化时保持动画
+            newStyles.forEach((style, el) => {
+                el.style.width = style.width;
+            });
+        }
+
+        // --- 4. 最终智能聚焦滚动 (保持原始逻辑) ---
         requestAnimationFrame(() => {
             let scrollTarget = 0;
-            // 重新获取书签列表视图的列（排除 data-level="0"）
             const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
 
             // 计算实际占用的总宽度
@@ -825,7 +869,7 @@ function adjustColumnWidths(container) {
                 // 从右往左计算能显示的列
                 let visibleWidth = 0;
                 let firstVisibleColumnIndex = finalColumns.length - 1;
-                const maxVisibleWidth = availableWidth - marginLeft; // 减去左边距
+                const maxVisibleWidth = availableWidth - marginLeft;
 
                 for (let i = finalColumns.length - 1; i >= 0; i--) {
                     const currentCol = finalColumns[i];
@@ -843,10 +887,16 @@ function adjustColumnWidths(container) {
                 scrollTarget = finalColumns[firstVisibleColumnIndex].offsetLeft - marginLeft;
             }
 
-            container.scrollTo({
-                left: Math.max(0, scrollTarget),
-                behavior: 'smooth'
-            });
+            // 只在需要时滚动，避免不必要的动画
+            const currentScroll = container.scrollLeft;
+            const scrollDiff = Math.abs(scrollTarget - currentScroll);
+
+            if (scrollDiff > 10) {
+                container.scrollTo({
+                    left: Math.max(0, scrollTarget),
+                    behavior: scrollDiff > 200 ? 'smooth' : 'auto'
+                });
+            }
 
             resizing = false;
         });
