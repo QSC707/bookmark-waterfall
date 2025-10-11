@@ -1943,6 +1943,117 @@ function handleBookmarkChanged(id, changeInfo) {
 }
 
 // --- 侧边栏模块 (Modules) ---
+
+// --- 经常访问模块函数 ---
+function displayFrequentlyVisited() {
+    const container = document.querySelector('.frequently-visited-content');
+    if (!container) return;
+
+    // 获取访问次数最多的网站
+    chrome.topSites.get((sites) => {
+        if (!sites || sites.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        
+        // 只显示前8个最常访问的网站
+        const topSites = sites.slice(0, 8);
+        
+        topSites.forEach((site, index) => {
+            const item = document.createElement('div');
+            item.className = 'top-site-item';
+            item.dataset.url = site.url;
+            item.dataset.title = site.title;
+            item.dataset.id = `top-site-${index}`;
+            item.title = `${site.title}\n${site.url}`;
+
+            const icon = document.createElement('img');
+            icon.className = 'module-icon';
+            icon.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            icon.dataset.src = getIconUrl(site.url);
+            icon.alt = site.title;
+
+            icon.onerror = (e) => {
+                if (e.target.dataset.fallback) return;
+                const fallbackIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                fallbackIcon.setAttribute('class', 'module-icon');
+                fallbackIcon.dataset.fallback = 'true';
+                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttributeNS(null, 'href', '#icon-folder');
+                fallbackIcon.appendChild(use);
+                if (icon.parentNode) {
+                    icon.parentNode.replaceChild(fallbackIcon, icon);
+                }
+            };
+
+            const title = document.createElement('span');
+            title.className = 'module-title';
+            title.textContent = site.title || new URL(site.url).hostname;
+
+            item.appendChild(icon);
+            item.appendChild(title);
+
+            // 点击打开链接
+            item.addEventListener('click', (e) => {
+                if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                    window.open(site.url, '_blank');
+                }
+            });
+
+            // 右键菜单支持
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e, item, null);
+            });
+
+            // 支持多选
+            item.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (e.metaKey || e.ctrlKey) {
+                    e.preventDefault();
+                    toggleSelection(item);
+                } else if (e.shiftKey) {
+                    e.preventDefault();
+                    if (lastClickedId) {
+                        const allItems = Array.from(container.querySelectorAll('.top-site-item'));
+                        const startIndex = allItems.findIndex(i => i.dataset.id === lastClickedId);
+                        const endIndex = allItems.findIndex(i => i.dataset.id === item.dataset.id);
+                        if (startIndex !== -1 && endIndex !== -1) {
+                            const [min, max] = [Math.min(startIndex, endIndex), Math.max(startIndex, endIndex)];
+                            for (let i = min; i <= max; i++) {
+                                const targetItem = allItems[i];
+                                if (!selectedItems.has(targetItem.dataset.id)) {
+                                    selectedItems.add(targetItem.dataset.id);
+                                    targetItem.classList.add('selected');
+                                }
+                            }
+                        }
+                    } else {
+                        clearSelection();
+                        toggleSelection(item);
+                    }
+                } else {
+                    if (!selectedItems.has(item.dataset.id)) {
+                        clearSelection();
+                        toggleSelection(item);
+                    }
+                }
+            });
+
+            item.addEventListener('mouseenter', () => currentlyHoveredItem = item);
+            item.addEventListener('mouseleave', () => currentlyHoveredItem = null);
+
+            fragment.appendChild(item);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(fragment);
+        observeLazyImages(container);
+    });
+}
+
 async function displayRecentBookmarks() {
     const container = document.querySelector('#recentBookmarksModule .module-content');
     const startDateInput = document.getElementById('startDate');
@@ -2111,7 +2222,15 @@ function handleSpacebarPreview(e) {
     e.preventDefault();
     const url = currentlyHoveredItem.dataset.url || currentlyHoveredItem.href;
     if (url) {
+        // 添加虚线边框高亮效果
+        currentlyHoveredItem.classList.add('selected');
         openPreviewWindow(url);
+        // 1秒后移除高亮
+        setTimeout(() => {
+            if (currentlyHoveredItem) {
+                currentlyHoveredItem.classList.remove('selected');
+            }
+        }, 1000);
     }
 }
 
@@ -2407,6 +2526,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // displayRecentBookmarks 现在使用 chrome.bookmarks.getRecent() API
         displayBookmarks(bookmarks);
         displayRecentBookmarks();
+        displayFrequentlyVisited();
         observeLazyImages(document.body);
     };
 
