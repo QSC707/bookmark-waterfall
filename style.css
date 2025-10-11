@@ -21,7 +21,7 @@
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
     --module-bg-color: #282828;              /* <-- 侧边模块与卡片颜色统一 */
     --module-header-color: rgba(255, 255, 255, 0.6); /* <-- macOS 次要文本颜色 */
-    --module-header-border-color: rgba(255, 255, 255, 0.08);
+    --module-header-border-color: rgba(255, 255, 255, 0.15);
     --context-menu-icon-filter: none;
     --input-bg: rgba(0, 0, 0, 0.2);
     --input-border: rgba(255, 255, 255, 0.1);
@@ -45,7 +45,7 @@
     --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
     --module-bg-color: #ffffff;
     --module-header-color: #555;
-    --module-header-border-color: #eee;
+    --module-header-border-color: rgba(0, 0, 0, 0.12);
     --context-menu-icon-filter: invert(0.8);
 
     .menu-icon {
@@ -213,6 +213,55 @@ body {
     background-color: var(--highlighted-bg);
 }
 
+/* 拖动后的临时高亮效果 - 柔和优化版 */
+.bookmark-item.just-moved {
+    animation: move-highlight 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 深色主题：柔和的蓝色高亮 */
+@keyframes move-highlight {
+    0% {
+        background-color: rgba(55, 114, 255, 0.15);
+        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.2) inset;
+    }
+    20% {
+        background-color: rgba(55, 114, 255, 0.22);
+        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.25) inset;
+    }
+    50% {
+        background-color: rgba(55, 114, 255, 0.18);
+        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.15) inset;
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: 0 0 0 1px transparent inset;
+    }
+}
+
+/* 浅色主题：更柔和的高亮效果 */
+[data-theme="light"] .bookmark-item.just-moved {
+    animation: move-highlight-light 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes move-highlight-light {
+    0% {
+        background-color: rgba(55, 114, 255, 0.12);
+        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.15) inset;
+    }
+    20% {
+        background-color: rgba(55, 114, 255, 0.18);
+        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.2) inset;
+    }
+    50% {
+        background-color: rgba(55, 114, 255, 0.14);
+        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.12) inset;
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: 0 0 0 1px transparent inset;
+    }
+}
+
 .bookmark-icon {
     width: 18px;
     height: 18px;
@@ -291,6 +340,43 @@ body {
 
 .bookmark-item.drag-enter {
     background-color: var(--highlighted-bg);
+    outline: 2px solid var(--dialog-primary-bg);
+    outline-offset: -2px;
+    animation: drag-enter-pulse 0.6s ease-in-out infinite;
+    position: relative;
+}
+
+/* 拖入文件夹时的图标提示 */
+.bookmark-item.drag-enter::after {
+    content: '📥';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    pointer-events: none;
+    opacity: 0.8;
+    animation: drag-enter-icon 0.6s ease-in-out infinite;
+}
+
+@keyframes drag-enter-icon {
+    0%, 100% {
+        transform: translateY(-50%) scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateY(-50%) scale(1.1);
+        opacity: 1;
+    }
+}
+
+@keyframes drag-enter-pulse {
+    0%, 100% {
+        outline-color: var(--dialog-primary-bg);
+    }
+    50% {
+        outline-color: rgba(55, 114, 255, 0.5);
+    }
 }
 
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-before {
@@ -394,19 +480,24 @@ body {
 .settings-btn {
     position: fixed;
     z-index: 10000;
-    bottom: 20px;
-    right: 20px;
+    bottom: 12px;
+    right: 12px;
     color: var(--module-header-color);
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    font-size: 18px;
     opacity: 0.6;
+}
+
+.settings-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    pointer-events: none;
 }
 
 .settings-btn:hover {
     opacity: 1;
-    transform: rotate(45deg);
     background-color: var(--hover-bg);
 }
 
@@ -420,14 +511,19 @@ body {
 
 .settings-panel {
     position: fixed;
-    bottom: 74px;
-    right: 20px;
+    bottom: 60px;
+    right: 12px;
     z-index: 1001;
-    width: 300px;
+    width: 340px;
+    max-height: 80vh;
+    overflow-y: auto;
+    overflow-x: hidden;
     opacity: 0;
     transform: translateY(10px);
     visibility: hidden;
     transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .settings-panel.visible {
@@ -526,21 +622,23 @@ input:checked+.slider:before {
 }
 
 .settings-content {
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
 }
 
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 16px;
 }
 
 .setting-label {
     font-size: 14px;
     color: var(--text-color);
+    flex: 1;
 }
 
 .theme-options {
@@ -693,6 +791,20 @@ input:checked+.slider:before {
 .confirm-message {
     margin: 0;
     color: var(--text-color);
+    white-space: pre-wrap;
+    line-height: 1.6;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* 删除确认对话框中的项目名称样式 */
+.confirm-dialog.delete-confirm .confirm-message {
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.delete-item-name {
+    color: var(--dialog-delete-bg);
+    font-weight: 600;
 }
 
 .context-menu hr {
@@ -740,6 +852,20 @@ input:checked+.slider:before {
     background-color: var(--hover-bg);
 }
 
+/* 删除菜单项特殊样式 */
+.context-menu ul li[data-action="delete"] {
+    color: var(--dialog-delete-bg);
+}
+
+.context-menu ul li[data-action="delete"] .menu-icon {
+    stroke: var(--dialog-delete-bg);
+    opacity: 1;
+}
+
+.context-menu ul li[data-action="delete"]:hover {
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
 .menu-icon {
     width: 18px;
     height: 18px;
@@ -755,13 +881,16 @@ input:checked+.slider:before {
 }
 
 .module-header {
-    padding: 14px 16px;
+    padding: 16px 20px;
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-color);
     border-bottom: 1px solid var(--module-header-border-color);
     text-align: center;
     flex-shrink: 0;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .toast {
@@ -789,6 +918,22 @@ input:checked+.slider:before {
     visibility: visible;
     opacity: 1;
     transform: translateX(-50%) translateY(-10px);
+}
+
+/* P2改进：不同类型的toast样式 */
+.toast-success {
+    background-color: rgba(76, 175, 80, 0.95);
+    color: white;
+}
+
+.toast-error {
+    background-color: rgba(244, 67, 54, 0.95);
+    color: white;
+}
+
+.toast-warning {
+    background-color: rgba(255, 152, 0, 0.95);
+    color: white;
 }
 
 /* --- 10. UTILITY: 隐藏滚动条 --- */
@@ -1151,6 +1296,51 @@ body.is-resizing .resize-indicator {
     transition: opacity 0.3s ease;
 }
 
+/* --- 快捷键说明样式 --- */
+.shortcuts-section {
+    padding: 16px 20px;
+    border-top: 1px solid var(--module-header-border-color);
+    background-color: var(--input-bg);
+    border-radius: 0 0 12px 12px;
+}
+
+.shortcuts-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--module-header-color);
+    margin-bottom: 12px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 13px;
+}
+
+.shortcut-desc {
+    color: var(--text-color);
+    flex: 1;
+}
+
+.shortcut-key {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-color);
+    min-width: 40px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+}
+
 /* --- 15. 面包屑导航栏样式 --- */
 .breadcrumb-container {
     display: flex;
@@ -1185,8 +1375,7 @@ body.is-resizing .resize-indicator {
 }
 
 /* --- 16. 内联SVG图标统一样式 --- */
-.sidebar-toggle-btn svg,
-.settings-btn svg {
+.sidebar-toggle-btn svg {
     width: 18px;
     height: 18px;
     stroke: currentColor;
@@ -1231,7 +1420,7 @@ body.is-resizing .resize-indicator {
     /* For Webkit browsers */
 }
 
-/* --- 18. 经常访问悬浮面板样式 --- */
+/* --- 18. 经常访问悬浮面板样式（性能优化版）--- */
 .frequently-visited-panel {
     position: fixed;
     right: 12px;
@@ -1240,13 +1429,15 @@ body.is-resizing .resize-indicator {
     z-index: 999;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
+    padding: 8px;
+    margin: -8px;
 }
 
 .frequently-visited-content {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .top-site-item {
@@ -1256,28 +1447,30 @@ body.is-resizing .resize-indicator {
     justify-content: center;
     gap: 6px;
     padding: 5px;
-    background-color: var(--card-bg);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid var(--header-border);
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 50%;
     cursor: pointer;
-    transition: width 0.2s ease, border-radius 0.2s ease, padding 0.2s ease;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
     width: 28px;
     height: 28px;
     overflow: hidden;
     white-space: nowrap;
+    /* 轻量级动画：只动画必要的属性 */
+    transition: width 0.15s ease, border-radius 0.15s ease, background-color 0.15s ease;
 }
 
-/* 悬停在面板上时，所有项目一起展开 */
-.frequently-visited-panel:hover .top-site-item {
+[data-theme="light"] .top-site-item {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* 使用JS控制的展开状态类 */
+.frequently-visited-panel.expanded .top-site-item {
     width: 160px;
-    border-radius: 14px;
-    padding: 5px 8px;
+    border-radius: 20px;
+    padding: 6px 10px;
     justify-content: flex-start;
-    background-color: var(--hover-bg);
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    background-color: var(--card-bg);
+    border: 1px solid var(--header-border);
 }
 
 .top-site-item .module-icon {
@@ -1285,6 +1478,12 @@ body.is-resizing .resize-indicator {
     height: 16px;
     flex-shrink: 0;
     border-radius: 3px;
+    filter: grayscale(100%) opacity(0.35);
+}
+
+.frequently-visited-panel.expanded .top-site-item .module-icon,
+.top-site-item:hover .module-icon {
+    filter: grayscale(0%) opacity(1);
 }
 
 .top-site-item .module-title {
@@ -1298,22 +1497,21 @@ body.is-resizing .resize-indicator {
     min-width: 0;
 }
 
-/* 悬停在面板上时，所有文字一起显示 */
-.frequently-visited-panel:hover .top-site-item .module-title {
+/* 展开时显示所有文字 */
+.frequently-visited-panel.expanded .top-site-item .module-title {
     display: block;
 }
 
 /* 单独悬停在某个项目上时的额外高亮 */
-.top-site-item:hover {
-    background-color: var(--highlighted-bg) !important;
+.frequently-visited-panel.expanded .top-site-item:hover {
+    background-color: #333333;
+}
+
+[data-theme="light"] .frequently-visited-panel.expanded .top-site-item:hover {
+    background-color: #e8e8e8;
 }
 
 .top-site-item.selected {
     outline: 2px dashed var(--dialog-primary-bg);
     outline-offset: -2px;
-}
-
-/* 确保图标加载时的占位效果 */
-.top-site-item .module-icon[data-src] {
-    background-color: var(--input-bg);
 }
