@@ -2,24 +2,25 @@
 /* --- 最终修复与美化版样式 (Final Corrected Version 3.0) --- */
 /* ================================================================== */
 
-/* --- 1. 变量与色彩体系 --- */
+/* --- 1. 变量与色彩体系 (严格按照 #3C3C3C 统一) --- */
+/* --- 1. 变量与色彩体系 (macOS 风格) --- */
 :root {
     color-scheme: dark;
     /* 新增：告知浏览器此为深色方案 */
-    --bg-color: #2a2734;
-    --text-color: #dcdcdc;
-    --header-bg: rgba(42, 39, 52, 0.7);
+    --bg-color: #1E1E1E;                     /* <-- macOS 窗口最深层的基础背景色 */
+    --text-color: rgba(255, 255, 255, 0.85);  /* <-- macOS 主要文本颜色 (非纯白，更柔和) */
+    --header-bg: #2d2d2d;                    /* <-- 顶部书签栏/工具栏颜色，比背景稍亮 */
     --header-border: rgba(255, 255, 255, 0.1);
-    --card-bg: rgba(42, 39, 52, 0.5);
+    --card-bg: #282828;                      /* <-- 书签列/卡片/模块背景，用于内容区域 */
     --link-color: #e2e2e2;
     --highlighted-bg: rgba(255, 255, 255, 0.08);
-    --hover-bg: rgba(255, 255, 255, 0.1);
+    --hover-bg: rgba(255, 255, 255, 0.12);
     --dialog-bg: rgba(44, 44, 44, 0.7);
     --dialog-primary-bg: #3772ff;
     --dialog-delete-bg: #f44336;
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
-    --module-bg-color: #353535;
-    --module-header-color: #9e9e9e;
+    --module-bg-color: #282828;              /* <-- 侧边模块与卡片颜色统一 */
+    --module-header-color: rgba(255, 255, 255, 0.6); /* <-- macOS 次要文本颜色 */
     --module-header-border-color: rgba(255, 255, 255, 0.08);
     --context-menu-icon-filter: none;
     --input-bg: rgba(0, 0, 0, 0.2);
@@ -127,6 +128,7 @@ body {
     /* 确保滚动条可见且美观 */
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb-bg) transparent;
+    border-radius: 6px; /* <-- 添加这一行即可 */
 }
 
 /* 当内容不溢出时，居中显示 */
