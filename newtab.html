@@ -9,143 +9,194 @@
 </head>
 
 <body>
-    <header class="page-header">
+    <!-- ============================================ -->
+    <!-- 1. 横幅模块 (Banner Module) -->
+    <!-- ============================================ -->
+    <!-- 包含: 背景图片 + Level 0 书签栏 (动态生成) -->
+    <!-- JS会动态插入: <div class="bookmark-column" data-level="0"> -->
+    <header class="page-header" id="bannerModule">
         <div id="headerImage" class="header-image">
             <img src="/img/bilbil.avif" alt="Header Image" class="header-bg-image">
         </div>
+        <!-- Level 0 书签栏将由 JS 动态插入到这里 -->
     </header>
 
-    <main class="main-container">
-
-        <div id="bookmarkContainer" class="bookmark-container"></div>
-        <div class="vertical-modules glass-effect">
-            <section class="module" id="recentBookmarksModule">
-                <label class="module-header">最近添加的书签</label>
-                <div class="recent-bookmarks-toolbar">
-                    <div class="date-filter">
-                        <input type="date" id="startDate" class="date-input" title="开始日期">
-                        <span>-</span>
-                        <input type="date" id="endDate" class="date-input" title="结束日期">
-                    </div>
-                    <div id="quickFilters" class="quick-filters">
-                        <button class="filter-btn active" data-days="30">最近30天</button>
-                        <button class="filter-btn" data-days="7">最近7天</button>
-                        <button class="filter-btn" data-days="1">今天</button>
-                    </div>
-                </div>
-                <div class="module-content hide-scrollbar"></div>
-            </section>
+    <!-- ============================================ -->
+    <!-- 2. 书签模块 (Bookmarks Module) -->
+    <!-- ============================================ -->
+    <!-- 包含: Level 1+ 的书签列 (动态生成) -->
+    <!-- JS会动态插入: <div class="bookmark-column can-center" data-level="1+"> -->
+    <main class="main-container" id="bookmarksModule">
+        <div id="bookmarkContainer" class="bookmark-container">
+            <!-- Level 1+ 书签列将由 JS 动态插入到这里 -->
         </div>
     </main>
 
-    <div id="sidebar-toggle-container">
-        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10 3L8 8l-5 2 5 2 2 5 2-5 5-2-5-2-2-5z" />
-                <path d="M18 13l-2.5 2.5L13 18l2.5 2.5L18 23l2.5-2.5L23 18l-2.5-2.5L18 13z" />
-            </svg>
-        </button>
-    </div>
-
-    <div id="contextMenu" class="context-menu glass-effect"></div>
-    <div id="toast" class="toast glass-effect"></div>
-
-    <div id="moveDialog" class="move-dialog">
-        <div class="move-dialog-content glass-effect">
-            <div class="dialog-header">
-                <h3>移动到...</h3>
-            </div>
-            <div class="dialog-body hide-scrollbar" id="bookmarkTree"></div>
-            <div class="dialog-footer">
-                <button id="cancelMove" class="dialog-button">取消</button>
-                <button id="confirmMove" class="dialog-button primary">移动</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="editDialog" class="edit-dialog">
-        <div class="edit-dialog-content glass-effect">
-            <div class="dialog-header">
-                <h3 id="editDialogTitle"></h3>
-            </div>
-            <div class="dialog-body">
-                <input type="text" id="editDialogInput" class="input-base edit-dialog-input">
-                <div id="editDialogError" class="edit-dialog-error"></div>
-            </div>
-            <div class="dialog-footer">
-                <button id="cancelEdit" class="dialog-button">取消</button>
-                <button id="confirmEdit" class="dialog-button primary">确定</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="confirmDialog" class="edit-dialog confirm-dialog">
-        <div class="edit-dialog-content glass-effect">
-            <div class="dialog-header">
-                <h3 id="confirmDialogTitle"></h3>
-            </div>
-            <div class="dialog-body">
-                <p id="confirmDialogMessage" class="confirm-message"></p>
-            </div>
-            <div class="dialog-footer">
-                <button id="cancelConfirm" class="dialog-button">取消</button>
-                <button id="confirmConfirm" class="dialog-button primary">确定</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="propertiesDialog" class="edit-dialog">
-        <div class="edit-dialog-content glass-effect">
-            <div class="dialog-header">
-                <h3 id="propertiesDialogTitle">属性</h3>
-            </div>
-            <div id="propertiesDialogBody" class="dialog-body">
-            </div>
-            <div class="dialog-footer">
-                <button id="closeProperties" class="dialog-button primary">关闭</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="settings-panel" class="settings-panel glass-effect">
-        <label class="module-header">设置</label>
-        <div class="settings-content">
-            <div class="setting-item">
-                <span class="setting-label">主题模式</span>
-                <div class="theme-options">
-                    <button class="theme-option" data-theme-value="dark">深色</button>
-                    <button class="theme-option" data-theme-value="light">浅色</button>
-                    <button class="theme-option" data-theme-value="system">系统</button>
+    <!-- ============================================ -->
+    <!-- 3. 最近添加书签模块 (Recent Bookmarks Module) -->
+    <!-- ============================================ -->
+    <aside id="recentBookmarksSection" class="vertical-modules glass-effect">
+        <section class="module" id="recentBookmarksModule">
+            <label class="module-header">最近添加的书签</label>
+            <div class="recent-bookmarks-toolbar">
+                <div class="date-filter">
+                    <input type="date" id="startDate" class="date-input" title="开始日期">
+                    <span>-</span>
+                    <input type="date" id="endDate" class="date-input" title="结束日期">
+                </div>
+                <div id="quickFilters" class="quick-filters">
+                    <button class="filter-btn active" data-days="30">最近30天</button>
+                    <button class="filter-btn" data-days="7">最近7天</button>
+                    <button class="filter-btn" data-days="1">今天</button>
                 </div>
             </div>
-            <div class="setting-item">
-                <span class="setting-label">悬停打开文件夹</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="hover-toggle-switch">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="setting-item" id="hover-delay-setting-item">
-                <span class="setting-label">悬停延迟 (ms)</span>
-                <input type="number" min="200" max="2000" step="50" class="input-base delay-input"
-                    id="hover-delay-input">
+            <div class="module-content hide-scrollbar"></div>
+        </section>
+    </aside>
+
+    <!-- ============================================ -->
+    <!-- 4. 控制按钮区 (Control Buttons) -->
+    <!-- ============================================ -->
+    <nav id="controlButtons">
+        <!-- 侧边栏切换按钮 -->
+        <div id="sidebar-toggle-container">
+            <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 3L8 8l-5 2 5 2 2 5 2-5 5-2-5-2-2-5z" />
+                    <path d="M18 13l-2.5 2.5L13 18l2.5 2.5L18 23l2.5-2.5L23 18l-2.5-2.5L18 13z" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- 设置按钮 -->
+        <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
+
+        <!-- 历史记录按钮 -->
+        <button id="history-btn" class="settings-btn" title="历史记录">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M12 8v4l2 2"></path>
+            </svg>
+        </button>
+    </nav>
+
+    <!-- ============================================ -->
+    <!-- 5. 设置模块 (Settings Module) -->
+    <!-- ============================================ -->
+    <section id="settingsModule">
+        <div id="settings-panel" class="settings-panel glass-effect">
+            <label class="module-header">设置</label>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <span class="setting-label">主题模式</span>
+                    <div class="theme-options">
+                        <button class="theme-option" data-theme-value="dark">深色</button>
+                        <button class="theme-option" data-theme-value="light">浅色</button>
+                        <button class="theme-option" data-theme-value="system">系统</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">悬停打开文件夹</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="hover-toggle-switch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item" id="hover-delay-setting-item">
+                    <span class="setting-label">悬停延迟 (ms)</span>
+                    <input type="number" min="200" max="2000" step="50" class="input-base delay-input"
+                        id="hover-delay-input">
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 
+    <!-- ============================================ -->
+    <!-- 6. 通知模块 (Notification Module) -->
+    <!-- ============================================ -->
+    <section id="notificationModule">
+        <div id="toast" class="toast glass-effect"></div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 7. 对话框模块 (Dialogs Module) -->
+    <!-- ============================================ -->
+    <section id="dialogsModule">
+        <!-- 右键菜单 -->
+        <div id="contextMenu" class="context-menu glass-effect"></div>
+
+        <!-- 移动对话框 -->
+        <div id="moveDialog" class="move-dialog">
+            <div class="move-dialog-content glass-effect">
+                <div class="dialog-header">
+                    <h3>移动到...</h3>
+                </div>
+                <div class="dialog-body hide-scrollbar" id="bookmarkTree"></div>
+                <div class="dialog-footer">
+                    <button id="cancelMove" class="dialog-button">取消</button>
+                    <button id="confirmMove" class="dialog-button primary">移动</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 编辑对话框 -->
+        <div id="editDialog" class="edit-dialog">
+            <div class="edit-dialog-content glass-effect">
+                <div class="dialog-header">
+                    <h3 id="editDialogTitle"></h3>
+                </div>
+                <div class="dialog-body">
+                    <input type="text" id="editDialogInput" class="input-base edit-dialog-input">
+                    <div id="editDialogError" class="edit-dialog-error"></div>
+                </div>
+                <div class="dialog-footer">
+                    <button id="cancelEdit" class="dialog-button">取消</button>
+                    <button id="confirmEdit" class="dialog-button primary">确定</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 确认对话框 -->
+        <div id="confirmDialog" class="edit-dialog confirm-dialog">
+            <div class="edit-dialog-content glass-effect">
+                <div class="dialog-header">
+                    <h3 id="confirmDialogTitle"></h3>
+                </div>
+                <div class="dialog-body">
+                    <p id="confirmDialogMessage" class="confirm-message"></p>
+                </div>
+                <div class="dialog-footer">
+                    <button id="cancelConfirm" class="dialog-button">取消</button>
+                    <button id="confirmConfirm" class="dialog-button primary">确定</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 属性对话框 -->
+        <div id="propertiesDialog" class="edit-dialog">
+            <div class="edit-dialog-content glass-effect">
+                <div class="dialog-header">
+                    <h3 id="propertiesDialogTitle">属性</h3>
+                </div>
+                <div id="propertiesDialogBody" class="dialog-body">
+                </div>
+                <div class="dialog-footer">
+                    <button id="closeProperties" class="dialog-button primary">关闭</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 8. 工具元素 (Utility Elements) -->
+    <!-- ============================================ -->
     <div id="pageOverlay" class="page-overlay"></div>
-    <button id="settings-btn" class="settings-btn" title="设置">⚙️</button>
-    <button id="history-btn" class="settings-btn" title="历史记录">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-            <path d="M12 8v4l2 2"></path>
-        </svg>
-    </button>
     <div class="resizing-overlay" style="display: none;"></div>
     <div class="resize-indicator"></div>
 
+    <!-- JavaScript -->
     <script src="newtab.js"></script>
 
     <svg width="0" height="0" style="position:absolute; display: none;" aria-hidden="true">
