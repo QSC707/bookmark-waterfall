@@ -60,9 +60,12 @@
     <nav id="controlButtons">
         <!-- 侧边栏切换按钮 -->
         <div id="sidebar-toggle-container">
-            <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="显示/隐藏侧边栏">
+            <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" 
+                    title="显示/隐藏侧边栏" 
+                    aria-label="切换最近添加书签侧边栏"
+                    aria-expanded="false">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M10 3L8 8l-5 2 5 2 2 5 2-5 5-2-5-2-2-5z" />
                     <path d="M18 13l-2.5 2.5L13 18l2.5 2.5L18 23l2.5-2.5L23 18l-2.5-2.5L18 13z" />
                 </svg>
@@ -70,8 +73,12 @@
         </div>
 
         <!-- 设置按钮 -->
-        <button id="settings-btn" class="settings-btn" title="设置">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button id="settings-btn" class="settings-btn" 
+                title="设置" 
+                aria-label="打开设置面板"
+                aria-haspopup="true"
+                aria-expanded="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <line x1="4" y1="21" x2="4" y2="14"></line>
                 <line x1="4" y1="10" x2="4" y2="3"></line>
                 <line x1="12" y1="21" x2="12" y2="12"></line>
@@ -85,9 +92,11 @@
         </button>
 
         <!-- 历史记录按钮 -->
-        <button id="history-btn" class="settings-btn" title="历史记录">
+        <button id="history-btn" class="settings-btn" 
+                title="历史记录" 
+                aria-label="打开浏览历史记录">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.5"
-                stroke-linecap="round" stroke-linejoin="round">
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                 <path d="M12 8v4l2 2"></path>
             </svg>
@@ -159,15 +168,15 @@
     <!-- ============================================ -->
     <section id="dialogsModule">
         <!-- 右键菜单 -->
-        <div id="contextMenu" class="context-menu glass-effect"></div>
+        <div id="contextMenu" class="context-menu glass-effect" role="menu" aria-label="书签操作菜单"></div>
 
         <!-- 移动对话框 -->
-        <div id="moveDialog" class="move-dialog">
+        <div id="moveDialog" class="move-dialog" role="dialog" aria-labelledby="moveDialogTitle" aria-modal="true">
             <div class="move-dialog-content glass-effect">
                 <div class="dialog-header">
-                    <h3>移动到...</h3>
+                    <h3 id="moveDialogTitle">移动到...</h3>
                 </div>
-                <div class="dialog-body hide-scrollbar" id="bookmarkTree"></div>
+                <div class="dialog-body hide-scrollbar" id="bookmarkTree" role="tree" aria-label="选择目标文件夹"></div>
                 <div class="dialog-footer">
                     <button id="cancelMove" class="dialog-button">取消</button>
                     <button id="confirmMove" class="dialog-button primary">移动</button>

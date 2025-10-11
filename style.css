@@ -69,7 +69,6 @@ body {
     background-color: var(--bg-color);
     display: grid;
     grid-template-columns: 1fr;
-    /* ▼▼▼ 恢复为原始的两行布局 ▼▼▼ */
     grid-template-rows: auto 1fr;
 }
 
@@ -89,11 +88,9 @@ body {
     display: flex;
     flex: 1;
     overflow: hidden;
-    /* <-- 从 overflow: auto 恢复 */
     padding-right: 0;
     grid-column: 1;
     grid-row: 2;
-    /* ▼▼▼ 移除 flex-direction: column ▼▼▼ */
 }
 
 /* --- 3. 顶部结构美化 --- */
@@ -128,7 +125,7 @@ body {
     /* 确保滚动条可见且美观 */
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb-bg) transparent;
-    border-radius: 6px; /* <-- 添加这一行即可 */
+    border-radius: 6px;
 }
 
 /* 当内容不溢出时，居中显示 */
@@ -155,9 +152,7 @@ body {
     display: flex;
     flex: 1;
     height: 100%;
-    /* <-- 恢复 height: 100% */
     overflow-x: auto;
-    /* <-- 恢复 overflow-x: auto */
     padding: 20px 0 20px 0;
     gap: 20px;
     scroll-behavior: smooth;
@@ -435,7 +430,6 @@ body {
 #sidebar-toggle-container {
     position: absolute;
     top: 72.2px;
-    /* <-- 修改这里 */
     right: 0;
     height: 44px;
     display: flex;
@@ -684,7 +678,6 @@ input:checked+.slider:before {
     margin: 0;
 }
 
-/* ▼▼▼ 修复：恢复对话框尺寸 ▼▼▼ */
 .move-dialog-content,
 .edit-dialog-content {
     width: 520px;
@@ -866,12 +859,7 @@ input:checked+.slider:before {
     background-color: rgba(244, 67, 54, 0.1);
 }
 
-.menu-icon {
-    width: 18px;
-    height: 18px;
-    opacity: 0.9;
-    filter: var(--context-menu-icon-filter);
-}
+/* ✅ P0修复：已移除重复的 .menu-icon 定义 (完整定义在 line 836-847) */
 
 .empty-folder-message {
     padding: 16px;
@@ -1044,10 +1032,8 @@ input:checked+.slider:before {
     color: var(--module-header-color);
     border: 1px solid var(--input-border);
     border-radius: 8px;
-    /* <-- 添加这一行，可以根据喜好调整数值 */
 }
 
-/* ▼▼▼ 修复：调整日期选择器图标颜色以适应主题 ▼▼▼ */
 .date-input::-webkit-calendar-picker-indicator {
     filter: var(--context-menu-icon-filter);
 }
@@ -1350,12 +1336,10 @@ body.is-resizing .resize-indicator {
     overflow-x: auto;
     white-space: nowrap;
     justify-content: center;
-    /* <-- 修改为 center */
     flex-shrink: 0;
 }
 
 .breadcrumb-item {
-    /* ▼▼▼ 修改3: 缩小字体和内边距 ▼▼▼ */
     font-size: 12px;
     padding: 4px 5px;
     cursor: pointer;
@@ -1368,7 +1352,6 @@ body.is-resizing .resize-indicator {
 }
 
 .breadcrumb-separator {
-    /* ▼▼▼ 修改4: 缩小字体和外边距 ▼▼▼ */
     margin: 0 5px;
     font-size: 13px;
     color: var(--module-header-color);

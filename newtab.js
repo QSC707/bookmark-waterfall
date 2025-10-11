@@ -56,35 +56,88 @@ const CONSTANTS = {
 };
 
 // ==================================================================
-// --- 全局状态变量 ---
+// --- ✅ P1修复：统一全局状态管理 ---
 // ==================================================================
 
-let isHoverEnabled = true;
-let isDragging = false;
-let suppressHover = false;
-let draggedItem = null;
-let dragOverTimeout = null;
-let lastDragOverTarget = null;
-let previewWindowId = null;
-let currentlyHoveredItem = null;
-let selectedItems = new Set();
-let lastClickedId = null;
-let allBookmarksFlat = [];
-let historyWindowId = null;
-
-// 新增：记录第一列的初始边距，防止视觉跳跃
-let initialMarginLeft = null;
-let savedMarginLeft = null; // 保存经过居中调整后的边距
-let marginWindowWidth = null; // 保存计算边距时的窗口宽度
-let currentColumnCount = 0;
-let needsRecenter = false; // 标记窗口放大后需要重新居中
-
-// --- 新增：智能悬停状态变量 (优化版) ---
-let hoverIntent = {
-    timer: null,      // 全局唯一的计时器
-    target: null,     // 当前悬停的目标元素
-    targetId: null    // 缓存目标ID，避免重复读取dataset
+/**
+ * 全局应用状态管理对象
+ * 集中管理所有应用状态，提高代码可维护性和可调试性
+ */
+const AppState = {
+    // 悬停与交互状态
+    hover: {
+        enabled: true,              // 悬停功能是否启用
+        currentItem: null,          // 当前悬停的项目
+        suppressHover: false,       // 临时禁用悬停（如拖拽时）
+        intent: {
+            timer: null,            // 悬停意图计时器
+            target: null,           // 悬停目标元素
+            targetId: null          // 缓存的目标ID
+        }
+    },
+    
+    // 拖拽状态
+    drag: {
+        isDragging: false,          // 是否正在拖拽
+        draggedItem: null,          // 被拖拽的项目
+        dragOverTimeout: null,      // 拖拽悬停计时器
+        lastDragOverTarget: null    // 上次拖拽经过的目标
+    },
+    
+    // 选择状态
+    selection: {
+        items: new Set(),           // 选中的项目ID集合
+        lastClickedId: null         // 最后点击的项目ID（用于 Shift 范围选择）
+    },
+    
+    // 窗口管理
+    windows: {
+        preview: null,              // 预览窗口ID
+        history: null               // 历史记录窗口ID
+    },
+    
+    // 请求管理（防止竞态条件）
+    requests: {
+        pendingFolder: null,        // 当前待处理的文件夹请求
+        pendingRecentBookmarks: null // 最近书签请求
+    },
+    
+    // 布局状态
+    layout: {
+        initialMarginLeft: null,    // 第一列的初始左边距
+        savedMarginLeft: null,      // 保存的居中调整后边距
+        marginWindowWidth: null,    // 计算边距时的窗口宽度
+        currentColumnCount: 0,      // 当前显示的列数
+        needsRecenter: false        // 标记是否需要重新居中
+    },
+    
+    // 书签数据缓存
+    data: {
+        allBookmarksFlat: []        // 扁平化的书签列表
+    }
 };
+
+// ✅ 向后兼容：保留旧变量名作为 AppState 的引用（逐步迁移）
+let isHoverEnabled = AppState.hover.enabled;
+let isDragging = AppState.drag.isDragging;
+let suppressHover = AppState.hover.suppressHover;
+let draggedItem = AppState.drag.draggedItem;
+let dragOverTimeout = AppState.drag.dragOverTimeout;
+let lastDragOverTarget = AppState.drag.lastDragOverTarget;
+let previewWindowId = AppState.windows.preview;
+let currentlyHoveredItem = AppState.hover.currentItem;
+let selectedItems = AppState.selection.items;
+let lastClickedId = AppState.selection.lastClickedId;
+let allBookmarksFlat = AppState.data.allBookmarksFlat;
+let historyWindowId = AppState.windows.history;
+let pendingFolderRequest = AppState.requests.pendingFolder;
+let pendingRecentBookmarksRequest = AppState.requests.pendingRecentBookmarks;
+let initialMarginLeft = AppState.layout.initialMarginLeft;
+let savedMarginLeft = AppState.layout.savedMarginLeft;
+let marginWindowWidth = AppState.layout.marginWindowWidth;
+let currentColumnCount = AppState.layout.currentColumnCount;
+let needsRecenter = AppState.layout.needsRecenter;
+let hoverIntent = AppState.hover.intent;
 
 // ==================================================================
 // --- P1性能优化：DOM元素缓存 ---
@@ -164,6 +217,11 @@ window.addEventListener('beforeunload', () => {
 // ==================================================================
 
 // --- 辅助工具函数 ---
+/**
+ * 格式化时间戳为日期字符串
+ * @param {number} timestamp - Unix时间戳（毫秒）
+ * @returns {string} 格式化后的日期字符串 (YYYY-MM-DD)
+ */
 function formatDate(timestamp) {
     const date = new Date(timestamp);
     const year = date.getFullYear();
@@ -172,6 +230,11 @@ function formatDate(timestamp) {
     return `${year}-${month}-${day}`;
 }
 
+/**
+ * 格式化时间戳为日期时间字符串
+ * @param {number} timestamp - Unix时间戳（毫秒）
+ * @returns {string} 格式化后的日期时间字符串 (YYYY-MM-DD HH:mm)
+ */
 function formatDateTime(timestamp) {
     const date = new Date(timestamp);
     const year = date.getFullYear();
@@ -182,6 +245,11 @@ function formatDateTime(timestamp) {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+/**
+ * 获取书签的完整路径
+ * @param {string} bookmarkId - 书签ID
+ * @returns {Promise<string>} 书签路径（层级用 > 分隔）
+ */
 function getBookmarkPath(bookmarkId) {
     return new Promise(resolve => {
         let path = [];
@@ -217,6 +285,11 @@ function getBookmarkPath(bookmarkId) {
     });
 }
 
+/**
+ * 递归展平书签树为一维数组（仅包含书签，不包含文件夹）
+ * @param {Array} nodes - 书签树节点数组
+ * @param {Array} flatList - 用于收集结果的一维数组（会被修改）
+ */
 function flattenBookmarks(nodes, flatList) {
     for (const node of nodes) {
         if (node.url) {
@@ -228,6 +301,12 @@ function flattenBookmarks(nodes, flatList) {
     }
 }
 
+/**
+ * 防抖函数：延迟执行函数直到停止调用一段时间后
+ * @param {Function} func - 要防抖的函数
+ * @param {number} wait - 等待时间（毫秒）
+ * @returns {Function} 防抖后的函数
+ */
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -276,10 +355,114 @@ function sanitizeText(text) {
     return div.innerHTML;
 }
 
+// ==================================================================
+// --- ✅ P1修复：统一错误处理工具函数 ---
+// ==================================================================
+
+/**
+ * 统一的 Chrome API 错误处理包装器
+ * @param {Promise} apiCall - Chrome API 调用的 Promise
+ * @param {Object} options - 配置选项
+ * @param {string} options.operation - 操作描述（用于错误消息）
+ * @param {boolean} options.silent - 是否静默失败（不显示 toast）
+ * @param {Function} options.fallback - 失败时的回退函数
+ * @returns {Promise} - 包装后的 Promise
+ */
+async function handleChromeAPIError(apiCall, options = {}) {
+    const { operation = '操作', silent = false, fallback = null } = options;
+    
+    try {
+        const result = await apiCall;
+        
+        // 检查 Chrome runtime 错误
+        if (chrome.runtime.lastError) {
+            throw new Error(chrome.runtime.lastError.message);
+        }
+        
+        return result;
+    } catch (error) {
+        console.error(`${operation}失败:`, error);
+        
+        if (!silent) {
+            showToast(`${operation}失败`, 3000, 'error');
+        }
+        
+        if (fallback && typeof fallback === 'function') {
+            return fallback();
+        }
+        
+        return null;
+    }
+}
+
+/**
+ * 安全的书签 API 调用包装器
+ */
+const SafeBookmarks = {
+    async getChildren(id) {
+        return handleChromeAPIError(
+            new Promise(resolve => chrome.bookmarks.getChildren(id, resolve)),
+            { operation: '获取书签子项', silent: true }
+        );
+    },
+    
+    async get(id) {
+        return handleChromeAPIError(
+            new Promise(resolve => chrome.bookmarks.get(id, resolve)),
+            { operation: '获取书签', silent: true }
+        );
+    },
+    
+    async move(id, destination) {
+        return handleChromeAPIError(
+            chrome.bookmarks.move(id, destination),
+            { operation: '移动书签' }
+        );
+    },
+    
+    async update(id, changes) {
+        return handleChromeAPIError(
+            chrome.bookmarks.update(id, changes),
+            { operation: '更新书签' }
+        );
+    },
+    
+    async create(bookmark) {
+        return handleChromeAPIError(
+            chrome.bookmarks.create(bookmark),
+            { operation: '创建书签' }
+        );
+    },
+    
+    async remove(id) {
+        return handleChromeAPIError(
+            chrome.bookmarks.remove(id),
+            { operation: '删除书签' }
+        );
+    },
+    
+    async removeTree(id) {
+        return handleChromeAPIError(
+            chrome.bookmarks.removeTree(id),
+            { operation: '删除文件夹' }
+        );
+    }
+};
+
+/**
+ * 获取网站图标URL
+ * @param {string} url - 网站URL
+ * @returns {string} 图标URL
+ */
 function getIconUrl(url) {
     return `/_favicon/?pageUrl=${encodeURIComponent(url)}&size=32`;
 }
 
+/**
+ * 验证字符串是否为有效URL
+ * @param {string} string - 待验证的字符串
+ * @returns {boolean} 是否为有效URL
+ */
 function isValidUrl(string) {
     try {
         new URL(string);
@@ -404,6 +587,9 @@ function createHoverIntent(callback, delay = 500) {
 }
 
 // --- 多选相关函数 ---
+/**
+ * 清除所有书签选择状态
+ */
 function clearSelection() {
     selectedItems.clear();
     document.querySelectorAll('.bookmark-item.selected, .vertical-modules a.selected, .top-site-item.selected').forEach(el => el.classList.remove('selected'));
@@ -433,16 +619,16 @@ function closeAllBookmarkColumns() {
     clearSelection();
     
     // === 4. 重置布局相关状态变量 ===
-    initialMarginLeft = null;
-    savedMarginLeft = null;
-    marginWindowWidth = null;
-    currentColumnCount = 0;
-    needsRecenter = false;
+    resetLayoutState();
     
     // === 5. 清除悬停意图计时器 ===
     clearHoverIntent();
 }
 
+/**
+ * 切换书签项的选中状态
+ * @param {HTMLElement} item - 书签DOM元素
+ */
 function toggleSelection(item) {
     const id = item.dataset.id;
     if (selectedItems.has(id)) {
@@ -455,6 +641,12 @@ function toggleSelection(item) {
     lastClickedId = id;
 }
 
+/**
+ * 选择范围内的所有书签（用于Shift点击）
+ * @param {string} startId - 起始书签ID
+ * @param {string} endId - 结束书签ID
+ * @param {HTMLElement} column - 所在列的DOM元素
+ */
 function selectRange(startId, endId, column) {
     const items = Array.from(column.querySelectorAll('.bookmark-item'));
     const startIndex = items.findIndex(i => i.dataset.id === startId);
@@ -472,6 +664,10 @@ function selectRange(startId, endId, column) {
 }
 
 // --- 书签渲染与刷新 ---
+/**
+ * 显示书签栏的书签
+ * @param {Array} bookmarks - 书签数组
+ */
 function displayBookmarks(bookmarks) {
     const bookmarkContainer = document.getElementById('bookmarkContainer');
     const header = document.querySelector('.page-header');
@@ -487,6 +683,9 @@ function displayBookmarks(bookmarks) {
 }
 
 // --- [新增] 只刷新书签栏的专用函数 ---
+/**
+ * 刷新书签栏显示
+ */
 function refreshBookmarksBar() {
     // 1. 获取书签栏的父容器
     const header = document.querySelector('.page-header');
@@ -503,6 +702,12 @@ function refreshBookmarksBar() {
     });
 }
 
+/**
+ * 渲染书签列表到指定容器
+ * @param {Array} bookmarks - 书签数组
+ * @param {HTMLElement} parentElement - 父容器元素
+ * @param {number} level - 书签列的层级
+ */
 function renderBookmarks(bookmarks, parentElement, level) {
     let column;
     const container = DOMCache.get('bookmarkContainer') || document.getElementById('bookmarkContainer');
@@ -637,6 +842,12 @@ function renderBookmarks(bookmarks, parentElement, level) {
     }, 0);
 }
 
+/**
+ * 创建单个书签项的DOM元素
+ * @param {Object} bookmark - 书签对象
+ * @param {number} index - 索引位置
+ * @returns {HTMLElement} 书签DOM元素
+ */
 function createBookmarkItem(bookmark, index) {
     const item = document.createElement('div');
     item.className = 'bookmark-item';
@@ -713,7 +924,26 @@ function handleFolderClick(folderItem, bookmarkId) {
 
     if (!isHighlighted) {
         folderItem.classList.add('highlighted');
+        
+        // ✅ P0修复：添加请求去重机制，防止快速连续点击导致的竞态条件
+        if (pendingFolderRequest) {
+            pendingFolderRequest.cancelled = true;
+        }
+        
+        const thisRequest = { cancelled: false, folderId: bookmarkId };
+        pendingFolderRequest = thisRequest;
+        
         chrome.bookmarks.getChildren(bookmarkId, (freshChildren) => {
+            // 检查此请求是否已被取消
+            if (thisRequest.cancelled) {
+                return;
+            }
+            
+            // 清除请求标记
+            if (pendingFolderRequest === thisRequest) {
+                pendingFolderRequest = null;
+            }
+            
             const container = document.getElementById('bookmarkContainer');
             if (container) {
                 renderBookmarks(freshChildren, container, level + 1);
@@ -728,14 +958,10 @@ function handleFolderClick(folderItem, bookmarkId) {
             if (parseInt(col.dataset.level) > level) col.remove();
         });
         
-        // 如果关闭后没有列了，重置初始边距和居中标志
+        // 如果关闭后没有列了，重置布局状态
         const remainingColumns = container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
         if (remainingColumns.length === 0) {
-            initialMarginLeft = null;
-            savedMarginLeft = null;
-            marginWindowWidth = null;
-            currentColumnCount = 0;
-            needsRecenter = false;
+            resetLayoutState();
         }
     }
 }
@@ -743,8 +969,20 @@ function handleFolderClick(folderItem, bookmarkId) {
 // --- [最终版] 智能悬停核心函数 ---
 
 /**
- * 为指定元素启动一个悬停意图（性能+安全优化版）。
- * @param {HTMLElement} item - 目标文件夹元素
+ * ✅ P2重构：提取公共函数 - 重置布局状态
+ * 在关闭所有书签列时重置所有布局相关的全局变量
+ */
+function resetLayoutState() {
+    initialMarginLeft = null;
+    savedMarginLeft = null;
+    marginWindowWidth = null;
+    currentColumnCount = 0;
+    needsRecenter = false;
+}
+
+/**
+ * 开始悬停意图检测（用于文件夹自动展开）
+ * @param {HTMLElement} item - 书签项元素
  */
 function startHoverIntent(item) {
     // === 性能优化1：安全检查前置，使用可选链快速失败 ===
@@ -831,7 +1069,7 @@ function startHoverIntent(item) {
 }
 
 /**
- * 取消一个可能正在等待的悬停意图（安全优化版）。
+ * 清除悬停意图计时器
  */
 function clearHoverIntent() {
     // === 性能优化：只在必要时清除 ===
@@ -1034,308 +1272,356 @@ function applyCenteredMargin(marginLeft) {
 }
 
 // ==================================================================
+// --- ✅ P2重构：将超长函数拆分为多个职责单一的子函数 ---
+// ==================================================================
+
+/**
+ * 计算第一列的左边距
+ * @param {Object} params - 参数对象
+ * @returns {number} - 计算出的左边距
+ */
+function calculateFirstColumnMargin(params) {
+    const { firstColumn, columns, availableWidth, columnsChanged, newColumnCount } = params;
+    let marginLeft = 0;
+    
+    if (!firstColumn || firstColumn.dataset.level !== "1") {
+        return marginLeft;
+    }
+    
+    const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+    
+    if (columnsChanged) {
+        if (newColumnCount === 0) {
+            // 场景1：所有列都关闭了，重置所有状态
+            resetLayoutState();
+        } else if (newColumnCount === 1 && initialMarginLeft === null) {
+            // 场景2：首次打开第一个书签
+            marginLeft = calculateCenteredMargin(availableWidth);
+            marginLeft = applyCenteredMargin(marginLeft);
+            initialMarginLeft = marginLeft;
+        } else if (newColumnCount > currentColumnCount) {
+            // 场景3：打开新书签
+            marginLeft = currentActualMargin > 0 
+                ? currentActualMargin 
+                : (savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth));
+        } else if (newColumnCount < currentColumnCount) {
+            // 场景4：关闭书签
+            marginLeft = currentActualMargin > 0 
+                ? currentActualMargin 
+                : (savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth));
+        }
+        currentColumnCount = newColumnCount;
+    } else {
+        // 列数没变，检查窗口变化
+        if (newColumnCount > 0) {
+            const currentWindowWidth = availableWidth;
+            const savedWindowWidth = marginWindowWidth || currentWindowWidth;
+            const windowWidthDiff = Math.abs(currentWindowWidth - savedWindowWidth);
+            
+            if (windowWidthDiff > CONSTANTS.LAYOUT.MARGIN.WINDOW_CHANGE_THRESHOLD) {
+                // 场景5：窗口显著变化
+                marginLeft = calculateCenteredMargin(availableWidth);
+                marginLeft = applyCenteredMargin(marginLeft);
+                initialMarginLeft = marginLeft;
+            } else {
+                // 场景6：窗口未显著变化
+                marginLeft = currentActualMargin > 0 
+                    ? currentActualMargin 
+                    : (savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth));
+            }
+        } else {
+            marginLeft = calculateCenteredMargin(availableWidth);
+        }
+    }
+    
+    return marginLeft;
+}
+
+/**
+ * 收缩列宽以适应容器
+ * @param {Array} resizableColumns - 可调整大小的列
+ * @param {number} overflowWidth - 溢出宽度
+ * @param {number} minWidth - 最小列宽
+ * @returns {Map} - 新的样式映射
+ */
+function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
+    const newStyles = new Map();
+    const sortedResizable = [...resizableColumns].sort((a, b) => b.currentWidth - a.currentWidth);
+    
+    const totalShrinkableSpace = sortedResizable.reduce((sum, data) => {
+        return sum + Math.max(0, data.currentWidth - minWidth);
+    }, 0);
+    
+    if (totalShrinkableSpace >= overflowWidth) {
+        // 使用权重收缩：较宽的列收缩更多
+        for (const data of sortedResizable) {
+            const shrinkableAmount = Math.max(0, data.currentWidth - minWidth);
+            if (shrinkableAmount > 0) {
+                const proportion = shrinkableAmount / totalShrinkableSpace;
+                const reduction = overflowWidth * proportion;
+                const newWidth = Math.max(minWidth, data.currentWidth - reduction);
+                newStyles.set(data.el, { width: `${newWidth}px` });
+            }
+        }
+    } else {
+        // 如果收缩空间不够，将所有可调整的列缩到最小
+        for (const data of sortedResizable) {
+            if (data.currentWidth > minWidth) {
+                newStyles.set(data.el, { width: `${minWidth}px` });
+            }
+        }
+    }
+    
+    return newStyles;
+}
+
+/**
+ * 扩展列宽以利用空余空间
+ * @param {Array} resizableColumns - 可调整大小的列
+ * @param {number} availableSpace - 可用空间
+ * @param {number} idealWidth - 理想列宽
+ * @returns {Map} - 新的样式映射
+ */
+function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
+    const newStyles = new Map();
+    const columnsToEnlarge = resizableColumns.filter(data => data.currentWidth < idealWidth);
+    
+    if (columnsToEnlarge.length > 0 && availableSpace > 0) {
+        const totalEnlargePotential = columnsToEnlarge.reduce((sum, data) => {
+            return sum + (idealWidth - data.currentWidth);
+        }, 0);
+        
+        if (totalEnlargePotential > 0) {
+            if (totalEnlargePotential <= availableSpace) {
+                // 空间足够，全部扩展到 ideal 宽度
+                for (const data of columnsToEnlarge) {
+                    newStyles.set(data.el, { width: `${idealWidth}px` });
+                }
+            } else {
+                // 空间不够，按比例扩展
+                for (const data of columnsToEnlarge) {
+                    const potential = idealWidth - data.currentWidth;
+                    const proportion = potential / totalEnlargePotential;
+                    const enlargeAmount = availableSpace * proportion;
+                    const newWidth = data.currentWidth + enlargeAmount;
+                    newStyles.set(data.el, { width: `${newWidth}px` });
+                }
+            }
+        }
+    }
+    
+    return newStyles;
+}
+
+/**
+ * 应用列宽样式变化
+ * @param {Map} newStyles - 新的样式映射
+ * @param {Array} columnData - 列数据（用于判断变化大小）
+ */
+function applyColumnWidthStyles(newStyles, columnData) {
+    // 检查是否有大的变化
+    const hasLargeChanges = Array.from(newStyles.entries()).some(([el, style]) => {
+        const cached = columnData.find(data => data.el === el);
+        const currentWidth = cached ? cached.currentWidth : el.offsetWidth;
+        const newWidth = parseFloat(style.width);
+        return Math.abs(currentWidth - newWidth) > 50;
+    });
+    
+    if (hasLargeChanges) {
+        // 大变化时禁用动画
+        newStyles.forEach((style, el) => {
+            el.style.transition = 'none';
+            el.style.width = style.width;
+        });
+        
+        // 下一帧恢复动画
+        requestAnimationFrame(() => {
+            newStyles.forEach((style, el) => {
+                el.style.transition = '';
+            });
+        });
+    } else {
+        // 小变化时保持动画
+        newStyles.forEach((style, el) => {
+            el.style.width = style.width;
+        });
+    }
+}
+
+/**
+ * 应用第一列的左边距
+ * @param {HTMLElement} firstColumn - 第一列元素
+ * @param {number} finalMarginLeft - 最终左边距
+ */
+function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
+    if (!firstColumn || firstColumn.dataset.level !== "1") {
+        return;
+    }
+    
+    if (needsRecenter) {
+        needsRecenter = false;
+    }
+    
+    const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
+    const marginDiff = Math.abs(finalMarginLeft - currentMargin);
+    
+    // 只有边距差异超过 1px 时才应用，避免微小抖动
+    if (marginDiff > 1) {
+        if (marginDiff > 100 || !firstColumn.dataset.initialized) {
+            firstColumn.style.transition = 'none';
+            firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+            firstColumn.dataset.initialized = 'true';
+            firstColumn.offsetHeight; // 强制重排
+            firstColumn.style.transition = '';
+        } else {
+            firstColumn.style.marginLeft = `${finalMarginLeft}px`;
+        }
+    }
+}
+
+/**
+ * 计算并执行智能滚动
+ * @param {HTMLElement} container - 容器元素
+ * @param {Object} params - 参数对象
+ */
+function performSmartScroll(container, params) {
+    const { firstColumn, finalMarginLeft, gap, marginRight, availableWidth } = params;
+    
+    let scrollTarget = 0;
+    const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
+    
+    // 获取第一列的实际左边距
+    const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1"
+        ? (parseFloat(firstColumn.style.marginLeft) || finalMarginLeft || 0)
+        : 0;
+    
+    // 计算实际占用的总宽度
+    const finalColumnsWidth = finalColumns.reduce((sum, col) => sum + col.offsetWidth, 0);
+    const finalGapsWidth = (finalColumns.length - 1) * gap;
+    const finalTotalWidth = firstColumnMargin + finalColumnsWidth + finalGapsWidth + marginRight;
+    
+    // 判断是否需要滚动
+    if (finalTotalWidth > availableWidth) {
+        // 从右往左计算能显示的列
+        let visibleWidth = marginRight;
+        let firstVisibleColumnIndex = finalColumns.length - 1;
+        const maxVisibleWidth = availableWidth;
+        
+        for (let i = finalColumns.length - 1; i >= 0; i--) {
+            const currentCol = finalColumns[i];
+            const colWidth = currentCol.offsetWidth;
+            const widthToAdd = (i === finalColumns.length - 1) ? colWidth : colWidth + gap;
+            
+            if (visibleWidth + widthToAdd <= maxVisibleWidth) {
+                visibleWidth += widthToAdd;
+                firstVisibleColumnIndex = i;
+            } else {
+                break;
+            }
+        }
+        
+        // 计算滚动目标
+        if (firstVisibleColumnIndex === 0) {
+            scrollTarget = 0;
+        } else {
+            const targetColumn = finalColumns[firstVisibleColumnIndex];
+            scrollTarget = Math.max(0, targetColumn.offsetLeft - 10);
+        }
+    }
+    
+    // 只在需要时滚动
+    const currentScroll = container.scrollLeft;
+    const scrollDiff = Math.abs(scrollTarget - currentScroll);
+    
+    if (scrollDiff > 10) {
+        container.scrollTo({
+            left: Math.max(0, scrollTarget),
+            behavior: scrollDiff > 200 ? 'smooth' : 'auto'
+        });
+    }
+}
+
+// ==================================================================
 // --- 恢复原始的平滑动画 + 稳定布局算法（只修复抖动） ---
 // ==================================================================
+/**
+ * ✅ P2重构：简化后的主函数，职责更清晰
+ * 调整书签列宽度以适应容器大小，支持响应式布局和智能居中
+ * @param {HTMLElement} container - 书签容器元素
+ */
 function adjustColumnWidths(container) {
     if (!container || resizing) return;
     resizing = true;
 
     requestAnimationFrame(() => {
         try {
-            // --- 1. 布局读取 (Read Phase) ---
+            // === 阶段1：读取布局信息 ===
             const columns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
             if (columns.length === 0) {
                 resizing = false;
                 return;
             }
 
-        const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
-        const availableWidth = container.clientWidth;
-        const config = getResponsiveConfig();
-        const DEFAULT_COL_WIDTH = config.ideal;
-        const MIN_COL_WIDTH = config.min;
-        const newStyles = new Map();
+            const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
+            const availableWidth = container.clientWidth;
+            const config = getResponsiveConfig();
+            const DEFAULT_COL_WIDTH = config.ideal;
+            const MIN_COL_WIDTH = config.min;
+            const marginRight = CONSTANTS.LAYOUT.COLUMN_GAP;
+            const firstColumn = columns[0];
 
-        const columnData = columns.map(col => ({
-            el: col,
-            currentWidth: col.offsetWidth,
-            userResized: col.dataset.userResized === 'true',
-            canResize: col.dataset.userResized !== 'true'
-        }));
+            const columnData = columns.map(col => ({
+                el: col,
+                currentWidth: col.offsetWidth,
+                userResized: col.dataset.userResized === 'true',
+                canResize: col.dataset.userResized !== 'true'
+            }));
 
-        // --- 智能布局策略：固定第一列位置，防止视觉跳跃 ---
-        let marginLeft = 0;
-        const marginRight = CONSTANTS.LAYOUT.COLUMN_GAP;
-        const firstColumn = columns[0];
-
-        // 检测列数变化
-        const newColumnCount = columns.length;
-        const columnsChanged = newColumnCount !== currentColumnCount;
-
-        // 只有当第一列是 data-level="1" 时才计算边距
-        if (firstColumn && firstColumn.dataset.level === "1") {
-            if (columnsChanged) {
-                if (newColumnCount === 0) {
-                    // 场景1：所有列都关闭了，重置所有状态
-                    initialMarginLeft = null;
-                    savedMarginLeft = null;
-                    marginWindowWidth = null;
-                    needsRecenter = false;
-                } else if (newColumnCount === 1 && initialMarginLeft === null) {
-                    // 场景2：首次打开第一个书签 - 计算居中边距
-                    marginLeft = calculateCenteredMargin(availableWidth);
-                    marginLeft = applyCenteredMargin(marginLeft);
-                    initialMarginLeft = marginLeft;
-                } else if (newColumnCount > currentColumnCount) {
-                    // 场景3：打开新书签 - 保持当前边距稳定
-                    // 直接使用当前第一列的实际边距，避免突然变化
-                    const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
-
-                    // 如果当前已有边距，就保持它；否则计算新的
-                    if (currentActualMargin > 0) {
-                        marginLeft = currentActualMargin;
-                    } else {
-                        marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
-                    }
-                } else if (newColumnCount < currentColumnCount) {
-                    // 场景6：关闭书签（列数减少） - 保持当前边距稳定
-                    // 直接使用当前第一列的实际边距
-                    const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
-
-                    if (currentActualMargin > 0) {
-                        marginLeft = currentActualMargin;
-                    } else {
-                        marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
-                    }
-                }
-                currentColumnCount = newColumnCount;
-            } else {
-                // 列数没变，检查窗口变化
-                if (newColumnCount > 0) {
-                    const currentWindowWidth = availableWidth;
-                    const savedWindowWidth = marginWindowWidth || currentWindowWidth;
-                    const windowWidthDiff = Math.abs(currentWindowWidth - savedWindowWidth);
-
-                    if (windowWidthDiff > CONSTANTS.LAYOUT.MARGIN.WINDOW_CHANGE_THRESHOLD) {
-                        // 场景4：窗口显著变化 - 重新计算居中边距
-                        marginLeft = calculateCenteredMargin(availableWidth);
-                        marginLeft = applyCenteredMargin(marginLeft);
-                        initialMarginLeft = marginLeft;
-                    } else {
-                        // 场景5：窗口未显著变化 - 保持当前边距稳定
-                        // 直接使用当前第一列的实际边距，避免反复计算导致的跳动
-                        const currentActualMargin = parseFloat(firstColumn.style.marginLeft) || 0;
-                        if (currentActualMargin > 0) {
-                            marginLeft = currentActualMargin;
-                        } else {
-                            marginLeft = savedMarginLeft || initialMarginLeft || calculateCenteredMargin(availableWidth);
-                        }
-                    }
-                } else {
-                    marginLeft = calculateCenteredMargin(availableWidth);
-                }
-            }
-        }
-
-        // --- 2. 核心布局计算（优化版） ---
-        // 实际占用空间 = 左边距 + 所有列宽 + 列间隙 + 右边距
-        const columnsWidth = columnData.reduce((sum, data) => sum + data.currentWidth, 0);
-        const gapsWidth = (columnData.length - 1) * gap;
-        const totalUsedWidth = marginLeft + columnsWidth + gapsWidth + marginRight;
-
-        const resizableColumns = columnData.filter(data => data.canResize);
-
-        // CASE 1: 内容溢出，需要收缩
-        if (totalUsedWidth > availableWidth) {
-            // 溢出量 = 总占用宽度 - 可用宽度
-            const overflowWidth = totalUsedWidth - availableWidth;
-
-            // 优化：按照当前宽度排序，优先收缩较宽的列
-            const sortedResizable = [...resizableColumns].sort((a, b) => b.currentWidth - a.currentWidth);
+            // === 阶段2：计算左边距 ===
+            const newColumnCount = columns.length;
+            const columnsChanged = newColumnCount !== currentColumnCount;
             
-            const totalShrinkableSpace = sortedResizable.reduce((sum, data) => {
-                return sum + Math.max(0, data.currentWidth - MIN_COL_WIDTH);
-            }, 0);
+            const marginLeft = calculateFirstColumnMargin({
+                firstColumn,
+                columns,
+                availableWidth,
+                columnsChanged,
+                newColumnCount
+            });
 
-            if (totalShrinkableSpace >= overflowWidth) {
-                // 使用权重收缩：较宽的列收缩更多
-                for (const data of sortedResizable) {
-                    const shrinkableAmount = Math.max(0, data.currentWidth - MIN_COL_WIDTH);
-                    if (shrinkableAmount > 0) {
-                        // 权重：当前可收缩空间占总可收缩空间的比例
-                        const proportion = shrinkableAmount / totalShrinkableSpace;
-                        const reduction = overflowWidth * proportion;
-                        const newWidth = Math.max(MIN_COL_WIDTH, data.currentWidth - reduction);
-                        newStyles.set(data.el, { width: `${newWidth}px` });
-                    }
-                }
+            // === 阶段3：计算列宽调整 ===
+            const columnsWidth = columnData.reduce((sum, data) => sum + data.currentWidth, 0);
+            const gapsWidth = (columnData.length - 1) * gap;
+            const totalUsedWidth = marginLeft + columnsWidth + gapsWidth + marginRight;
+            const resizableColumns = columnData.filter(data => data.canResize);
+
+            let newStyles;
+            if (totalUsedWidth > availableWidth) {
+                // 内容溢出，需要收缩
+                const overflowWidth = totalUsedWidth - availableWidth;
+                newStyles = shrinkColumnsToFit(resizableColumns, overflowWidth, MIN_COL_WIDTH);
             } else {
-                // 如果收缩空间不够，将所有可调整的列缩到最小
-                for (const data of sortedResizable) {
-                    if (data.currentWidth > MIN_COL_WIDTH) {
-                        newStyles.set(data.el, { width: `${MIN_COL_WIDTH}px` });
-                    }
-                }
+                // 空间有富余，适度扩展
+                const availableSpace = availableWidth - totalUsedWidth;
+                newStyles = enlargeColumnsToFill(resizableColumns, availableSpace, DEFAULT_COL_WIDTH);
             }
 
-        // CASE 2: 空间有富余，适度扩展（以内容为主，不强行填充）
-        } else {
-            // 可用空间 = 容器宽度 - 实际占用宽度
-            const availableSpace = availableWidth - totalUsedWidth;
+            // === 阶段4：应用样式变化 ===
+            applyColumnWidthStyles(newStyles, columnData);
+            applyFirstColumnMargin(firstColumn, marginLeft);
 
-            // 只扩展到 ideal 宽度，让内容自然呈现
-            const columnsToEnlarge = resizableColumns.filter(data => data.currentWidth < DEFAULT_COL_WIDTH);
-            
-            if (columnsToEnlarge.length > 0 && availableSpace > 0) {
-                const totalEnlargePotential = columnsToEnlarge.reduce((sum, data) => {
-                    return sum + (DEFAULT_COL_WIDTH - data.currentWidth);
-                }, 0);
-
-                if (totalEnlargePotential > 0) {
-                    if (totalEnlargePotential <= availableSpace) {
-                        // 空间足够，全部扩展到 ideal 宽度
-                        for (const data of columnsToEnlarge) {
-                            newStyles.set(data.el, { width: `${DEFAULT_COL_WIDTH}px` });
-                        }
-                    } else {
-                        // 空间不够，按比例扩展
-                        for (const data of columnsToEnlarge) {
-                            const potential = DEFAULT_COL_WIDTH - data.currentWidth;
-                            const proportion = potential / totalEnlargePotential;
-                            const enlargeAmount = availableSpace * proportion;
-                            const newWidth = data.currentWidth + enlargeAmount;
-                            newStyles.set(data.el, { width: `${newWidth}px` });
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- 3. 布局写入（优化：减少抖动 + 智能居中） ---
-        
-        // 先应用宽度变化
-        const hasLargeChanges = Array.from(newStyles.entries()).some(([el, style]) => {
-            const currentWidth = el.offsetWidth;
-            const newWidth = parseFloat(style.width);
-            return Math.abs(currentWidth - newWidth) > 50;
-        });
-
-        if (hasLargeChanges) {
-            // 大变化时禁用动画
-            newStyles.forEach((style, el) => {
-                el.style.transition = 'none';
-                el.style.width = style.width;
-            });
-        } else {
-            // 小变化时保持动画
-            newStyles.forEach((style, el) => {
-                el.style.width = style.width;
-            });
-        }
-
-        // 使用已计算的边距（在前面的场景逻辑中已经计算好了）
-        const finalMarginLeft = marginLeft;
-
-        if (firstColumn && firstColumn.dataset.level === "1") {
-            // 清除重新居中标记
-            if (needsRecenter) {
-                needsRecenter = false;
-            }
-
-            // 应用边距
-            const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
-            const marginDiff = Math.abs(finalMarginLeft - currentMargin);
-
-            // 只有边距差异超过 1px 时才应用，避免微小抖动
-            if (marginDiff > 1) {
-                // 边距变化大时禁用动画
-                if (marginDiff > 100 || !firstColumn.dataset.initialized) {
-                    firstColumn.style.transition = 'none';
-                    firstColumn.style.marginLeft = `${finalMarginLeft}px`;
-                    firstColumn.dataset.initialized = 'true';
-                    firstColumn.offsetHeight; // 强制重排
-                    firstColumn.style.transition = '';
-                } else {
-                    firstColumn.style.marginLeft = `${finalMarginLeft}px`;
-                }
-            }
-        }
-
-        // 恢复动画（如果之前禁用了）
-        if (hasLargeChanges) {
+            // === 阶段5：智能滚动 ===
             requestAnimationFrame(() => {
-                newStyles.forEach((style, el) => {
-                    el.style.transition = '';
+                performSmartScroll(container, {
+                    firstColumn,
+                    finalMarginLeft: marginLeft,
+                    gap,
+                    marginRight,
+                    availableWidth
                 });
             });
-        }
-
-        // --- 4. 最终智能聚焦滚动（优化版 - 考虑右侧边距和居中） ---
-        requestAnimationFrame(() => {
-            let scrollTarget = 0;
-            const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
-
-            // 获取第一列的实际左边距（使用最终计算的值）
-            const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1"
-                ? (parseFloat(firstColumn.style.marginLeft) || finalMarginLeft || 0)
-                : 0;
-
-            // 计算实际占用的总宽度（包含右边距）
-            const finalColumnsWidth = finalColumns.reduce((sum, col) => sum + col.offsetWidth, 0);
-            const finalGapsWidth = (finalColumns.length - 1) * gap;
-            const finalTotalWidth = firstColumnMargin + finalColumnsWidth + finalGapsWidth + marginRight;
-
-            // 判断是否需要滚动
-            if (finalTotalWidth > availableWidth) {
-                // 从右往左计算能显示的列（考虑右侧边距）
-                let visibleWidth = marginRight; // 从右边距开始
-                let firstVisibleColumnIndex = finalColumns.length - 1;
-                const maxVisibleWidth = availableWidth;
-
-                for (let i = finalColumns.length - 1; i >= 0; i--) {
-                    const currentCol = finalColumns[i];
-                    const colWidth = currentCol.offsetWidth;
-                    const widthToAdd = (i === finalColumns.length - 1) ? colWidth : colWidth + gap;
-
-                    if (visibleWidth + widthToAdd <= maxVisibleWidth) {
-                        visibleWidth += widthToAdd;
-                        firstVisibleColumnIndex = i;
-                    } else {
-                        break;
-                    }
-                }
-
-                // 计算滚动目标：让第一个可见列的左边缘对齐到容器左边缘
-                if (firstVisibleColumnIndex === 0) {
-                    // 如果第一个可见列就是第一列，不滚动（保留左边距）
-                    scrollTarget = 0;
-                } else {
-                    // 否则，滚动到该列的位置
-                    // offsetLeft 已经是相对于容器的绝对位置，直接使用即可
-                    const targetColumn = finalColumns[firstVisibleColumnIndex];
-                    scrollTarget = targetColumn.offsetLeft;
-
-                    // 微调：稍微留一点空间，不要让列完全贴边
-                    scrollTarget = Math.max(0, scrollTarget - 10);
-                }
-            } else {
-                // 内容不溢出，滚动到起始位置
-                scrollTarget = 0;
-            }
-
-            // 只在需要时滚动，避免不必要的动画
-            const currentScroll = container.scrollLeft;
-            const scrollDiff = Math.abs(scrollTarget - currentScroll);
-
-            if (scrollDiff > 10) {
-                container.scrollTo({
-                    left: Math.max(0, scrollTarget),
-                    behavior: scrollDiff > 200 ? 'smooth' : 'auto'
-                });
-            }
 
             resizing = false;
-        });
         } catch (error) {
             // 捕获并记录错误，防止阻塞
             console.error('Error in adjustColumnWidths:', error);
@@ -1345,6 +1631,10 @@ function adjustColumnWidths(container) {
 }
 
 // --- 拖拽逻辑 ---
+/**
+ * 处理拖拽开始事件
+ * @param {DragEvent} e - 拖拽事件对象
+ */
 function handleDragStart(e) {
     isDragging = true;
     draggedItem = e.target.closest('.bookmark-item');
@@ -1385,6 +1675,10 @@ function handleDragStart(e) {
     e.stopPropagation();
 }
 
+/**
+ * 处理拖拽结束事件
+ * @param {DragEvent} e - 拖拽事件对象
+ */
 function handleDragEnd(e) {
     isDragging = false;
     
@@ -1408,6 +1702,10 @@ function handleDragEnd(e) {
     }, 500);
 }
 
+/**
+ * 处理拖拽经过事件
+ * @param {DragEvent} e - 拖拽事件对象
+ */
 function handleDragOver(e) {
     e.preventDefault();
     const targetItem = e.target.closest('.bookmark-item');
@@ -1458,6 +1756,11 @@ function handleDragOver(e) {
 }
 
 // --- 优化的书签高亮函数 ---
+/**
+ * 高亮显示多个书签项（带动画效果）
+ * @param {Array<string>} itemIds - 书签ID数组
+ * @param {number} [delay=50] - 每个项目之间的动画延迟（毫秒）
+ */
 function highlightBookmarkItems(itemIds, delay = 50) {
     if (!itemIds || itemIds.length === 0) return;
     
@@ -1570,6 +1873,10 @@ function handleDragLeave(e) {
     }
 }
 
+/**
+ * 处理拖拽放下事件
+ * @param {DragEvent} e - 拖拽事件对象
+ */
 function handleDrop(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1676,6 +1983,12 @@ function handleDrop(e) {
 }
 
 // P0修复：检查是否是祖先节点（防止循环引用）
+/**
+ * 检查一个节点是否是另一个节点的祖先
+ * @param {string} potentialAncestorId - 可能的祖先节点ID
+ * @param {string} nodeId - 要检查的节点ID
+ * @returns {Promise<boolean>} 是否为祖先关系
+ */
 function isAncestor(potentialAncestorId, nodeId) {
     if (!potentialAncestorId || !nodeId) return false;
     if (potentialAncestorId === nodeId) return true;
@@ -1806,12 +2119,30 @@ function showContextMenu(e, bookmarkElement, column) {
     const contextMenu = DOMCache.get('contextMenu') || document.getElementById('contextMenu');
     contextMenu.innerHTML = ''; // 清空旧菜单
     const ul = document.createElement('ul');
-    let menuItems = []; // 使用数组来管理菜单项，更清晰
-
+    
+    // ✅ P0修复：使用 DOM API 创建元素，避免 XSS 风险
     const createMenuItem = (id, iconId, text) => {
-        return `<li id="${id}" data-action="${id}"><svg class="menu-icon" aria-hidden="true"><use xlink:href="#${iconId}"></use></svg>${text}</li>`;
+        const li = document.createElement('li');
+        li.id = id;
+        li.dataset.action = id;
+        
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'menu-icon');
+        svg.setAttribute('aria-hidden', 'true');
+        
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${iconId}`);
+        
+        svg.appendChild(use);
+        li.appendChild(svg);
+        li.appendChild(document.createTextNode(text));
+        
+        return li;
     };
-    const createSeparator = () => `<hr>`;
+    
+    const createSeparator = () => {
+        return document.createElement('hr');
+    };
 
     const rightClickedId = bookmarkElement?.dataset.id;
     const isModuleItem = bookmarkElement?.closest('.vertical-modules');
@@ -1835,70 +2166,63 @@ function showContextMenu(e, bookmarkElement, column) {
         return item && !item.classList.contains('is-folder');
     });
 
+    // ✅ P0修复：直接创建并添加 DOM 元素，而不是先存入数组
     if (isTopSiteItem) {
-        menuItems.push(createMenuItem('open', 'icon-open', '新标签打开'));
-        // [修改] 调用新的 icon-open-new
-        menuItems.push(createMenuItem('openNew', 'icon-open-new', '新窗口打开'));
-        // [修改] 调用新的 icon-open-incognito
-        menuItems.push(createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'));
-        menuItems.push(createSeparator());
-        menuItems.push(createMenuItem('removeTopSite', 'icon-delete', '移除'));
+        ul.appendChild(createMenuItem('open', 'icon-open', '新标签打开'));
+        ul.appendChild(createMenuItem('openNew', 'icon-open-new', '新窗口打开'));
+        ul.appendChild(createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'));
+        ul.appendChild(createSeparator());
+        ul.appendChild(createMenuItem('removeTopSite', 'icon-delete', '移除'));
     }
     else if (selectionSize > 0) {
         if (selectionSize > 1) {
             if (hasBookmarkInSelection) {
-                menuItems.push(createMenuItem('open', 'icon-open-all', `打开全部 (${selectionSize})`));
-                // [修改] 调用新的 icon-open-new
-                menuItems.push(createMenuItem('openNew', 'icon-open-new', `新窗口打开全部 (${selectionSize})`));
-                // [修改] 调用新的 icon-open-incognito
-                menuItems.push(createMenuItem('openIncognito', 'icon-open-incognito', `隐身模式打开全部 (${selectionSize})`));
-                menuItems.push(createSeparator());
+                ul.appendChild(createMenuItem('open', 'icon-open-all', `打开全部 (${selectionSize})`));
+                ul.appendChild(createMenuItem('openNew', 'icon-open-new', `新窗口打开全部 (${selectionSize})`));
+                ul.appendChild(createMenuItem('openIncognito', 'icon-open-incognito', `隐身模式打开全部 (${selectionSize})`));
+                ul.appendChild(createSeparator());
             }
         } else {
             const isFolder = bookmarkElement && bookmarkElement.classList.contains('is-folder');
             if (isFolder) {
-                menuItems.push(createMenuItem('openAll', 'icon-open-all', '打开文件夹内所有书签'));
-                menuItems.push(createSeparator());
+                ul.appendChild(createMenuItem('openAll', 'icon-open-all', '打开文件夹内所有书签'));
+                ul.appendChild(createSeparator());
             } else {
-                menuItems.push(createMenuItem('open', 'icon-open', '新标签打开'));
-                // [修改] 调用新的 icon-open-new
-                menuItems.push(createMenuItem('openNew', 'icon-open-new', '新窗口打开'));
-                // [修改] 调用新的 icon-open-incognito
-                menuItems.push(createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'));
-                menuItems.push(createSeparator());
+                ul.appendChild(createMenuItem('open', 'icon-open', '新标签打开'));
+                ul.appendChild(createMenuItem('openNew', 'icon-open-new', '新窗口打开'));
+                ul.appendChild(createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'));
+                ul.appendChild(createSeparator());
             }
         }
 
         if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
-            menuItems.push(createMenuItem('editUrl', 'icon-edit', '修改网址'));
+            ul.appendChild(createMenuItem('editUrl', 'icon-edit', '修改网址'));
         }
         if (selectionSize === 1) {
-            // [修改] 调用新的 icon-rename
-            menuItems.push(createMenuItem('rename', 'icon-rename', '重命名'));
+            ul.appendChild(createMenuItem('rename', 'icon-rename', '重命名'));
         }
-        menuItems.push(createMenuItem('move', 'icon-move', `移动${selectionSize > 1 ? ` (${selectionSize})` : ''}到...`));
+        ul.appendChild(createMenuItem('move', 'icon-move', `移动${selectionSize > 1 ? ` (${selectionSize})` : ''}到...`));
         if (selectionSize === 1 && bookmarkElement && !bookmarkElement.classList.contains('is-folder')) {
-            menuItems.push(createMenuItem('copyUrl', 'icon-copy', '复制网址'));
+            ul.appendChild(createMenuItem('copyUrl', 'icon-copy', '复制网址'));
         }
         if (selectionSize === 1) {
-            menuItems.push(createMenuItem('properties', 'icon-properties', '属性'));
+            ul.appendChild(createMenuItem('properties', 'icon-properties', '属性'));
         }
-        menuItems.push(createSeparator());
-        menuItems.push(createMenuItem('delete', 'icon-delete', `删除${selectionSize > 1 ? ` (${selectionSize})` : ''}`));
+        ul.appendChild(createSeparator());
+        ul.appendChild(createMenuItem('delete', 'icon-delete', `删除${selectionSize > 1 ? ` (${selectionSize})` : ''}`));
     }
 
     if (column && !isModuleItem && !isTopSiteItem) {
-        if (menuItems.length > 0) menuItems.push(createSeparator());
-        menuItems.push(createMenuItem('newFolder', 'icon-folder-plus', '新建文件夹'));
-        menuItems.push(createSeparator());
-        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.ALPHA_ASC, 'icon-sort-alpha-asc', '排序：由 A 到 Z'));
-        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.ALPHA_DESC, 'icon-sort-alpha-desc', '排序：由 Z 到 A'));
-        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.DATE_NEW, 'icon-sort-date-desc', '排序：从新到旧'));
-        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.DATE_OLD, 'icon-sort-date-asc', '排序：从旧到新'));
-        menuItems.push(createMenuItem(CONSTANTS.SORT_TYPES.VISIT, 'icon-sort-visit', '排序：按上次打开'));
+        if (ul.children.length > 0) ul.appendChild(createSeparator());
+        ul.appendChild(createMenuItem('newFolder', 'icon-folder-plus', '新建文件夹'));
+        ul.appendChild(createSeparator());
+        ul.appendChild(createMenuItem(CONSTANTS.SORT_TYPES.ALPHA_ASC, 'icon-sort-alpha-asc', '排序：由 A 到 Z'));
+        ul.appendChild(createMenuItem(CONSTANTS.SORT_TYPES.ALPHA_DESC, 'icon-sort-alpha-desc', '排序：由 Z 到 A'));
+        ul.appendChild(createMenuItem(CONSTANTS.SORT_TYPES.DATE_NEW, 'icon-sort-date-desc', '排序：从新到旧'));
+        ul.appendChild(createMenuItem(CONSTANTS.SORT_TYPES.DATE_OLD, 'icon-sort-date-asc', '排序：从旧到新'));
+        ul.appendChild(createMenuItem(CONSTANTS.SORT_TYPES.VISIT, 'icon-sort-visit', '排序：按上次打开'));
     }
 
-    ul.innerHTML = menuItems.join('');
     contextMenu.appendChild(ul);
     contextMenu.style.display = 'block';
 
@@ -2021,26 +2345,20 @@ function handleContextMenuAction(action, element) {
             break;
         case 'rename':
             if (element && element.dataset.title) {
-                showEditDialog('重命名', element.dataset.title, null, (newName) => {
+                showEditDialog('重命名', element.dataset.title, null, async (newName) => {
                     if (newName) {
-                        chrome.bookmarks.update(element.dataset.id, { title: newName })
-                            .catch(err => {
-                                console.error('重命名失败:', err);
-                                showToast('重命名失败');
-                            });
+                        // ✅ P1修复：使用统一的错误处理
+                        await SafeBookmarks.update(element.dataset.id, { title: newName });
                     }
                 });
             }
             break;
         case 'editUrl':
             if (element && element.dataset.url) {
-                showEditDialog('修改网址', element.dataset.url, isValidUrl, (newUrl) => {
+                showEditDialog('修改网址', element.dataset.url, isValidUrl, async (newUrl) => {
                     if (newUrl && newUrl !== element.dataset.url) {
-                        chrome.bookmarks.update(element.dataset.id, { url: newUrl })
-                            .catch(err => {
-                                console.error('修改网址失败:', err);
-                                showToast('修改网址失败');
-                            });
+                        // ✅ P1修复：使用统一的错误处理
+                        await SafeBookmarks.update(element.dataset.id, { url: newUrl });
                     }
                 });
             }
@@ -2059,13 +2377,10 @@ function handleContextMenuAction(action, element) {
                     if (level === 0) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
                     else parentId = document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
                 }
-                if (parentId) showEditDialog('新建文件夹', '', null, (name) => {
+                if (parentId) showEditDialog('新建文件夹', '', null, async (name) => {
                     if (name) {
-                        chrome.bookmarks.create({ parentId, title: name, index: 0 })
-                            .catch(err => {
-                                console.error('新建文件夹失败:', err);
-                                showToast('新建文件夹失败');
-                            });
+                        // ✅ P1修复：使用统一的错误处理
+                        await SafeBookmarks.create({ parentId, title: name, index: 0 });
                     }
                 });
                 break;
@@ -2197,9 +2512,30 @@ function showConfirmDialog(title, message, callback, isDeleteDialog = false) {
         confirmBtn = document.getElementById('confirmConfirm');
 
     titleEl.textContent = title;
-    // 如果是删除对话框，使用innerHTML以支持样式标签
+    
+    // 安全修复：使用 textContent 或创建安全的 DOM 元素
     if (isDeleteDialog) {
-        messageEl.innerHTML = message;
+        // 清空并手动构建DOM，避免innerHTML的XSS风险
+        messageEl.textContent = '';
+        const lines = message.split('\n');
+        lines.forEach((line, index) => {
+            if (index > 0) messageEl.appendChild(document.createElement('br'));
+            
+            // 解析行中的 <span class="delete-item-name"> 标签
+            const parts = line.split(/<span class="delete-item-name">|<\/span>/);
+            parts.forEach((part, i) => {
+                if (i % 2 === 0) {
+                    // 普通文本
+                    messageEl.appendChild(document.createTextNode(part));
+                } else {
+                    // 需要特殊样式的文本（书签名）
+                    const span = document.createElement('span');
+                    span.className = 'delete-item-name';
+                    span.textContent = part;  // 使用 textContent 确保安全
+                    messageEl.appendChild(span);
+                }
+            });
+        });
         dialog.classList.add('delete-confirm');
     } else {
         messageEl.textContent = message;
@@ -2208,13 +2544,17 @@ function showConfirmDialog(title, message, callback, isDeleteDialog = false) {
     dialog.style.display = 'flex';
     confirmBtn.focus();
 
+    // ✅ P0修复：使用 AbortController 统一管理事件监听器
+    const abortController = new AbortController();
+    const { signal } = abortController;
+    
     const close = () => {
         dialog.style.display = 'none';
         dialog.classList.remove('delete-confirm');
         confirmBtn.onclick = null;
         cancelBtn.onclick = null;
-        // === 清理 ESC 处理器 ===
-        document.removeEventListener('keydown', escHandler);
+        // 一次性清理所有通过 signal 注册的监听器
+        abortController.abort();
     };
 
     const confirm = () => {
@@ -2222,14 +2562,13 @@ function showConfirmDialog(title, message, callback, isDeleteDialog = false) {
         close();
     };
 
-    // === 添加 ESC 关闭支持 ===
-    const escHandler = (e) => {
+    // 使用 AbortController 的 signal 注册监听器
+    document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            e.stopPropagation(); // 阻止事件冒泡
+            e.stopPropagation();
             close();
         }
-    };
-    document.addEventListener('keydown', escHandler);
+    }, { signal });
 
     cancelBtn.onclick = close;
     confirmBtn.onclick = confirm;
@@ -2244,13 +2583,17 @@ function showMoveDialog(bookmarkElement, idsToMove) {
     let selectedFolderId = null;
     let disabledFolderIds = new Set(idsToMove);
 
+    // ✅ P0修复：使用 AbortController 统一管理事件监听器
+    const abortController = new AbortController();
+    const { signal } = abortController;
+
     const close = () => {
         dialog.style.display = 'none';
         confirmBtn.onclick = null;
         cancelBtn.onclick = null;
         treeContainer.innerHTML = '';
-        // === 清理 ESC 处理器 ===
-        document.removeEventListener('keydown', escHandler);
+        // 一次性清理所有通过 signal 注册的监听器
+        abortController.abort();
     };
 
     const renderTree = (nodes, parentElement, level) => {
@@ -2344,14 +2687,13 @@ function showMoveDialog(bookmarkElement, idsToMove) {
         close();
     };
 
-    // === 添加 ESC 关闭支持 ===
-    const escHandler = (e) => {
+    // 使用 AbortController 的 signal 注册监听器
+    document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            e.stopPropagation(); // 阻止事件冒泡
+            e.stopPropagation();
             close();
         }
-    };
-    document.addEventListener('keydown', escHandler);
+    }, { signal });
 
     cancelBtn.onclick = close;
 }
@@ -2377,31 +2719,50 @@ async function showPropertiesDialog(element) {
         { label: 'ID', value: bookmarkDetails.id }
     ];
 
-    bodyEl.innerHTML = properties.map(prop => `
-        <div class="prop-item">
-            <span class="prop-label">${prop.label}</span>
-            <span class="prop-value">${sanitizeText(prop.value)}</span>
-        </div>
-    `).join('');
+    // ✅ P0修复：使用 DOM API 创建元素，避免 XSS 风险
+    bodyEl.textContent = ''; // 清空内容
+    const fragment = document.createDocumentFragment();
+    
+    properties.forEach(prop => {
+        const propItem = document.createElement('div');
+        propItem.className = 'prop-item';
+        
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'prop-label';
+        labelSpan.textContent = prop.label;
+        
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'prop-value';
+        valueSpan.textContent = prop.value; // textContent 自动转义，无需 sanitizeText
+        
+        propItem.appendChild(labelSpan);
+        propItem.appendChild(valueSpan);
+        fragment.appendChild(propItem);
+    });
+    
+    bodyEl.appendChild(fragment);
 
     dialog.style.display = 'flex';
     closeBtn.focus();
 
+    // ✅ P0修复：使用 AbortController 统一管理事件监听器
+    const abortController = new AbortController();
+    const { signal } = abortController;
+
     const close = () => {
         dialog.style.display = 'none';
         closeBtn.onclick = null;
-        // === 清理 ESC 处理器 ===
-        document.removeEventListener('keydown', escHandler);
+        // 一次性清理所有通过 signal 注册的监听器
+        abortController.abort();
     };
 
-    // === 添加 ESC 关闭支持 ===
-    const escHandler = (e) => {
+    // 使用 AbortController 的 signal 注册监听器
+    document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            e.stopPropagation(); // 阻止事件冒泡
+            e.stopPropagation();
             close();
         }
-    };
-    document.addEventListener('keydown', escHandler);
+    }, { signal });
 
     closeBtn.onclick = close;
 }
@@ -2435,7 +2796,11 @@ function handleBookmarkCreated(id, bookmark) {
     if (parentColumn) {
         const newItem = createBookmarkItem(bookmark, bookmark.index);
         const wrapper = parentColumn.querySelector('.column-content-wrapper') || parentColumn;
-        wrapper.insertBefore(newItem, wrapper.children[bookmark.index]);
+        
+        // ✅ P1修复：添加索引边界检查，防止越界
+        const targetIndex = Math.min(bookmark.index, wrapper.children.length);
+        const targetChild = wrapper.children[targetIndex] || null;
+        wrapper.insertBefore(newItem, targetChild);
 
         // --- 新增修复代码 ---
         observeLazyImages(newItem); // 观察新创建的这个书签项
@@ -2664,11 +3029,24 @@ async function displayRecentBookmarks() {
     const renderList = async () => {
         const startTime = new Date(startDateInput.value).getTime();
         const endTime = new Date(endDateInput.value).getTime() + (24 * 60 * 60 * 1000 - 1);
+        
+        // ✅ P0修复：添加请求取消机制，防止快速切换日期时的竞态条件
+        if (pendingRecentBookmarksRequest) {
+            pendingRecentBookmarksRequest.cancelled = true;
+        }
+        
+        const thisRequest = { cancelled: false, startTime, endTime };
+        pendingRecentBookmarksRequest = thisRequest;
+        
         container.innerHTML = '';
 
         // 使用 chrome.bookmarks.getRecent API 优化性能
         // 获取最近100个书签，避免遍历所有书签
         chrome.bookmarks.getRecent(100, async (items) => {
+            // 检查此请求是否已被取消
+            if (thisRequest.cancelled) {
+                return;
+            }
             const filteredBookmarks = items
                 .filter(bm => {
                     const itemDate = bm.dateAdded;
@@ -2763,6 +3141,11 @@ async function displayRecentBookmarks() {
             }
             container.appendChild(fragment);
             observeLazyImages(container);
+            
+            // ✅ P0修复：清除请求标记
+            if (pendingRecentBookmarksRequest === thisRequest) {
+                pendingRecentBookmarksRequest = null;
+            }
         });
     };
 
@@ -3397,7 +3780,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         const contentWrapper = targetColumn ? targetColumn.querySelector('.column-content-wrapper') : null;
 
                         if (contentWrapper) {
-                            contentWrapper.insertBefore(newItemElement, contentWrapper.children[movedItemInfo.index] || null);
+                            // ✅ P1修复：添加索引边界检查，防止越界
+                            const targetIndex = Math.min(movedItemInfo.index, contentWrapper.children.length);
+                            const targetChild = contentWrapper.children[targetIndex] || null;
+                            contentWrapper.insertBefore(newItemElement, targetChild);
                             observeLazyImages(newItemElement);
                             reindexColumnItems(contentWrapper);
                         }
