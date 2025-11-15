@@ -626,14 +626,13 @@ function closeAllBookmarkColumns() {
     // === 3. 清除选中状态 ===
     clearSelection();
 
-    // === 4. 清除预览高亮状态 ===
-    clearPreviewHighlight();
-
-    // === 5. 重置布局相关状态变量 ===
+    // === 4. 重置布局相关状态变量 ===
     resetLayoutState();
 
-    // === 6. 清除悬停意图计时器 ===
+    // === 5. 清除悬停意图计时器 ===
     clearHoverIntent();
+
+    // 注意：不清除预览高亮，让用户可以看到访问痕迹
 }
 
 /**
@@ -646,6 +645,8 @@ function toggleSelection(item) {
         selectedItems.delete(id);
         item.classList.remove('selected');
     } else {
+        // 当开始选中操作时，清除所有预览高亮痕迹
+        clearPreviewHighlight();
         selectedItems.add(id);
         item.classList.add('selected');
     }
@@ -2159,6 +2160,9 @@ function showContextMenu(e, bookmarkElement, column) {
     const isModuleItem = bookmarkElement?.closest('.vertical-modules');
     const isTopSiteItem = bookmarkElement?.classList.contains('top-site-item');
 
+    // 右键菜单显示时，清除所有预览高亮痕迹
+    clearPreviewHighlight();
+
     if (rightClickedId && !selectedItems.has(rightClickedId)) {
         clearSelection();
         if (isTopSiteItem) {
@@ -3395,19 +3399,9 @@ function handleSpacebarPreview(e) {
     e.preventDefault();
     const url = currentlyHoveredItem.dataset.url || currentlyHoveredItem.href;
     if (url) {
-        // 先清除所有其他预览高亮，避免多个项目同时高亮
-        clearPreviewHighlight();
-
-        // 添加预览高亮效果
+        // 添加预览高亮效果（作为访问痕迹保留，不自动清除）
         currentlyHoveredItem.classList.add('preview-highlight');
         openPreviewWindow(url);
-
-        // 1秒后移除高亮
-        setTimeout(() => {
-            if (currentlyHoveredItem) {
-                currentlyHoveredItem.classList.remove('preview-highlight');
-            }
-        }, 1000);
     }
 }
 
@@ -3618,11 +3612,10 @@ document.addEventListener('DOMContentLoaded', function () {
             // === 2. 清除模块内的选中状态 ===
             verticalModules.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
 
-            // === 3. 清除预览高亮状态 ===
-            clearPreviewHighlight();
-
-            // === 4. 清除悬停意图（如果有） ===
+            // === 3. 清除悬停意图（如果有） ===
             clearHoverIntent();
+
+            // 注意：不清除预览高亮，让用户可以看到访问痕迹
         }
     };
     // --- 优化后：将打开历史记录的操作封装并应用通用悬停逻辑 ---
@@ -3889,6 +3882,9 @@ document.addEventListener('DOMContentLoaded', function () {
             // 优化：直接刷新最近书签，无需遍历整个书签树
             // displayRecentBookmarks 内部使用 chrome.bookmarks.getRecent() API
             displayRecentBookmarks();
+
+            // 书签数据更新时，清除预览高亮痕迹（因为书签可能已被删除或移动）
+            clearPreviewHighlight();
         }, 250);
     };
 

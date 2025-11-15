@@ -394,27 +394,13 @@ body {
     color: var(--text-color);
 }
 
-/* 空格预览高亮效果 - 使用不同的颜色 */
+/* 空格预览高亮效果 - 作为访问痕迹保留 */
 .bookmark-item.preview-highlight,
 .vertical-modules a.preview-highlight,
 .top-site-item.preview-highlight {
-    background-color: rgba(255, 159, 64, 0.2) !important;
-    outline: 2px solid rgba(255, 159, 64, 0.9);
-    outline-offset: -2px;
-    box-shadow: 0 0 0 4px rgba(255, 159, 64, 0.12);
-    animation: preview-pulse 1s ease-out;
-}
-
-@keyframes preview-pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(255, 159, 64, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 0 8px rgba(255, 159, 64, 0.08);
-    }
-    100% {
-        box-shadow: 0 0 0 4px rgba(255, 159, 64, 0.12);
-    }
+    background-color: rgba(255, 159, 64, 0.12) !important;
+    outline: 1.5px solid rgba(255, 159, 64, 0.5);
+    outline-offset: -1.5px;
 }
 
 /* --- 7. UTILITY: 统一琉璃效果 --- */
