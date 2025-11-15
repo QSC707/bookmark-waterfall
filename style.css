@@ -384,9 +384,10 @@ body {
 
 .bookmark-item.selected,
 .vertical-modules a.selected {
-    background-color: transparent !important;
-    outline: 2px dashed var(--dialog-primary-bg);
+    background-color: rgba(79, 192, 141, 0.15) !important;
+    outline: 2px solid rgba(79, 192, 141, 0.8);
     outline-offset: -2px;
+    box-shadow: 0 0 0 4px rgba(79, 192, 141, 0.08);
 }
 
 .bookmark-item.selected .bookmark-title {
@@ -1516,6 +1517,8 @@ body.is-resizing .resize-indicator {
 }
 
 .top-site-item.selected {
-    outline: 2px dashed var(--dialog-primary-bg);
+    background-color: rgba(79, 192, 141, 0.15) !important;
+    outline: 2px solid rgba(79, 192, 141, 0.8);
     outline-offset: -2px;
+    box-shadow: 0 0 0 4px rgba(79, 192, 141, 0.08);
 }
