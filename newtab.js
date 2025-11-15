@@ -598,6 +598,13 @@ function clearSelection() {
 }
 
 /**
+ * 清除所有预览高亮状态
+ */
+function clearPreviewHighlight() {
+    document.querySelectorAll('.bookmark-item.preview-highlight, .vertical-modules a.preview-highlight, .top-site-item.preview-highlight').forEach(el => el.classList.remove('preview-highlight'));
+}
+
+/**
  * 关闭所有书签列视图（保留书签栏 level 0）
  * 用于 ESC 键快速关闭所有打开的书签文件夹视图
  */
@@ -615,14 +622,17 @@ function closeAllBookmarkColumns() {
     document.querySelectorAll('.bookmark-item.highlighted').forEach(item => {
         item.classList.remove('highlighted');
     });
-    
+
     // === 3. 清除选中状态 ===
     clearSelection();
-    
-    // === 4. 重置布局相关状态变量 ===
+
+    // === 4. 清除预览高亮状态 ===
+    clearPreviewHighlight();
+
+    // === 5. 重置布局相关状态变量 ===
     resetLayoutState();
-    
-    // === 5. 清除悬停意图计时器 ===
+
+    // === 6. 清除悬停意图计时器 ===
     clearHoverIntent();
 }
 
@@ -3385,13 +3395,17 @@ function handleSpacebarPreview(e) {
     e.preventDefault();
     const url = currentlyHoveredItem.dataset.url || currentlyHoveredItem.href;
     if (url) {
-        // 添加虚线边框高亮效果
-        currentlyHoveredItem.classList.add('selected');
+        // 先清除所有其他预览高亮，避免多个项目同时高亮
+        clearPreviewHighlight();
+
+        // 添加预览高亮效果
+        currentlyHoveredItem.classList.add('preview-highlight');
         openPreviewWindow(url);
+
         // 1秒后移除高亮
         setTimeout(() => {
             if (currentlyHoveredItem) {
-                currentlyHoveredItem.classList.remove('selected');
+                currentlyHoveredItem.classList.remove('preview-highlight');
             }
         }, 1000);
     }
@@ -3600,11 +3614,14 @@ document.addEventListener('DOMContentLoaded', function () {
             pageOverlay.style.display = 'none';
             verticalModules.classList.remove('visible');
             isModuleVisible = false;
-            
+
             // === 2. 清除模块内的选中状态 ===
             verticalModules.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-            
-            // === 3. 清除悬停意图（如果有） ===
+
+            // === 3. 清除预览高亮状态 ===
+            clearPreviewHighlight();
+
+            // === 4. 清除悬停意图（如果有） ===
             clearHoverIntent();
         }
     };
