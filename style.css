@@ -1078,6 +1078,27 @@ input:checked+.slider:before {
     cursor: default;
 }
 
+/* 排除规则按钮 */
+#excludeRulesBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    min-width: unset;
+}
+
+#excludeRulesBtn svg {
+    stroke: currentColor;
+}
+
+#excludeRulesBtn:hover {
+    background-color: var(--hover-bg);
+}
+
+#excludeRulesBtn:active {
+    transform: scale(0.95);
+}
+
 #recentBookmarksModule .module-content {
     --timeline-left-offset: 28px;
     --item-left-padding: 10px;

@@ -48,6 +48,12 @@
                     <button class="filter-btn active" data-days="30">最近30天</button>
                     <button class="filter-btn" data-days="7">最近7天</button>
                     <button class="filter-btn" data-days="1">今天</button>
+                    <button class="filter-btn" id="excludeRulesBtn" title="排除规则">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                        </svg>
+                    </button>
                 </div>
             </div>
             <div class="module-content hide-scrollbar"></div>
@@ -227,6 +233,30 @@
                 </div>
                 <div class="dialog-footer">
                     <button id="closeProperties" class="dialog-button primary">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 排除规则对话框 -->
+        <div id="excludeRulesDialog" class="edit-dialog">
+            <div class="edit-dialog-content glass-effect" style="max-width: 600px; max-height: 80vh;">
+                <div class="dialog-header">
+                    <h3>时间段排除规则</h3>
+                </div>
+                <div class="dialog-body" style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="date" id="excludeDate" class="input-base" style="flex: 1;" title="选择日期">
+                        <input type="time" id="excludeStartTime" class="input-base" style="flex: 1;" title="开始时间">
+                        <span style="color: var(--text-secondary);">-</span>
+                        <input type="time" id="excludeEndTime" class="input-base" style="flex: 1;" title="结束时间">
+                        <button id="addExcludeRule" class="dialog-button primary" style="white-space: nowrap;">添加</button>
+                    </div>
+                    <div id="excludeRulesList" style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- 规则列表将动态生成 -->
+                    </div>
+                </div>
+                <div class="dialog-footer">
+                    <button id="closeExcludeRules" class="dialog-button">关闭</button>
                 </div>
             </div>
         </div>

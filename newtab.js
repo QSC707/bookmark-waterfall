@@ -15,7 +15,8 @@ const CONSTANTS = {
     STORAGE_KEYS: {
         THEME: 'theme',
         HOVER_ENABLED: 'hoverToOpenEnabled',
-        HOVER_DELAY: 'hoverDelay'
+        HOVER_DELAY: 'hoverDelay',
+        EXCLUDE_RULES: 'bookmarkExcludeRules'
     },
     // 优化后的布局常量 - 内容驱动的响应式设计
     LAYOUT: {
@@ -3026,127 +3027,169 @@ async function displayRecentBookmarks() {
         return formatDate(date.getTime());
     };
 
+    // 从所有书签中获取最近添加的书签（不限制数量）
+    const getAllRecentBookmarks = async (startTime, endTime) => {
+        return new Promise((resolve) => {
+            chrome.bookmarks.getTree((tree) => {
+                const bookmarks = [];
+                flattenBookmarks(tree, bookmarks);
+
+                // 加载排除规则
+                const excludeRulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+                const excludeRules = excludeRulesJson ? JSON.parse(excludeRulesJson) : [];
+
+                // 筛选并排除规则
+                const filtered = bookmarks.filter(bm => {
+                    if (!bm.url) return false;
+                    const itemDate = bm.dateAdded;
+                    if (itemDate < startTime || itemDate > endTime) return false;
+
+                    // 检查是否在排除规则中
+                    const date = new Date(itemDate);
+                    for (const rule of excludeRules) {
+                        if (!rule.enabled) continue;
+
+                        const ruleDate = new Date(rule.date);
+                        // 检查日期是否匹配
+                        if (date.getFullYear() === ruleDate.getFullYear() &&
+                            date.getMonth() === ruleDate.getMonth() &&
+                            date.getDate() === ruleDate.getDate()) {
+
+                            // 检查时间是否在排除范围内
+                            const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                            if (timeStr >= rule.startTime && timeStr <= rule.endTime) {
+                                return false; // 排除此书签
+                            }
+                        }
+                    }
+
+                    return true;
+                }).sort((a, b) => b.dateAdded - a.dateAdded);
+
+                resolve(filtered);
+            });
+        });
+    };
+
     const renderList = async () => {
         const startTime = new Date(startDateInput.value).getTime();
         const endTime = new Date(endDateInput.value).getTime() + (24 * 60 * 60 * 1000 - 1);
-        
+
         // ✅ P0修复：添加请求取消机制，防止快速切换日期时的竞态条件
         if (pendingRecentBookmarksRequest) {
             pendingRecentBookmarksRequest.cancelled = true;
         }
-        
+
         const thisRequest = { cancelled: false, startTime, endTime };
         pendingRecentBookmarksRequest = thisRequest;
-        
-        container.innerHTML = '';
 
-        // 使用 chrome.bookmarks.getRecent API 优化性能
-        // 获取最近100个书签，避免遍历所有书签
-        chrome.bookmarks.getRecent(100, async (items) => {
-            // 检查此请求是否已被取消
-            if (thisRequest.cancelled) {
-                return;
-            }
-            const filteredBookmarks = items
-                .filter(bm => {
-                    const itemDate = bm.dateAdded;
-                    return itemDate >= startTime && itemDate <= endTime && bm.url;
-                })
-                .sort((a, b) => b.dateAdded - a.dateAdded);
+        container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">加载中...</div>';
 
-            if (filteredBookmarks.length === 0) {
-                container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">该时段无书签</div>';
-                return;
-            }
+        // 使用新的获取方法，不限制数量
+        const filteredBookmarks = await getAllRecentBookmarks(startTime, endTime);
 
-            const fragment = document.createDocumentFragment();
-            let lastDateString = '';
+        // 检查此请求是否已被取消
+        if (thisRequest.cancelled) {
+            return;
+        }
 
-            for (const item of filteredBookmarks) {
-                const currentDate = new Date(item.dateAdded);
-                const currentDateString = getRelativeDateString(currentDate);
-
-                if (currentDateString !== lastDateString) {
-                    const dateHeader = document.createElement('div');
-                    dateHeader.className = 'timeline-date-header';
-                    dateHeader.textContent = currentDateString;
-                    fragment.appendChild(dateHeader);
-                    lastDateString = currentDateString;
-                }
-
-                const a = document.createElement('a');
-                a.href = item.url;
-                a.target = '_blank';
-                a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
-                a.dataset.id = item.id;
-                a.dataset.url = item.url;
-                a.dataset.parentId = item.parentId;
-                a.dataset.title = item.title;
-
-                const icon = document.createElement('img');
-                icon.className = 'module-icon';
-                icon.src = '';
-                icon.dataset.src = getIconUrl(item.url);
-
-                const contentWrapper = document.createElement('div');
-                contentWrapper.className = 'bookmark-content-wrapper';
-
-                const title = document.createElement('span');
-                title.className = 'module-title';
-                title.textContent = sanitizeText(item.title);
-
-                const metaInfo = document.createElement('div');
-                metaInfo.className = 'bookmark-meta-info';
-
-                const pathUrlWrapper = document.createElement('div');
-                pathUrlWrapper.className = 'bookmark-path-url-wrapper';
-
-                const pathSpan = document.createElement('span');
-                pathSpan.className = 'bookmark-item-path';
-                pathSpan.textContent = await getBookmarkPath(item.id);
-
-                const urlSpan = document.createElement('span');
-                urlSpan.className = 'bookmark-item-url';
-                urlSpan.textContent = item.url;
-
-                pathUrlWrapper.append(urlSpan, pathSpan);
-
-                const dateSpan = document.createElement('span');
-                dateSpan.className = 'bookmark-item-date';
-                dateSpan.textContent = formatDateTime(item.dateAdded);
-
-                metaInfo.append(pathUrlWrapper, dateSpan);
-                contentWrapper.append(title, metaInfo);
-                a.append(icon, contentWrapper);
-
-                a.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    showContextMenu(e, a, a.closest('.vertical-modules'));
-                });
-                a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
-                a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
-
-                a.addEventListener('mousedown', (e) => {
-                    if (e.button !== 0) return;
-                    if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                        e.preventDefault();
-                    }
-                    if (!selectedItems.has(a.dataset.id)) {
-                        clearSelection();
-                        toggleSelection(a);
-                    }
-                });
-
-                fragment.appendChild(a);
-            }
-            container.appendChild(fragment);
-            observeLazyImages(container);
-            
+        if (filteredBookmarks.length === 0) {
+            container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">该时段无书签</div>';
             // ✅ P0修复：清除请求标记
             if (pendingRecentBookmarksRequest === thisRequest) {
                 pendingRecentBookmarksRequest = null;
             }
-        });
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        let lastDateString = '';
+
+        for (const item of filteredBookmarks) {
+            const currentDate = new Date(item.dateAdded);
+            const currentDateString = getRelativeDateString(currentDate);
+
+            if (currentDateString !== lastDateString) {
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'timeline-date-header';
+                dateHeader.textContent = currentDateString;
+                fragment.appendChild(dateHeader);
+                lastDateString = currentDateString;
+            }
+
+            const a = document.createElement('a');
+            a.href = item.url;
+            a.target = '_blank';
+            a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
+            a.dataset.id = item.id;
+            a.dataset.url = item.url;
+            a.dataset.parentId = item.parentId;
+            a.dataset.title = item.title;
+
+            const icon = document.createElement('img');
+            icon.className = 'module-icon';
+            icon.src = '';
+            icon.dataset.src = getIconUrl(item.url);
+
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'bookmark-content-wrapper';
+
+            const title = document.createElement('span');
+            title.className = 'module-title';
+            title.textContent = sanitizeText(item.title);
+
+            const metaInfo = document.createElement('div');
+            metaInfo.className = 'bookmark-meta-info';
+
+            const pathUrlWrapper = document.createElement('div');
+            pathUrlWrapper.className = 'bookmark-path-url-wrapper';
+
+            const pathSpan = document.createElement('span');
+            pathSpan.className = 'bookmark-item-path';
+            pathSpan.textContent = await getBookmarkPath(item.id);
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'bookmark-item-url';
+            urlSpan.textContent = item.url;
+
+            pathUrlWrapper.append(urlSpan, pathSpan);
+
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'bookmark-item-date';
+            dateSpan.textContent = formatDateTime(item.dateAdded);
+
+            metaInfo.append(pathUrlWrapper, dateSpan);
+            contentWrapper.append(title, metaInfo);
+            a.append(icon, contentWrapper);
+
+            a.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e, a, a.closest('.vertical-modules'));
+            });
+            a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
+            a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
+
+            a.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                    e.preventDefault();
+                }
+                if (!selectedItems.has(a.dataset.id)) {
+                    clearSelection();
+                    toggleSelection(a);
+                }
+            });
+
+            fragment.appendChild(a);
+        }
+        container.innerHTML = '';
+        container.appendChild(fragment);
+        observeLazyImages(container);
+
+        // ✅ P0修复：清除请求标记
+        if (pendingRecentBookmarksRequest === thisRequest) {
+            pendingRecentBookmarksRequest = null;
+        }
     };
 
     const setDateRange = (days) => {
@@ -3183,6 +3226,156 @@ async function displayRecentBookmarks() {
     }
 }
 
+
+// ==================================================================
+// --- 排除规则管理功能 ---
+// ==================================================================
+
+/**
+ * 初始化排除规则对话框
+ */
+function initExcludeRulesDialog() {
+    const excludeRulesBtn = document.getElementById('excludeRulesBtn');
+    const excludeRulesDialog = document.getElementById('excludeRulesDialog');
+    const closeExcludeRules = document.getElementById('closeExcludeRules');
+    const addExcludeRule = document.getElementById('addExcludeRule');
+    const excludeDate = document.getElementById('excludeDate');
+    const excludeStartTime = document.getElementById('excludeStartTime');
+    const excludeEndTime = document.getElementById('excludeEndTime');
+    const excludeRulesList = document.getElementById('excludeRulesList');
+    const pageOverlay = DOMCache.get('pageOverlay');
+
+    if (!excludeRulesBtn || !excludeRulesDialog) return;
+
+    // 设置默认时间
+    const today = new Date().toISOString().split('T')[0];
+    excludeDate.value = today;
+    excludeStartTime.value = '00:00';
+    excludeEndTime.value = '23:59';
+
+    // 打开对话框
+    excludeRulesBtn.addEventListener('click', () => {
+        renderExcludeRulesList();
+        excludeRulesDialog.style.display = 'flex';
+        pageOverlay.style.display = 'block';
+    });
+
+    // 关闭对话框
+    const closeDialog = () => {
+        excludeRulesDialog.style.display = 'none';
+        pageOverlay.style.display = 'none';
+    };
+
+    closeExcludeRules.addEventListener('click', closeDialog);
+    excludeRulesDialog.addEventListener('click', (e) => {
+        if (e.target === excludeRulesDialog) closeDialog();
+    });
+
+    // 添加规则
+    addExcludeRule.addEventListener('click', () => {
+        const date = excludeDate.value;
+        const startTime = excludeStartTime.value;
+        const endTime = excludeEndTime.value;
+
+        if (!date || !startTime || !endTime) {
+            showToast('请填写完整的日期和时间', 2000, 'warning');
+            return;
+        }
+
+        if (startTime >= endTime) {
+            showToast('开始时间必须早于结束时间', 2000, 'warning');
+            return;
+        }
+
+        // 加载现有规则
+        const rulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+        const rules = rulesJson ? JSON.parse(rulesJson) : [];
+
+        // 添加新规则
+        rules.push({
+            id: Date.now(),
+            date: date,
+            startTime: startTime,
+            endTime: endTime,
+            enabled: true
+        });
+
+        // 保存规则
+        localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
+
+        // 重新渲染列表
+        renderExcludeRulesList();
+
+        // 刷新最近添加书签列表
+        displayRecentBookmarks();
+
+        showToast('规则已添加', 2000, 'success');
+    });
+
+    // 渲染规则列表
+    function renderExcludeRulesList() {
+        const rulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+        const rules = rulesJson ? JSON.parse(rulesJson) : [];
+
+        if (rules.length === 0) {
+            excludeRulesList.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 13px;">暂无排除规则</div>';
+            return;
+        }
+
+        excludeRulesList.innerHTML = '';
+
+        rules.forEach(rule => {
+            const ruleItem = document.createElement('div');
+            ruleItem.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px;';
+
+            // 开关
+            const toggleLabel = document.createElement('label');
+            toggleLabel.className = 'toggle-switch';
+            toggleLabel.style.cssText = 'margin: 0; flex-shrink: 0;';
+
+            const toggleInput = document.createElement('input');
+            toggleInput.type = 'checkbox';
+            toggleInput.checked = rule.enabled;
+            toggleInput.addEventListener('change', (e) => {
+                rule.enabled = e.target.checked;
+                localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
+                displayRecentBookmarks(); // 刷新列表
+                showToast(rule.enabled ? '规则已启用' : '规则已禁用', 1500);
+            });
+
+            const slider = document.createElement('span');
+            slider.className = 'slider';
+
+            toggleLabel.append(toggleInput, slider);
+
+            // 规则文本
+            const ruleText = document.createElement('span');
+            ruleText.style.cssText = 'flex: 1; color: var(--text-primary);';
+            const dateObj = new Date(rule.date);
+            const dateStr = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getDate().toString().padStart(2, '0')}`;
+            ruleText.textContent = `${dateStr}  ${rule.startTime} - ${rule.endTime}`;
+
+            // 删除按钮
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'dialog-button';
+            deleteBtn.textContent = '删除';
+            deleteBtn.style.cssText = 'padding: 4px 10px; font-size: 12px; flex-shrink: 0;';
+            deleteBtn.addEventListener('click', () => {
+                const index = rules.findIndex(r => r.id === rule.id);
+                if (index > -1) {
+                    rules.splice(index, 1);
+                    localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
+                    renderExcludeRulesList();
+                    displayRecentBookmarks(); // 刷新列表
+                    showToast('规则已删除', 2000, 'success');
+                }
+            });
+
+            ruleItem.append(toggleLabel, ruleText, deleteBtn);
+            excludeRulesList.appendChild(ruleItem);
+        });
+    }
+}
 
 // --- 其他功能 ---
 function handleSpacebarPreview(e) {
@@ -3670,6 +3863,7 @@ document.addEventListener('DOMContentLoaded', function () {
         displayRecentBookmarks();
         displayFrequentlyVisited();
         setupFrequentlyVisitedHover();
+        initExcludeRulesDialog(); // 初始化排除规则对话框
         observeLazyImages(document.body);
     };
 
