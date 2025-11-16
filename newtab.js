@@ -16,7 +16,8 @@ const CONSTANTS = {
         THEME: 'theme',
         HOVER_ENABLED: 'hoverToOpenEnabled',
         HOVER_DELAY: 'hoverDelay',
-        EXCLUDE_RULES: 'bookmarkExcludeRules'
+        EXCLUDE_RULES: 'bookmarkExcludeRules',
+        OPEN_IN_CURRENT_TAB: 'openInCurrentTab'
     },
     // 优化后的布局常量 - 内容驱动的响应式设计
     LAYOUT: {
@@ -470,6 +471,36 @@ function isValidUrl(string) {
         return true;
     } catch (_) {
         return false;
+    }
+}
+
+// ==================================================================
+// --- 统一的书签打开逻辑 ---
+// ==================================================================
+
+/**
+ * 统一的打开书签函数
+ * @param {string} url - 要打开的URL
+ * @param {Event} event - 点击事件对象（可选，用于检测修饰键）
+ */
+function openBookmark(url, event = null) {
+    if (!url) return;
+
+    // 检查是否有修饰键
+    const hasModifier = event && (event.metaKey || event.ctrlKey || event.shiftKey);
+
+    if (hasModifier) {
+        // 有修饰键时始终在新标签打开
+        window.open(url, '_blank');
+    } else {
+        // 没有修饰键时根据用户设置决定
+        const openInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
+
+        if (openInCurrentTab) {
+            window.location.href = url;
+        } else {
+            window.open(url, '_blank');
+        }
     }
 }
 
@@ -3176,6 +3207,11 @@ async function displayRecentBookmarks() {
             contentWrapper.append(title, metaInfo);
             a.append(icon, contentWrapper);
 
+            // 阻止<a>标签的默认跳转行为
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+            });
+
             a.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 showContextMenu(e, a, a.closest('.vertical-modules'));
@@ -3459,6 +3495,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const pageOverlay = DOMCache.get('pageOverlay');
     const hoverDelaySettingItem = document.getElementById('hover-delay-setting-item');
     const hoverDelayInput = document.getElementById('hover-delay-input');
+    const openInCurrentTabToggle = document.getElementById('open-in-current-tab-toggle');
 
     const historyBtn = document.getElementById('history-btn');
 
@@ -3543,18 +3580,18 @@ document.addEventListener('DOMContentLoaded', function () {
         // === 性能优化：复用缓存的选择器 ===
         const item = e.target.closest(ITEM_SELECTOR);
         if (!item) return;
-        
-        if (e.metaKey || e.ctrlKey || e.shiftKey) {
-            return;
-        }
-        
+
         const isFolder = item.classList.contains('is-folder');
         const url = item.dataset.url;
-        
+
         if (isFolder) {
-            handleFolderClick(item, item.dataset.id);
+            // 文件夹点击处理
+            if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                handleFolderClick(item, item.dataset.id);
+            }
         } else if (url) {
-            window.open(url, '_blank');
+            // 使用统一的打开书签函数
+            openBookmark(url, e);
         }
     }, true);
     
@@ -3803,6 +3840,16 @@ document.addEventListener('DOMContentLoaded', function () {
         hoverDelayInput.value = newDelay; // 将修正后的值写回输入框
         localStorage.setItem(CONSTANTS.STORAGE_KEYS.HOVER_DELAY, newDelay);
         showToast('悬停延迟已保存');
+    });
+
+    // 初始化"在当前标签打开书签"设置
+    openInCurrentTabToggle.checked = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
+
+    // 监听"在当前标签打开书签"开关的变化
+    openInCurrentTabToggle.addEventListener('change', (e) => {
+        const openInCurrentTab = e.target.checked;
+        localStorage.setItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB, openInCurrentTab);
+        showToast(`书签将在${openInCurrentTab ? '当前标签' : '新标签'}中打开`);
     });
 
     settingsBtn.addEventListener('click', (e) => {
