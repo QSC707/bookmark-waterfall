@@ -671,13 +671,14 @@ function closeAllBookmarkColumns() {
  * @param {HTMLElement} item - 书签DOM元素
  */
 function toggleSelection(item) {
+    // 任何选中操作都应清除预览高亮痕迹（保持一致性）
+    clearPreviewHighlight();
+
     const id = item.dataset.id;
     if (selectedItems.has(id)) {
         selectedItems.delete(id);
         item.classList.remove('selected');
     } else {
-        // 当开始选中操作时，清除所有预览高亮痕迹
-        clearPreviewHighlight();
         selectedItems.add(id);
         item.classList.add('selected');
     }
@@ -3079,9 +3080,16 @@ async function displayRecentBookmarks() {
                 const bookmarks = [];
                 flattenBookmarks(tree, bookmarks);
 
-                // 加载排除规则
-                const excludeRulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
-                const excludeRules = excludeRulesJson ? JSON.parse(excludeRulesJson) : [];
+                // 加载排除规则（带错误处理）
+                let excludeRules = [];
+                try {
+                    const excludeRulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+                    excludeRules = excludeRulesJson ? JSON.parse(excludeRulesJson) : [];
+                } catch (error) {
+                    console.error('Failed to parse exclude rules:', error);
+                    localStorage.removeItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+                    excludeRules = [];
+                }
 
                 // 筛选并排除规则
                 const filtered = bookmarks.filter(bm => {
@@ -3100,10 +3108,24 @@ async function displayRecentBookmarks() {
                             date.getMonth() === ruleDate.getMonth() &&
                             date.getDate() === ruleDate.getDate()) {
 
+                            // 使用分钟数进行时间比较（更准确）
+                            const bookmarkTimeInMinutes = date.getHours() * 60 + date.getMinutes();
+                            const [startHour, startMin] = rule.startTime.split(':').map(Number);
+                            const [endHour, endMin] = rule.endTime.split(':').map(Number);
+                            const ruleStartMinutes = startHour * 60 + startMin;
+                            const ruleEndMinutes = endHour * 60 + endMin;
+
                             // 检查时间是否在排除范围内
-                            const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-                            if (timeStr >= rule.startTime && timeStr <= rule.endTime) {
-                                return false; // 排除此书签
+                            if (ruleStartMinutes <= ruleEndMinutes) {
+                                // 正常时间范围（如 09:00 - 17:00）
+                                if (bookmarkTimeInMinutes >= ruleStartMinutes && bookmarkTimeInMinutes <= ruleEndMinutes) {
+                                    return false; // 排除此书签
+                                }
+                            } else {
+                                // 跨越午夜的时间范围（如 22:00 - 02:00）
+                                if (bookmarkTimeInMinutes >= ruleStartMinutes || bookmarkTimeInMinutes <= ruleEndMinutes) {
+                                    return false; // 排除此书签
+                                }
                             }
                         }
                     }
@@ -3332,14 +3354,19 @@ function initExcludeRulesDialog() {
             return;
         }
 
-        if (startTime >= endTime) {
-            showToast('开始时间必须早于结束时间', 2000, 'warning');
-            return;
-        }
+        // 允许跨午夜的时间范围（如 22:00 - 02:00）
+        // 所以不需要验证 startTime < endTime
 
-        // 加载现有规则
-        const rulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
-        const rules = rulesJson ? JSON.parse(rulesJson) : [];
+        // 加载现有规则（带错误处理）
+        let rules = [];
+        try {
+            const rulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+            rules = rulesJson ? JSON.parse(rulesJson) : [];
+        } catch (error) {
+            console.error('Failed to parse exclude rules:', error);
+            localStorage.removeItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+            rules = [];
+        }
 
         // 添加新规则
         rules.push({
@@ -3364,8 +3391,15 @@ function initExcludeRulesDialog() {
 
     // 渲染规则列表
     function renderExcludeRulesList() {
-        const rulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
-        const rules = rulesJson ? JSON.parse(rulesJson) : [];
+        let rules = [];
+        try {
+            const rulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+            rules = rulesJson ? JSON.parse(rulesJson) : [];
+        } catch (error) {
+            console.error('Failed to parse exclude rules:', error);
+            localStorage.removeItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+            rules = [];
+        }
 
         if (rules.length === 0) {
             excludeRulesList.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 13px;">暂无排除规则</div>';
