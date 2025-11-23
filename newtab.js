@@ -19,6 +19,14 @@ const CONSTANTS = {
         EXCLUDE_RULES: 'bookmarkExcludeRules',
         OPEN_IN_CURRENT_TAB: 'openInCurrentTab'
     },
+    // ✅ 优化 #8: 提取通用时间常量
+    TIMING: {
+        TOAST_SHORT: 1500,       // 简短提示
+        TOAST_NORMAL: 2000,      // 普通提示
+        TOAST_LONG: 3000,        // 长时间提示
+        DEBOUNCE_RESIZE: 150,    // resize 防抖延迟
+        HOVER_DEFAULT: 500       // 默认悬停延迟
+    },
     // 优化后的布局常量 - 内容驱动的响应式设计
     LAYOUT: {
         COLUMN_GAP: 20,              // 列之间的间隙 (px)
@@ -141,6 +149,10 @@ let currentColumnCount = AppState.layout.currentColumnCount;
 let needsRecenter = AppState.layout.needsRecenter;
 let hoverIntent = AppState.hover.intent;
 
+// ✅ 优化 #4: 缓存选中和预览高亮的DOM元素引用，避免频繁查询DOM
+const selectedElements = new Set();
+const previewHighlightElements = new Set();
+
 // ==================================================================
 // --- P1性能优化：DOM元素缓存 ---
 // ==================================================================
@@ -169,7 +181,7 @@ const DOMCache = {
 };
 
 // ==================================================================
-// --- 核心修复：将 Lazy Loader 移至全局作用域 ---
+// --- 核心修复：将 Observers 移至全局作用域 ---
 // ==================================================================
 
 let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
@@ -182,6 +194,9 @@ let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
         }
     });
 }, { rootMargin: '0px 0px 200px 0px' }); // 预加载视口下方200px内的图片
+
+// ✅ 修复 #2: 将 resizeObserver 提升到全局作用域，便于清理
+let resizeObserver = null;
 
 function observeLazyImages(container) {
     container.querySelectorAll('img[data-src]').forEach(img => {
@@ -198,13 +213,19 @@ window.addEventListener('beforeunload', () => {
         lazyLoadObserver.disconnect();
         lazyLoadObserver = null;
     }
-    
+
+    // ✅ 修复 #2: 断开 ResizeObserver
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+    }
+
     // === 清理2：清除所有悬停意图计时器 ===
     clearHoverIntent();
-    
+
     // === 清理3：清除所有选中状态（释放内存） ===
     selectedItems.clear();
-    
+
     // === 清理4：清空 DOM 缓存引用 ===
     Object.keys(DOMCache).forEach(key => {
         if (key !== 'init' && key !== 'get') {
@@ -486,6 +507,22 @@ function isValidUrl(string) {
 function openBookmark(url, event = null) {
     if (!url) return;
 
+    // ✅ 安全修复: 验证URL协议，防止XSS攻击
+    try {
+        const urlObj = new URL(url);
+        const allowedProtocols = ['http:', 'https:', 'chrome:', 'chrome-extension:', 'file:'];
+
+        if (!allowedProtocols.includes(urlObj.protocol)) {
+            console.warn('Blocked potentially dangerous URL protocol:', urlObj.protocol, url);
+            showToast('不允许打开此类型的链接', CONSTANTS.TIMING.TOAST_LONG, 'warning');
+            return;
+        }
+    } catch (e) {
+        console.error('Invalid URL format:', url, e);
+        showToast('无效的链接地址', CONSTANTS.TIMING.TOAST_LONG, 'error');
+        return;
+    }
+
     // 检查是否有修饰键
     const hasModifier = event && (event.metaKey || event.ctrlKey || event.shiftKey);
 
@@ -509,17 +546,28 @@ function openBookmark(url, event = null) {
 // ==================================================================
 
 /**
+ * ✅ 优化 #7: 统一的SVG图标创建函数
+ * @param {string} iconId - 图标ID（如 'icon-folder'）
+ * @param {string} className - CSS类名
+ * @returns {SVGElement} SVG图标元素
+ */
+function createSvgIcon(iconId, className = 'bookmark-icon') {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', className);
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttributeNS(null, 'href', `#${iconId}`);
+    svg.appendChild(use);
+    return svg;
+}
+
+/**
  * P3优化：创建备用图标（当图标加载失败时使用）
  * 统一处理所有图标加载失败的情况
+ * ✅ 修复 #7: 使用统一的createSvgIcon函数，修复重复设置class的bug
  */
 function createFallbackIcon() {
-    const fallbackIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    fallbackIcon.setAttribute('class', 'bookmark-icon');
-    fallbackIcon.setAttribute('class', 'module-icon');
+    const fallbackIcon = createSvgIcon('icon-folder', 'module-icon');
     fallbackIcon.dataset.fallback = 'true';
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttributeNS(null, 'href', '#icon-folder');
-    fallbackIcon.appendChild(use);
     return fallbackIcon;
 }
 
@@ -621,18 +669,34 @@ function createHoverIntent(callback, delay = 500) {
 // --- 多选相关函数 ---
 /**
  * 清除所有书签选择状态
+ * ✅ 优化 #4: 使用缓存的元素集合，避免DOM查询
  */
 function clearSelection() {
     selectedItems.clear();
-    document.querySelectorAll('.bookmark-item.selected, .vertical-modules a.selected, .top-site-item.selected').forEach(el => el.classList.remove('selected'));
+
+    // ✅ 优化：只遍历已缓存的选中元素，而不是查询整个DOM
+    selectedElements.forEach(el => {
+        if (el.isConnected) { // 检查元素是否仍在DOM中
+            el.classList.remove('selected');
+        }
+    });
+    selectedElements.clear();
+
     lastClickedId = null;
 }
 
 /**
  * 清除所有预览高亮状态
+ * ✅ 优化 #4: 使用缓存的元素集合，避免DOM查询
  */
 function clearPreviewHighlight() {
-    document.querySelectorAll('.bookmark-item.preview-highlight, .vertical-modules a.preview-highlight, .top-site-item.preview-highlight').forEach(el => el.classList.remove('preview-highlight'));
+    // ✅ 优化：只遍历已缓存的高亮元素，而不是查询整个DOM
+    previewHighlightElements.forEach(el => {
+        if (el.isConnected) { // 检查元素是否仍在DOM中
+            el.classList.remove('preview-highlight');
+        }
+    });
+    previewHighlightElements.clear();
 }
 
 /**
@@ -669,6 +733,7 @@ function closeAllBookmarkColumns() {
 /**
  * 切换书签项的选中状态
  * @param {HTMLElement} item - 书签DOM元素
+ * ✅ 优化 #4: 维护元素引用缓存
  */
 function toggleSelection(item) {
     // 任何选中操作都应清除预览高亮痕迹（保持一致性）
@@ -677,9 +742,11 @@ function toggleSelection(item) {
     const id = item.dataset.id;
     if (selectedItems.has(id)) {
         selectedItems.delete(id);
+        selectedElements.delete(item); // ✅ 优化：从缓存中移除
         item.classList.remove('selected');
     } else {
         selectedItems.add(id);
+        selectedElements.add(item); // ✅ 优化：添加到缓存
         item.classList.add('selected');
     }
     lastClickedId = id;
@@ -690,6 +757,7 @@ function toggleSelection(item) {
  * @param {string} startId - 起始书签ID
  * @param {string} endId - 结束书签ID
  * @param {HTMLElement} column - 所在列的DOM元素
+ * ✅ 优化 #4: 维护元素引用缓存
  */
 function selectRange(startId, endId, column) {
     const items = Array.from(column.querySelectorAll('.bookmark-item'));
@@ -702,6 +770,7 @@ function selectRange(startId, endId, column) {
         const item = items[i];
         if (!selectedItems.has(item.dataset.id)) {
             selectedItems.add(item.dataset.id);
+            selectedElements.add(item); // ✅ 优化：添加到缓存
             item.classList.add('selected');
         }
     }
@@ -711,6 +780,7 @@ function selectRange(startId, endId, column) {
 /**
  * 显示书签栏的书签
  * @param {Array} bookmarks - 书签数组
+ * ✅ 修复 #5: 处理空书签栏状态
  */
 function displayBookmarks(bookmarks) {
     const bookmarkContainer = document.getElementById('bookmarkContainer');
@@ -720,9 +790,27 @@ function displayBookmarks(bookmarks) {
     const oldTopBar = header.querySelector('.bookmark-column[data-level="0"]');
     if (oldTopBar) oldTopBar.remove();
 
-    const bookmarksBar = bookmarks[0] && bookmarks[0].children[0];
-    if (bookmarksBar) {
+    // ✅ 修复 #5: 验证数据有效性
+    if (!bookmarks || !Array.isArray(bookmarks) || bookmarks.length === 0) {
+        console.warn('displayBookmarks: No bookmarks data');
+        return;
+    }
+
+    const bookmarksBar = bookmarks[0]?.children?.[0];
+
+    if (bookmarksBar && bookmarksBar.children && bookmarksBar.children.length > 0) {
         renderBookmarks(bookmarksBar.children, header, 0);
+    } else {
+        // ✅ 修复 #5: 显示空书签栏提示
+        const emptyBar = document.createElement('div');
+        emptyBar.className = 'bookmark-column';
+        emptyBar.dataset.level = '0';
+        emptyBar.innerHTML = `
+            <div style="padding: 8px 16px; color: var(--module-header-color); font-size: 13px; opacity: 0.6;">
+                书签栏为空，请在Chrome中添加书签
+            </div>
+        `;
+        header.appendChild(emptyBar);
     }
 }
 
@@ -737,6 +825,18 @@ function refreshBookmarksBar() {
 
     // 2. 获取最新的书签栏内容
     chrome.bookmarks.getChildren(CONSTANTS.BOOKMARKS_BAR_ID, (bookmarksBarItems) => {
+        // ✅ 修复 #3: 检查 Chrome API 错误
+        if (chrome.runtime.lastError) {
+            console.error('refreshBookmarksBar failed:', chrome.runtime.lastError);
+            return;
+        }
+
+        // ✅ 修复 #3: 验证返回数据有效性
+        if (!Array.isArray(bookmarksBarItems)) {
+            console.error('Invalid bookmarks bar items:', bookmarksBarItems);
+            return;
+        }
+
         // 3. 移除旧的书签栏DOM
         const oldTopBar = header.querySelector('.bookmark-column[data-level="0"]');
         if (oldTopBar) oldTopBar.remove();
@@ -906,12 +1006,8 @@ function createBookmarkItem(bookmark, index) {
     let icon;
 
     if (isFolder) {
-        // 为文件夹创建内联的SVG图标
-        icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        icon.setAttribute('class', 'bookmark-icon');
-        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttributeNS(null, 'href', '#icon-folder');
-        icon.appendChild(use);
+        // ✅ 优化 #7: 使用统一的SVG图标创建函数
+        icon = createSvgIcon('icon-folder');
     } else {
         // P3优化：使用统一的图标创建和错误处理
         icon = document.createElement('img');
@@ -978,16 +1074,39 @@ function handleFolderClick(folderItem, bookmarkId) {
         pendingFolderRequest = thisRequest;
         
         chrome.bookmarks.getChildren(bookmarkId, (freshChildren) => {
+            // ✅ 修复 #3: 检查 Chrome API 错误
+            if (chrome.runtime.lastError) {
+                console.error('getChildren failed:', chrome.runtime.lastError);
+                // 清除请求标记
+                if (pendingFolderRequest === thisRequest) {
+                    pendingFolderRequest = null;
+                }
+                // 移除高亮状态
+                folderItem.classList.remove('highlighted');
+                showToast('加载文件夹失败', CONSTANTS.TIMING.TOAST_NORMAL, 'error');
+                return;
+            }
+
             // 检查此请求是否已被取消
             if (thisRequest.cancelled) {
                 return;
             }
-            
+
+            // ✅ 修复 #3: 验证返回数据有效性
+            if (!Array.isArray(freshChildren)) {
+                console.error('Invalid children data:', freshChildren);
+                if (pendingFolderRequest === thisRequest) {
+                    pendingFolderRequest = null;
+                }
+                folderItem.classList.remove('highlighted');
+                return;
+            }
+
             // 清除请求标记
             if (pendingFolderRequest === thisRequest) {
                 pendingFolderRequest = null;
             }
-            
+
             const container = document.getElementById('bookmarkContainer');
             if (container) {
                 renderBookmarks(freshChildren, container, level + 1);
@@ -2170,14 +2289,9 @@ function showContextMenu(e, bookmarkElement, column) {
         li.id = id;
         li.dataset.action = id;
         
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'menu-icon');
+        // ✅ 优化 #7: 使用统一的SVG图标创建函数
+        const svg = createSvgIcon(iconId, 'menu-icon');
         svg.setAttribute('aria-hidden', 'true');
-        
-        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${iconId}`);
-        
-        svg.appendChild(use);
         li.appendChild(svg);
         li.appendChild(document.createTextNode(text));
         
@@ -2661,13 +2775,8 @@ function showMoveDialog(bookmarkElement, idsToMove) {
             const expandIcon = document.createElement('span');
             expandIcon.className = 'expand-icon';
 
-            // ▼ 请将这段【新代码】粘贴到刚才删除的位置
-            const folderIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            folderIcon.setAttribute('class', 'folder-icon');
-            const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-            use.setAttributeNS(null, 'href', '#icon-folder');
-            folderIcon.appendChild(use);
-            // ▲ 粘贴完成
+            // ✅ 优化 #7: 使用统一的SVG图标创建函数
+            const folderIcon = createSvgIcon('icon-folder', 'folder-icon');
 
             const title = document.createElement('span');
             title.textContent = node.title || (node.id === CONSTANTS.BOOKMARKS_BAR_ID ? '书签栏' : '其他书签');
@@ -3471,6 +3580,7 @@ function handleSpacebarPreview(e) {
     if (url) {
         // 添加预览高亮效果（作为访问痕迹保留，不自动清除）
         currentlyHoveredItem.classList.add('preview-highlight');
+        previewHighlightElements.add(currentlyHoveredItem); // ✅ 优化 #4：添加到缓存
         openPreviewWindow(url);
     }
 }
@@ -3771,9 +3881,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }, DEBOUNCE_DELAY);
     };
 
-    // 使用 ResizeObserver 监听容器大小变化
+    // ✅ 修复 #2: 使用全局 resizeObserver，便于在页面卸载时清理
     if (window.ResizeObserver && bookmarkContainer) {
-        const resizeObserver = new ResizeObserver(() => {
+        resizeObserver = new ResizeObserver(() => {
             requestAnimationFrame(() => handleResize());
         });
         resizeObserver.observe(bookmarkContainer);
@@ -4015,14 +4125,26 @@ document.addEventListener('DOMContentLoaded', function () {
             if (targetColumn) {
                 // 重新获取该文件夹的所有子项并重新渲染
                 chrome.bookmarks.getChildren(parentId, (children) => {
+                    // ✅ 修复 #3: 检查 Chrome API 错误
+                    if (chrome.runtime.lastError) {
+                        console.error('getChildren in onMoved failed:', chrome.runtime.lastError);
+                        return;
+                    }
+
+                    // ✅ 修复 #3: 验证返回数据有效性
+                    if (!Array.isArray(children)) {
+                        console.error('Invalid children data in onMoved:', children);
+                        return;
+                    }
+
                     const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
                     contentWrapper.innerHTML = '';
-                    
+
                     children.forEach((child, idx) => {
                         const item = createBookmarkItem(child, idx);
                         contentWrapper.appendChild(item);
                     });
-                    
+
                     observeLazyImages(contentWrapper);
                 });
             }
@@ -4052,9 +4174,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (newParentItem) {
                 chrome.bookmarks.getChildren(parentId, (freshChildren) => {
-                    // P0修复：检查返回值
-                    if (!freshChildren) return;
-                    
+                    // ✅ 修复 #3: 检查 Chrome API 错误
+                    if (chrome.runtime.lastError) {
+                        console.error('getChildren in onMoved (new parent) failed:', chrome.runtime.lastError);
+                        return;
+                    }
+
+                    // ✅ 修复 #3: 验证返回数据有效性
+                    if (!Array.isArray(freshChildren)) {
+                        console.error('Invalid freshChildren data:', freshChildren);
+                        return;
+                    }
+
                     const movedItemInfo = freshChildren.find(child => child.id === id);
                     if (movedItemInfo) {
                         const newItemElement = createBookmarkItem(movedItemInfo, movedItemInfo.index);
