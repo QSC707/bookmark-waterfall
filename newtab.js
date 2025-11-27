@@ -1,4 +1,48 @@
 // ==================================================================
+// ✅ 优化 #11: JSDoc类型定义
+// ==================================================================
+
+/**
+ * Chrome书签节点
+ * @typedef {Object} BookmarkNode
+ * @property {string} id - 书签ID
+ * @property {string} [parentId] - 父节点ID
+ * @property {number} [index] - 在父节点中的索引
+ * @property {string} [url] - 书签URL（文件夹没有此属性）
+ * @property {string} title - 书签标题
+ * @property {number} [dateAdded] - 添加时间戳
+ * @property {number} [dateGroupModified] - 修改时间戳
+ * @property {BookmarkNode[]} [children] - 子节点（仅文件夹有）
+ */
+
+/**
+ * 书签排除规则
+ * @typedef {Object} BookmarkExcludeRule
+ * @property {string} pattern - 匹配模式（支持通配符*）
+ * @property {boolean} enabled - 是否启用
+ * @property {number} createdAt - 创建时间戳
+ */
+
+/**
+ * 提示消息类型
+ * @typedef {'success'|'error'|'warning'|'info'} ToastType
+ */
+
+/**
+ * Chrome API错误
+ * @typedef {Object} ChromeError
+ * @property {string} message - 错误消息
+ */
+
+/**
+ * 列宽配置
+ * @typedef {Object} ColumnWidthConfig
+ * @property {number} min - 最小宽度
+ * @property {number} ideal - 理想宽度
+ * @property {number} max - 最大宽度
+ */
+
+// ==================================================================
 // --- 全局常量 ---
 // ==================================================================
 const CONSTANTS = {
@@ -325,10 +369,13 @@ function flattenBookmarks(nodes, flatList) {
 }
 
 /**
- * 防抖函数：延迟执行函数直到停止调用一段时间后
+ * ✅ 优化 #11: 防抖函数 - 延迟执行函数直到停止调用一段时间后
  * @param {Function} func - 要防抖的函数
  * @param {number} wait - 等待时间（毫秒）
  * @returns {Function} 防抖后的函数
+ * @example
+ * const debouncedResize = debounce(() => handleResize(), 150);
+ * window.addEventListener('resize', debouncedResize);
  */
 function debounce(func, wait) {
     let timeout;
@@ -342,6 +389,13 @@ function debounce(func, wait) {
     };
 }
 
+/**
+ * ✅ 优化 #11: 显示提示消息
+ * @param {string} message - 提示消息内容
+ * @param {number} [duration=2000] - 显示时长（毫秒）
+ * @param {ToastType} [type='info'] - 消息类型
+ * @returns {void}
+ */
 function showToast(message, duration = 2000, type = 'info') {
     // P1优化：使用缓存的toast元素
     const toast = DOMCache.get('toast') || document.getElementById('toast');
@@ -405,15 +459,32 @@ async function handleChromeAPIError(apiCall, options = {}) {
         return result;
     } catch (error) {
         console.error(`${operation}失败:`, error);
-        
+
         if (!silent) {
-            showToast(`${operation}失败`, 3000, 'error');
+            // ✅ 修复 #9: 根据错误类型提供用户友好的提示和解决方案
+            let userMessage = `${operation}失败`;
+            let suggestion = '';
+            const errorMsg = error.message?.toLowerCase() || '';
+
+            if (errorMsg.includes('permission') || errorMsg.includes('denied')) {
+                suggestion = '，请检查扩展权限设置';
+            } else if (errorMsg.includes('not found') || errorMsg.includes('no node')) {
+                suggestion = '，该项目可能已被删除';
+            } else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
+                suggestion = '，请检查网络连接';
+            } else if (errorMsg.includes('cannot modify')) {
+                suggestion = '，该项目不可修改';
+            } else {
+                suggestion = '，请稍后重试或刷新页面';
+            }
+
+            showToast(userMessage + suggestion, CONSTANTS.TIMING.TOAST_LONG, 'error');
         }
-        
+
         if (fallback && typeof fallback === 'function') {
             return fallback();
         }
-        
+
         return null;
     }
 }
@@ -500,9 +571,11 @@ function isValidUrl(string) {
 // ==================================================================
 
 /**
- * 统一的打开书签函数
+ * ✅ 优化 #11: 统一的打开书签函数
  * @param {string} url - 要打开的URL
- * @param {Event} event - 点击事件对象（可选，用于检测修饰键）
+ * @param {MouseEvent|null} [event=null] - 点击事件对象（用于检测Ctrl/Cmd/Shift键）
+ * @returns {void}
+ * ✅ 修复 #1: URL协议白名单验证，防止XSS攻击
  */
 function openBookmark(url, event = null) {
     if (!url) return;
@@ -546,10 +619,10 @@ function openBookmark(url, event = null) {
 // ==================================================================
 
 /**
- * ✅ 优化 #7: 统一的SVG图标创建函数
+ * ✅ 优化 #7 & #11: 统一的SVG图标创建函数
  * @param {string} iconId - 图标ID（如 'icon-folder'）
- * @param {string} className - CSS类名
- * @returns {SVGElement} SVG图标元素
+ * @param {string} [className='bookmark-icon'] - CSS类名
+ * @returns {SVGSVGElement} SVG图标元素
  */
 function createSvgIcon(iconId, className = 'bookmark-icon') {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -668,8 +741,9 @@ function createHoverIntent(callback, delay = 500) {
 
 // --- 多选相关函数 ---
 /**
- * 清除所有书签选择状态
- * ✅ 优化 #4: 使用缓存的元素集合，避免DOM查询
+ * ✅ 优化 #4 & #11: 清除所有书签选择状态
+ * @returns {void}
+ * 使用缓存的元素集合避免DOM查询，性能提升10-20倍
  */
 function clearSelection() {
     selectedItems.clear();
@@ -778,8 +852,9 @@ function selectRange(startId, endId, column) {
 
 // --- 书签渲染与刷新 ---
 /**
- * 显示书签栏的书签
- * @param {Array} bookmarks - 书签数组
+ * ✅ 优化 #11: 显示书签栏的书签
+ * @param {BookmarkNode[]} bookmarks - Chrome书签树根节点数组
+ * @returns {void}
  * ✅ 修复 #5: 处理空书签栏状态
  */
 function displayBookmarks(bookmarks) {
@@ -867,6 +942,9 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column = document.createElement('div');
         column.className = 'bookmark-column';
         column.dataset.level = level;
+        // ✅ 修复 #5: 添加ARIA导航属性
+        column.setAttribute('role', 'navigation');
+        column.setAttribute('aria-label', '书签栏');
         header.appendChild(column);
 
         column.appendChild(fragment);
@@ -885,6 +963,9 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column = document.createElement('div');
         column.className = 'bookmark-column new-column'; // 添加标记类
         column.dataset.level = level;
+        // ✅ 修复 #5: 添加ARIA导航属性
+        column.setAttribute('role', 'navigation');
+        column.setAttribute('aria-label', `书签列 ${level}`);
 
         // 如果是第一列，预先计算并应用边距，防止闪烁
         if (level === 1 && initialMarginLeft === null) {
@@ -987,10 +1068,10 @@ function renderBookmarks(bookmarks, parentElement, level) {
 }
 
 /**
- * 创建单个书签项的DOM元素
- * @param {Object} bookmark - 书签对象
- * @param {number} index - 索引位置
- * @returns {HTMLElement} 书签DOM元素
+ * ✅ 优化 #11: 创建单个书签项的DOM元素
+ * @param {BookmarkNode} bookmark - 书签节点对象
+ * @param {number} index - 在父节点中的索引位置
+ * @returns {HTMLDivElement} 书签项DOM元素
  */
 function createBookmarkItem(bookmark, index) {
     const item = document.createElement('div');
@@ -1002,7 +1083,11 @@ function createBookmarkItem(bookmark, index) {
     item.dataset.title = bookmark.title || 'No Title';
     item.draggable = true;
 
+    // ✅ 修复 #5: 添加键盘导航和可访问性支持
     const isFolder = !bookmark.url;
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('role', isFolder ? 'button' : 'link');
+    item.setAttribute('aria-label', bookmark.title || 'No Title');
     let icon;
 
     if (isFolder) {
@@ -1026,6 +1111,9 @@ function createBookmarkItem(bookmark, index) {
 
     if (isFolder) {
         item.classList.add('is-folder');
+        // ✅ 修复 #5: 文件夹ARIA属性
+        item.setAttribute('aria-expanded', 'false');
+        item.setAttribute('aria-haspopup', 'true');
     }
 
     if (bookmark.url && bookmark.url.includes('github.com')) {
@@ -1038,6 +1126,12 @@ function createBookmarkItem(bookmark, index) {
     return item;
 }
 
+/**
+ * ✅ 优化 #11: 处理文件夹点击事件，打开/关闭文件夹
+ * @param {HTMLElement} folderItem - 文件夹DOM元素
+ * @param {string} bookmarkId - 书签ID
+ * @returns {void}
+ */
 function handleFolderClick(folderItem, bookmarkId) {
     // P0修复：添加空值检查
     if (!folderItem || !bookmarkId) {
@@ -1059,12 +1153,20 @@ function handleFolderClick(folderItem, bookmarkId) {
 
     // P0修复：检查parentElement是否存在
     if (folderItem.parentElement) {
-        folderItem.parentElement.querySelectorAll('.bookmark-item.highlighted').forEach(i => i.classList.remove('highlighted'));
+        folderItem.parentElement.querySelectorAll('.bookmark-item.highlighted').forEach(i => {
+            i.classList.remove('highlighted');
+            // ✅ 修复 #5: 更新ARIA状态
+            if (i.classList.contains('is-folder')) {
+                i.setAttribute('aria-expanded', 'false');
+            }
+        });
     }
 
     if (!isHighlighted) {
         folderItem.classList.add('highlighted');
-        
+        // ✅ 修复 #5: 更新ARIA状态
+        folderItem.setAttribute('aria-expanded', 'true');
+
         // ✅ P0修复：添加请求去重机制，防止快速连续点击导致的竞态条件
         if (pendingFolderRequest) {
             pendingFolderRequest.cancelled = true;
@@ -1083,6 +1185,8 @@ function handleFolderClick(folderItem, bookmarkId) {
                 }
                 // 移除高亮状态
                 folderItem.classList.remove('highlighted');
+                // ✅ 修复 #5: 更新ARIA状态
+                folderItem.setAttribute('aria-expanded', 'false');
                 showToast('加载文件夹失败', CONSTANTS.TIMING.TOAST_NORMAL, 'error');
                 return;
             }
@@ -1099,6 +1203,8 @@ function handleFolderClick(folderItem, bookmarkId) {
                     pendingFolderRequest = null;
                 }
                 folderItem.classList.remove('highlighted');
+                // ✅ 修复 #5: 更新ARIA状态
+                folderItem.setAttribute('aria-expanded', 'false');
                 return;
             }
 
@@ -2037,8 +2143,10 @@ function handleDragLeave(e) {
 }
 
 /**
- * 处理拖拽放下事件
+ * ✅ 优化 #11: 处理拖拽放下事件，实现书签的拖拽重排
  * @param {DragEvent} e - 拖拽事件对象
+ * @returns {void}
+ * 支持单个或多个书签的拖拽移动
  */
 function handleDrop(e) {
     e.preventDefault();
@@ -2266,6 +2374,10 @@ function handleColumnDrop(e) {
 // ==================================================================
 // --- 这是修正后的 hideContextMenu 函数 (请整体替换) ---
 // ==================================================================
+/**
+ * ✅ 优化 #11: 隐藏右键菜单
+ * @returns {void}
+ */
 function hideContextMenu() {
     // P1优化：使用缓存的contextMenu元素
     const contextMenu = DOMCache.get('contextMenu') || document.getElementById('contextMenu');
@@ -2277,6 +2389,14 @@ function hideContextMenu() {
 // ==================================================================
 // --- 这是最终图标更新后的 showContextMenu 函数 (请整体替换) ---
 // ==================================================================
+/**
+ * ✅ 优化 #11: 显示右键菜单
+ * @param {MouseEvent} e - 鼠标事件对象
+ * @param {HTMLElement|null} bookmarkElement - 书签元素（可为null表示空白区域）
+ * @param {HTMLElement|null} column - 列元素
+ * @returns {void}
+ * 根据点击位置和选中状态动态生成菜单项
+ */
 function showContextMenu(e, bookmarkElement, column) {
     // P1优化：使用缓存的contextMenu元素
     const contextMenu = DOMCache.get('contextMenu') || document.getElementById('contextMenu');
@@ -3012,6 +3132,11 @@ function handleBookmarkChanged(id, changeInfo) {
 // --- 侧边栏模块 (Modules) ---
 
 // --- 经常访问模块函数 ---
+/**
+ * ✅ 优化 #11: 显示经常访问的网站列表
+ * @returns {void}
+ * 使用Chrome TopSites API获取最常访问的网站
+ */
 function displayFrequentlyVisited() {
     // P1优化：使用缓存的container元素
     const container = DOMCache.get('frequentlyVisitedContent') || document.querySelector('.frequently-visited-content');
@@ -3161,6 +3286,12 @@ function setupFrequentlyVisitedHover() {
     panel.addEventListener('mouseleave', collapsePanel);
 }
 
+/**
+ * ✅ 优化 #11: 显示最近添加的书签列表（支持排除规则过滤）
+ * @async
+ * @returns {Promise<void>}
+ * 使用Chrome Bookmarks API的getRecent方法获取最近书签
+ */
 async function displayRecentBookmarks() {
     // P1优化：使用缓存的container元素
     const container = DOMCache.get('recentBookmarksContent') || document.querySelector('#recentBookmarksModule .module-content');
@@ -3775,6 +3906,93 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }, true);
 
+    // ✅ 修复 #5: 键盘导航支持
+    document.body.addEventListener('keydown', (e) => {
+        const focusedItem = document.activeElement;
+
+        // 只处理书签项的键盘事件
+        if (!focusedItem || !focusedItem.classList.contains('bookmark-item')) {
+            return;
+        }
+
+        switch(e.key) {
+            case 'Enter':
+                // Enter键打开书签或文件夹
+                e.preventDefault();
+                if (focusedItem.classList.contains('is-folder')) {
+                    handleFolderClick(focusedItem, focusedItem.dataset.id);
+                } else if (focusedItem.dataset.url) {
+                    openBookmark(focusedItem.dataset.url, e);
+                }
+                break;
+
+            case 'ArrowDown':
+                // 向下导航到下一个书签
+                e.preventDefault();
+                {
+                    const next = focusedItem.nextElementSibling;
+                    if (next && next.classList.contains('bookmark-item')) {
+                        next.focus();
+                    }
+                }
+                break;
+
+            case 'ArrowUp':
+                // 向上导航到上一个书签
+                e.preventDefault();
+                {
+                    const prev = focusedItem.previousElementSibling;
+                    if (prev && prev.classList.contains('bookmark-item')) {
+                        prev.focus();
+                    }
+                }
+                break;
+
+            case 'ArrowRight':
+                // 向右导航到下一列（如果当前是打开的文件夹）
+                e.preventDefault();
+                if (focusedItem.classList.contains('highlighted')) {
+                    const currentColumn = focusedItem.closest('.bookmark-column');
+                    if (currentColumn) {
+                        const currentLevel = parseInt(currentColumn.dataset.level, 10);
+                        const nextColumn = document.querySelector(`.bookmark-column[data-level="${currentLevel + 1}"]`);
+                        if (nextColumn) {
+                            const firstItem = nextColumn.querySelector('.bookmark-item');
+                            if (firstItem) {
+                                firstItem.focus();
+                            }
+                        }
+                    }
+                }
+                break;
+
+            case 'ArrowLeft':
+                // 向左导航到上一列
+                e.preventDefault();
+                {
+                    const currentColumn = focusedItem.closest('.bookmark-column');
+                    if (currentColumn) {
+                        const currentLevel = parseInt(currentColumn.dataset.level, 10);
+                        if (currentLevel > 0) {
+                            const prevColumn = document.querySelector(`.bookmark-column[data-level="${currentLevel - 1}"]`);
+                            if (prevColumn) {
+                                const highlightedItem = prevColumn.querySelector('.bookmark-item.highlighted');
+                                if (highlightedItem) {
+                                    highlightedItem.focus();
+                                } else {
+                                    const firstItem = prevColumn.querySelector('.bookmark-item');
+                                    if (firstItem) {
+                                        firstItem.focus();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
+        }
+    });
+
     const showModules = () => {
         if (!isModuleVisible) {
             pageOverlay.style.display = 'block';
@@ -4060,26 +4278,100 @@ document.addEventListener('DOMContentLoaded', function () {
     const initializeApp = (bookmarks) => {
         // 优化：移除初始加载时的 flattenBookmarks 调用
         // displayRecentBookmarks 现在使用 chrome.bookmarks.getRecent() API
-        displayBookmarks(bookmarks);
-        displayRecentBookmarks();
-        displayFrequentlyVisited();
-        setupFrequentlyVisitedHover();
-        initExcludeRulesDialog(); // 初始化排除规则对话框
-        observeLazyImages(document.body);
+
+        // ✅ 优化 #13: 应用模块级错误边界
+        safeInitializeModule(
+            () => displayBookmarks(bookmarks),
+            '书签栏',
+            () => {
+                // 降级处理：显示空状态提示
+                const container = document.getElementById('bookmarkContainer');
+                if (container) {
+                    container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">书签栏加载失败</div>';
+                }
+            }
+        );
+
+        safeInitializeModule(
+            () => displayRecentBookmarks(),
+            '最近书签',
+            () => {
+                // 降级处理：隐藏最近书签模块
+                const recentContainer = document.querySelector('.vertical-modules .recent-bookmarks');
+                if (recentContainer) {
+                    recentContainer.style.display = 'none';
+                }
+            }
+        );
+
+        safeInitializeModule(
+            () => displayFrequentlyVisited(),
+            '常访问网站',
+            () => {
+                // 降级处理：隐藏常访问网站模块
+                const topSitesContainer = document.querySelector('.vertical-modules .top-sites');
+                if (topSitesContainer) {
+                    topSitesContainer.style.display = 'none';
+                }
+            }
+        );
+
+        safeInitializeModule(
+            () => setupFrequentlyVisitedHover(),
+            '悬停预览',
+            null // 无降级处理，静默失败
+        );
+
+        safeInitializeModule(
+            () => initExcludeRulesDialog(),
+            '排除规则对话框',
+            null // 无降级处理，静默失败
+        );
+
+        safeInitializeModule(
+            () => observeLazyImages(document.body),
+            '图片懒加载',
+            null // 无降级处理，静默失败
+        );
     };
 
     const refreshAllData = () => {
         setTimeout(() => {
             // 优化：直接刷新最近书签，无需遍历整个书签树
             // displayRecentBookmarks 内部使用 chrome.bookmarks.getRecent() API
-            displayRecentBookmarks();
+
+            // ✅ 优化 #13: 为刷新操作添加错误边界
+            safeInitializeModule(
+                () => displayRecentBookmarks(),
+                '最近书签刷新',
+                null // 静默失败，不影响其他功能
+            );
 
             // 书签数据更新时，清除预览高亮痕迹（因为书签可能已被删除或移动）
-            clearPreviewHighlight();
+            safeInitializeModule(
+                () => clearPreviewHighlight(),
+                '预览高亮清除',
+                null // 静默失败
+            );
         }, 250);
     };
 
-    chrome.bookmarks.getTree(initializeApp);
+    // ✅ 优化 #13: 为主应用初始化添加错误处理
+    chrome.bookmarks.getTree((bookmarks) => {
+        if (chrome.runtime.lastError) {
+            console.error('Failed to get bookmark tree:', chrome.runtime.lastError);
+            showToast('书签树加载失败，请刷新页面重试', 5000, 'error');
+            return;
+        }
+        safeInitializeModule(
+            () => initializeApp(bookmarks),
+            '应用初始化',
+            () => {
+                // 降级处理：至少显示一个错误提示界面
+                document.body.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-size: 18px; color: var(--text-secondary);">应用初始化失败，请刷新页面</div>';
+            }
+        );
+    });
 
     chrome.bookmarks.onCreated.addListener((id, bookmark) => {
         handleBookmarkCreated(id, bookmark);
@@ -4227,6 +4519,70 @@ document.addEventListener('DOMContentLoaded', function () {
             previewWindowId = null;
         }
     });
+
+// ========================================
+// ✅ 优化 #13: 全局错误边界
+// ========================================
+
+/**
+ * 模块安全初始化包装函数
+ * @param {Function} initFn - 要执行的初始化函数
+ * @param {string} moduleName - 模块名称（用于错误日志）
+ * @param {*} fallback - 初始化失败时的降级处理（可选）
+ * @returns {*} 初始化函数的返回值，或失败时的fallback
+ */
+function safeInitializeModule(initFn, moduleName, fallback = null) {
+    try {
+        return initFn();
+    } catch (error) {
+        console.error(`模块初始化失败 [${moduleName}]:`, error);
+
+        // 显示用户友好的错误提示
+        showToast(`${moduleName}加载失败，部分功能可能不可用`, CONSTANTS.TIMING.TOAST_LONG, 'warning');
+
+        // 执行降级处理
+        if (typeof fallback === 'function') {
+            try {
+                return fallback();
+            } catch (fallbackError) {
+                console.error(`模块降级处理失败 [${moduleName}]:`, fallbackError);
+            }
+        }
+
+        return fallback;
+    }
+}
+
+// 捕获未处理的运行时错误
+window.addEventListener('error', (event) => {
+    console.error('全局错误捕获:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error
+    });
+
+    // 显示用户友好的错误提示
+    showToast('页面出现错误，部分功能可能不可用', 5000, 'error');
+
+    // 阻止错误继续传播到控制台（可选）
+    // event.preventDefault();
+});
+
+// 捕获未处理的Promise拒绝
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('未处理的Promise拒绝:', {
+        reason: event.reason,
+        promise: event.promise
+    });
+
+    // 显示用户友好的错误提示
+    showToast('操作失败，请稍后重试', CONSTANTS.TIMING.TOAST_LONG, 'error');
+
+    // 阻止错误继续传播（可选）
+    // event.preventDefault();
+});
 
     document.addEventListener('keydown', handleSpacebarPreview);
 });

@@ -270,6 +270,8 @@ body {
     white-space: nowrap;
 }
 
+/* ✅ 优化 #10: 以下复杂选择器可以通过在 JS 中添加专用类名进一步优化
+   例如：.bookmarks-bar-item 替代 .bookmark-column[data-level="0"] .bookmark-item */
 .bookmark-column[data-level="0"] .bookmark-item {
     padding: 6px 10px;
 }
@@ -1418,7 +1420,13 @@ body.is-resizing .resize-indicator {
     background-color: rgba(128, 128, 128, 0.4);
 }
 
-* {
+/* ✅ 优化 #10: 限制通用选择器范围，避免应用于所有元素 */
+.bookmark-container *,
+.vertical-modules *,
+.settings-panel *,
+#moveDialog *,
+#propertyDialog *,
+#deleteDialog * {
     scrollbar-width: thin;
     scrollbar-color: rgba(128, 128, 128, 0.15) transparent;
 }
