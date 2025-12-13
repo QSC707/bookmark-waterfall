@@ -206,19 +206,21 @@ const DOMCache = {
     pageOverlay: null,
     settingsPanel: null,
     toast: null,
+    header: null,  // ✅ 性能优化：缓存页面头部（书签栏容器）
     recentBookmarksContent: null,
     frequentlyVisitedContent: null,
-    
+
     init() {
         this.bookmarkContainer = document.getElementById('bookmarkContainer');
         this.contextMenu = document.getElementById('contextMenu');
         this.pageOverlay = document.getElementById('pageOverlay');
         this.settingsPanel = document.getElementById('settings-panel');
         this.toast = document.getElementById('toast');
+        this.header = document.querySelector('.page-header');  // ✅ 缓存header
         this.recentBookmarksContent = document.querySelector('#recentBookmarksModule .module-content');
         this.frequentlyVisitedContent = document.querySelector('.frequently-visited-content');
     },
-    
+
     get(key) {
         return this[key];
     }
@@ -859,11 +861,11 @@ function selectRange(startId, endId, column) {
  */
 function displayBookmarks(bookmarks) {
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    const header = document.querySelector('.page-header');
+    const header = DOMCache.get('header') || document.querySelector('.page-header');
     bookmarkContainer.innerHTML = '';
 
-    const oldTopBar = header.querySelector('.bookmark-column[data-level="0"]');
-    if (oldTopBar) oldTopBar.remove();
+    // ✅ 性能优化：清理所有旧的书签栏（防止累积）
+    header.querySelectorAll('.bookmark-column[data-level="0"]').forEach(col => col.remove());
 
     // ✅ 修复 #5: 验证数据有效性
     if (!bookmarks || !Array.isArray(bookmarks) || bookmarks.length === 0) {
@@ -895,7 +897,7 @@ function displayBookmarks(bookmarks) {
  */
 function refreshBookmarksBar() {
     // 1. 获取书签栏的父容器
-    const header = document.querySelector('.page-header');
+    const header = DOMCache.get('header') || document.querySelector('.page-header');
     if (!header) return;
 
     // 2. 获取最新的书签栏内容
@@ -912,9 +914,9 @@ function refreshBookmarksBar() {
             return;
         }
 
-        // 3. 移除旧的书签栏DOM
-        const oldTopBar = header.querySelector('.bookmark-column[data-level="0"]');
-        if (oldTopBar) oldTopBar.remove();
+        // 3. 移除所有旧的书签栏DOM（防止累积）
+        // ✅ 性能优化：使用 querySelectorAll 清理所有可能累积的书签栏
+        header.querySelectorAll('.bookmark-column[data-level="0"]').forEach(col => col.remove());
 
         // 4. 使用我们现有的 renderBookmarks 函数，只在 header 中渲染 level 0 的内容
         renderBookmarks(bookmarksBarItems, header, 0);
@@ -938,7 +940,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
     });
 
     if (level === 0) {
-        const header = document.querySelector('.page-header');
+        const header = DOMCache.get('header') || document.querySelector('.page-header');
         column = document.createElement('div');
         column.className = 'bookmark-column';
         column.dataset.level = level;
