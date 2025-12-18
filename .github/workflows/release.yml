@@ -1,0 +1,23 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Package Extension
+        run: |
+          zip -r extension-${{ github.ref_name }}.zip . \
+            -x "*.git*" "*.claude*" "*.github*" "screenshots/*" "README.md"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: extension-${{ github.ref_name }}.zip
+          generate_release_notes: true
