@@ -227,6 +227,113 @@ const DOMCache = {
 };
 
 // ========================================
+// ✅ P2-2优化：统一 DOM 缓存检查
+// ========================================
+/**
+ * 获取缓存的 DOM 元素，如果缓存失效则重新查询
+ * @param {string} key - 缓存键名
+ * @param {Function} fallback - 获取元素的回调函数
+ * @returns {HTMLElement|null} DOM 元素
+ */
+function getCachedElement(key, fallback) {
+    const cached = DOMCache.get(key);
+    if (cached && cached.isConnected) return cached;
+
+    const fresh = fallback();
+    if (fresh) DOMCache[key] = fresh;
+    return fresh;
+}
+
+// ========================================
+// ✅ P1-2优化：ElementCache 系统 - 缓存带有特定 class 的元素
+// ========================================
+const ElementCache = {
+    highlighted: new Set(),
+    dragging: new Set(),
+    dragOver: new Set(),
+
+    addHighlight(item) {
+        item.classList.add('highlighted');
+        this.highlighted.add(item);
+    },
+
+    clearHighlights() {
+        this.highlighted.forEach(item => {
+            if (item.isConnected) {
+                item.classList.remove('highlighted');
+            }
+        });
+        this.highlighted.clear();
+    },
+
+    addDragging(item) {
+        item.classList.add('dragging');
+        this.dragging.add(item);
+    },
+
+    clearDragging() {
+        this.dragging.forEach(item => {
+            if (item.isConnected) {
+                item.classList.remove('dragging');
+            }
+        });
+        this.dragging.clear();
+    },
+
+    addDragOver(item, ...classes) {
+        classes.forEach(cls => item.classList.add(cls));
+        this.dragOver.add(item);
+    },
+
+    clearDragOver() {
+        this.dragOver.forEach(item => {
+            if (item.isConnected) {
+                item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-left', 'drag-over-right', 'drag-over');
+            }
+        });
+        this.dragOver.clear();
+    },
+
+    clearAll() {
+        this.clearHighlights();
+        this.clearDragging();
+        this.clearDragOver();
+    }
+};
+
+// ========================================
+// ✅ P1-3优化：BookmarkTreeCache - 缓存书签树结构，避免 DOM 查询
+// ========================================
+const BookmarkTreeCache = new Map();
+
+/**
+ * 构建书签树缓存
+ * @param {BookmarkNode[]} bookmarks - 书签树根节点数组
+ */
+function buildBookmarkTreeCache(bookmarks) {
+    BookmarkTreeCache.clear();
+
+    function traverse(nodes, parentId = null) {
+        if (!nodes) return;
+        nodes.forEach(node => {
+            BookmarkTreeCache.set(node.id, {
+                id: node.id,
+                parentId: parentId,
+                title: node.title,
+                url: node.url,
+                children: node.children || []
+            });
+
+            if (node.children) {
+                traverse(node.children, node.id);
+            }
+        });
+    }
+
+    traverse(bookmarks);
+}
+
+// ========================================
 // 核心修复：将 Observers 移至全局作用域
 // ========================================
 
@@ -400,7 +507,7 @@ function debounce(func, wait) {
  */
 function showToast(message, duration = 2000, type = 'info') {
     // P1优化：使用缓存的toast元素
-    const toast = DOMCache.get('toast') || document.getElementById('toast');
+    const toast = getCachedElement('toast', () => document.getElementById('toast'));
     if (toast) {
         // P2改进：支持不同类型的提示
         let icon = '';
@@ -780,7 +887,7 @@ function clearPreviewHighlight() {
  * 用于 ESC 键快速关闭所有打开的书签文件夹视图
  */
 function closeAllBookmarkColumns() {
-    const container = DOMCache.get('bookmarkContainer') || document.getElementById('bookmarkContainer');
+    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
     if (!container) return;
     
     // === 1. 移除所有 level >= 1 的列（保留书签栏） ===
@@ -790,9 +897,8 @@ function closeAllBookmarkColumns() {
     columnsToRemove.forEach(col => col.remove());
     
     // === 2. 清除所有书签项的高亮状态 ===
-    document.querySelectorAll('.bookmark-item.highlighted').forEach(item => {
-        item.classList.remove('highlighted');
-    });
+    // ✅ P1-2优化：使用 ElementCache 替代 querySelectorAll
+    ElementCache.clearHighlights();
 
     // === 3. 清除选中状态 ===
     clearSelection();
@@ -861,7 +967,7 @@ function selectRange(startId, endId, column) {
  */
 function displayBookmarks(bookmarks) {
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    const header = DOMCache.get('header') || document.querySelector('.page-header');
+    const header = getCachedElement('header', () => document.querySelector('.page-header'));
     bookmarkContainer.innerHTML = '';
 
     // ✅ 性能优化：清理所有旧的书签栏（防止累积）
@@ -897,7 +1003,7 @@ function displayBookmarks(bookmarks) {
  */
 function refreshBookmarksBar() {
     // 1. 获取书签栏的父容器
-    const header = DOMCache.get('header') || document.querySelector('.page-header');
+    const header = getCachedElement('header', () => document.querySelector('.page-header'));
     if (!header) return;
 
     // 2. 获取最新的书签栏内容
@@ -931,7 +1037,7 @@ function refreshBookmarksBar() {
  */
 function renderBookmarks(bookmarks, parentElement, level) {
     let column;
-    const container = DOMCache.get('bookmarkContainer') || document.getElementById('bookmarkContainer');
+    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
     const fragment = document.createDocumentFragment();
 
     bookmarks.forEach((bookmark, index) => {
@@ -940,7 +1046,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
     });
 
     if (level === 0) {
-        const header = DOMCache.get('header') || document.querySelector('.page-header');
+        const header = getCachedElement('header', () => document.querySelector('.page-header'));
         column = document.createElement('div');
         column.className = 'bookmark-column';
         column.dataset.level = level;
@@ -1154,18 +1260,20 @@ function handleFolderClick(folderItem, bookmarkId) {
     const level = parseInt(column.dataset.level, 10);
 
     // P0修复：检查parentElement是否存在
-    if (folderItem.parentElement) {
-        folderItem.parentElement.querySelectorAll('.bookmark-item.highlighted').forEach(i => {
+    // ✅ P1-2优化：使用 ElementCache 替代 querySelectorAll
+    ElementCache.highlighted.forEach(i => {
+        if (i.isConnected) {
             i.classList.remove('highlighted');
             // ✅ 修复 #5: 更新ARIA状态
             if (i.classList.contains('is-folder')) {
                 i.setAttribute('aria-expanded', 'false');
             }
-        });
-    }
+        }
+    });
+    ElementCache.highlighted.clear();
 
     if (!isHighlighted) {
-        folderItem.classList.add('highlighted');
+        ElementCache.addHighlight(folderItem);
         // ✅ 修复 #5: 更新ARIA状态
         folderItem.setAttribute('aria-expanded', 'true');
 
@@ -1742,8 +1850,11 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
             firstColumn.style.transition = 'none';
             firstColumn.style.marginLeft = `${finalMarginLeft}px`;
             firstColumn.dataset.initialized = 'true';
-            firstColumn.offsetHeight; // 强制重排
-            firstColumn.style.transition = '';
+            // ✅ P3-1优化：使用 requestAnimationFrame 优化重排
+            requestAnimationFrame(() => {
+                firstColumn.offsetHeight; // 强制重排
+                firstColumn.style.transition = '';
+            });
         } else {
             firstColumn.style.marginLeft = `${finalMarginLeft}px`;
         }
@@ -1939,7 +2050,8 @@ function handleDragStart(e) {
     queueMicrotask(() => {
         idsToDrag.forEach(id => {
             const el = document.querySelector(`.bookmark-item[data-id="${id}"]`);
-            if (el) el.classList.add('dragging');
+            // ✅ P1-2优化：使用 ElementCache 替代直接操作 classList
+            if (el) ElementCache.addDragging(el);
         });
     });
 
@@ -1958,12 +2070,11 @@ function handleDragEnd(e) {
     clearSelection();
     
     // 清理所有拖拽相关的样式
-    document.querySelectorAll('.bookmark-item.dragging').forEach(el => el.classList.remove('dragging'));
+    // ✅ P1-2优化：使用 ElementCache 替代 querySelectorAll
+    ElementCache.clearDragging();
     draggedItem = null;
     lastDragOverTarget = null;
-    document.querySelectorAll('.bookmark-item, .bookmark-column').forEach(el => {
-        el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter', 'column-drag-over');
-    });
+    ElementCache.clearDragOver();
     
     // 延迟恢复悬停功能，防止立即触发
     // 使用较短的延迟（500ms），减少用户等待时间
@@ -2206,23 +2317,14 @@ function handleDrop(e) {
         // 计算有效的目标索引：不能超过子项数量
         const maxIndex = targetChildren.length;
         const safeIndex = Math.min(destination.index, maxIndex);
-        
-        // 反向移动：从最后一个书签开始移动
-        // 所有书签都移动到相同的安全索引位置
-        for (let i = idsToMove.length - 1; i >= 0; i--) {
-            const id = idsToMove[i];
-            
-            try {
-                await chrome.bookmarks.move(id, {
-                    parentId: destination.parentId,
-                    index: safeIndex
-                });
-                successCount++;
-            } catch (err) {
-                console.error(`移动书签 ${id} 失败:`, err);
-                errorCount++;
-            }
-        }
+
+        // ✅ P2-1优化：使用提取的共享函数
+        const result = await moveBookmarksToDestination(idsToMove, {
+            parentId: destination.parentId,
+            index: safeIndex
+        });
+        successCount = result.successCount;
+        errorCount = result.errorCount;
         
         // 所有移动完成后显示反馈
         if (errorCount === 0) {
@@ -2262,30 +2364,66 @@ function handleDrop(e) {
  * @param {string} nodeId - 要检查的节点ID
  * @returns {Promise<boolean>} 是否为祖先关系
  */
+/**
+ * ✅ P2-1优化：提取重复的书签移动逻辑
+ * 将多个书签移动到指定位置
+ * @param {string[]} idsToMove - 要移动的书签ID数组
+ * @param {Object} destination - 目标位置 {parentId, index}
+ * @returns {Promise<{successCount: number, errorCount: number}>} 移动结果统计
+ */
+async function moveBookmarksToDestination(idsToMove, destination) {
+    let successCount = 0;
+    let errorCount = 0;
+
+    // 反向移动：从最后一个书签开始移动
+    for (let i = idsToMove.length - 1; i >= 0; i--) {
+        const id = idsToMove[i];
+
+        if (!id) {
+            errorCount++;
+            continue;
+        }
+
+        try {
+            await chrome.bookmarks.move(id, destination);
+            successCount++;
+        } catch (err) {
+            console.error(`移动书签 ${id} 失败:`, err);
+            errorCount++;
+        }
+    }
+
+    return { successCount, errorCount };
+}
+
+/**
+ * ✅ P1-3优化：使用 BookmarkTreeCache 替代 DOM 查询
+ * 检查一个节点是否是另一个节点的祖先
+ * @param {string} potentialAncestorId - 潜在祖先节点的ID
+ * @param {string} nodeId - 要检查的节点ID
+ * @returns {boolean} 如果是祖先关系则返回true
+ */
 function isAncestor(potentialAncestorId, nodeId) {
     if (!potentialAncestorId || !nodeId) return false;
     if (potentialAncestorId === nodeId) return true;
-    
-    // 从DOM中查找节点关系
-    const node = document.querySelector(`.bookmark-item[data-id="${nodeId}"]`);
-    if (!node) return false;
-    
-    let currentParentId = node.dataset.parentId;
+
+    // 使用缓存查找节点关系
+    let current = BookmarkTreeCache.get(nodeId);
+    if (!current) return false;
+
     const visited = new Set(); // 防止无限循环
-    
-    while (currentParentId && currentParentId !== CONSTANTS.ROOT_ID) {
-        if (visited.has(currentParentId)) break; // 检测到循环
-        visited.add(currentParentId);
-        
-        if (currentParentId === potentialAncestorId) {
+
+    while (current && current.parentId) {
+        if (visited.has(current.parentId)) break; // 检测到循环
+        visited.add(current.parentId);
+
+        if (current.parentId === potentialAncestorId) {
             return true;
         }
-        
-        const parentNode = document.querySelector(`.bookmark-item[data-id="${currentParentId}"]`);
-        if (!parentNode) break;
-        currentParentId = parentNode.dataset.parentId;
+
+        current = BookmarkTreeCache.get(current.parentId);
     }
-    
+
     return false;
 }
 
@@ -2330,27 +2468,13 @@ function handleColumnDrop(e) {
         let errorCount = 0;
         
         const moveBookmarksSequentially = async () => {
-            // 反向移动：从最后一个书签开始移动
-            // 所有书签都移动到index=0，这样它们会按原始顺序排列在开头
-            for (let i = idsToMove.length - 1; i >= 0; i--) {
-                const id = idsToMove[i];
-                
-                if (!id) {
-                    errorCount++;
-                    continue;
-                }
-                
-                try {
-                    await chrome.bookmarks.move(id, { 
-                        parentId: parentId, 
-                        index: 0
-                    });
-                    successCount++;
-                } catch (err) {
-                    console.error(`移动书签 ${id} 失败:`, err);
-                    errorCount++;
-                }
-            }
+            // ✅ P2-1优化：使用提取的共享函数
+            const result = await moveBookmarksToDestination(idsToMove, {
+                parentId: parentId,
+                index: 0
+            });
+            successCount = result.successCount;
+            errorCount = result.errorCount;
             
             // 所有移动完成后显示反馈
             if (errorCount === 0) {
@@ -2380,10 +2504,12 @@ function handleColumnDrop(e) {
  */
 function hideContextMenu() {
     // P1优化：使用缓存的contextMenu元素
-    const contextMenu = DOMCache.get('contextMenu') || document.getElementById('contextMenu');
+    const contextMenu = getCachedElement('contextMenu', () => document.getElementById('contextMenu'));
     if (contextMenu && contextMenu.style.display === 'block') {
         contextMenu.style.display = 'none';
         delete document.body.dataset.contextMenuOpen;
+        // 🐛 修复：关闭右键菜单时清除选中状态，避免高亮效果残留
+        clearSelection();
     }
 }
 
@@ -2397,7 +2523,7 @@ function hideContextMenu() {
  */
 function showContextMenu(e, bookmarkElement, column) {
     // P1优化：使用缓存的contextMenu元素
-    const contextMenu = DOMCache.get('contextMenu') || document.getElementById('contextMenu');
+    const contextMenu = getCachedElement('contextMenu', () => document.getElementById('contextMenu'));
     contextMenu.innerHTML = ''; // 清空旧菜单
     const ul = document.createElement('ul');
     
@@ -3137,7 +3263,7 @@ function handleBookmarkChanged(id, changeInfo) {
  */
 function displayFrequentlyVisited() {
     // P1优化：使用缓存的container元素
-    const container = DOMCache.get('frequentlyVisitedContent') || document.querySelector('.frequently-visited-content');
+    const container = getCachedElement('frequentlyVisitedContent', () => document.querySelector('.frequently-visited-content'));
     if (!container) return;
 
     // 性能优化：初始为空，不显示骨架屏
@@ -3292,7 +3418,7 @@ function setupFrequentlyVisitedHover() {
  */
 async function displayRecentBookmarks() {
     // P1优化：使用缓存的container元素
-    const container = DOMCache.get('recentBookmarksContent') || document.querySelector('#recentBookmarksModule .module-content');
+    const container = getCachedElement('recentBookmarksContent', () => document.querySelector('#recentBookmarksModule .module-content'));
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
     const quickFiltersContainer = document.getElementById('quickFilters');
@@ -3467,29 +3593,6 @@ async function displayRecentBookmarks() {
             contentWrapper.append(title, metaInfo);
             a.append(icon, contentWrapper);
 
-            // 阻止<a>标签的默认跳转行为
-            a.addEventListener('click', (e) => {
-                e.preventDefault();
-            });
-
-            a.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                showContextMenu(e, a, a.closest('.vertical-modules'));
-            });
-            a.addEventListener('mouseenter', () => currentlyHoveredItem = a);
-            a.addEventListener('mouseleave', () => currentlyHoveredItem = null);
-
-            a.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                    e.preventDefault();
-                }
-                if (!selectedItems.has(a.dataset.id)) {
-                    clearSelection();
-                    toggleSelection(a);
-                }
-            });
-
             fragment.appendChild(a);
         }
         container.innerHTML = '';
@@ -3533,6 +3636,57 @@ async function displayRecentBookmarks() {
         startDateInput.dataset.initialized = 'true';
     } else {
         renderList();
+    }
+
+    // ✅ P1-1优化：事件委托 - 只添加一次容器级事件监听器
+    if (!container.dataset.eventsAttached) {
+        // 点击事件 - 阻止默认跳转
+        container.addEventListener('click', (e) => {
+            const link = e.target.closest('a[data-id]');
+            if (link) {
+                e.preventDefault();
+            }
+        });
+
+        // 右键菜单事件
+        container.addEventListener('contextmenu', (e) => {
+            const link = e.target.closest('a[data-id]');
+            if (link) {
+                e.preventDefault();
+                showContextMenu(e, link, link.closest('.vertical-modules'));
+            }
+        });
+
+        // 鼠标悬停事件
+        container.addEventListener('mouseover', (e) => {
+            const link = e.target.closest('a[data-id]');
+            if (link) {
+                currentlyHoveredItem = link;
+            }
+        });
+
+        container.addEventListener('mouseout', (e) => {
+            const link = e.target.closest('a[data-id]');
+            if (link && !container.contains(e.relatedTarget?.closest('a[data-id]'))) {
+                currentlyHoveredItem = null;
+            }
+        });
+
+        // 鼠标按下事件 - 处理多选
+        container.addEventListener('mousedown', (e) => {
+            const link = e.target.closest('a[data-id]');
+            if (link && e.button === 0) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                    e.preventDefault();
+                }
+                if (!selectedItems.has(link.dataset.id)) {
+                    clearSelection();
+                    toggleSelection(link);
+                }
+            }
+        });
+
+        container.dataset.eventsAttached = 'true';
     }
 }
 
@@ -3754,6 +3908,8 @@ function createSizedPreviewWindow(url) {
 // ==================================================================
 // --- DOMContentLoaded: 页面加载完成后的初始化 ---
 // ==================================================================
+// ✅ P0-1优化：防止重复初始化
+if (!window._bookmarkExtensionInitialized) {
 document.addEventListener('DOMContentLoaded', function () {
     // P1优化：初始化DOM缓存
     DOMCache.init();
@@ -4122,7 +4278,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         // === 层级 3：右键菜单 ===
-        const contextMenu = DOMCache.get('contextMenu') || document.getElementById('contextMenu');
+        const contextMenu = getCachedElement('contextMenu', () => document.getElementById('contextMenu'));
         if (contextMenu && contextMenu.style.display === 'block') {
             hideContextMenu();
             return;
@@ -4361,6 +4517,9 @@ document.addEventListener('DOMContentLoaded', function () {
             showToast('书签树加载失败，请刷新页面重试', 5000, 'error');
             return;
         }
+        // ✅ P1-3优化：构建书签树缓存，优化祖先检查性能
+        buildBookmarkTreeCache(bookmarks);
+
         safeInitializeModule(
             () => initializeApp(bookmarks),
             '应用初始化',
@@ -4583,4 +4742,8 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
     document.addEventListener('keydown', handleSpacebarPreview);
+
+    // 设置初始化标志，防止重复初始化
+    window._bookmarkExtensionInitialized = true;
 });
+}
