@@ -2557,6 +2557,7 @@ function showContextMenu(e, bookmarkElement, column) {
         clearSelection();
         if (isTopSiteItem) {
             selectedItems.add(rightClickedId);
+            selectedElements.add(bookmarkElement);
             bookmarkElement.classList.add('selected');
         } else {
             toggleSelection(bookmarkElement);
@@ -4018,7 +4019,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
                 handleFolderClick(item, item.dataset.id);
             }
-        } else if (url) {
+        } else if (url && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
             // 使用统一的打开书签函数
             openBookmark(url, e);
         }
