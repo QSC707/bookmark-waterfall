@@ -2780,8 +2780,13 @@ function handleContextMenuAction(action, element) {
                     parentId = element.dataset.parentId;
                 } else {
                     const level = parseInt(column.dataset.level, 10);
-                    if (level === 0) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
-                    else parentId = document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
+                    if (level === 0) {
+                        parentId = CONSTANTS.BOOKMARKS_BAR_ID;
+                    } else {
+                        parentId = document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
+                        // 如果没有找到高亮项，使用书签栏作为默认父级
+                        if (!parentId) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
+                    }
                 }
                 if (parentId) showEditDialog('新建文件夹', '', null, async (name) => {
                     if (name) {
