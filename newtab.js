@@ -2783,8 +2783,16 @@ function handleContextMenuAction(action, element) {
                     if (level === 0) {
                         parentId = CONSTANTS.BOOKMARKS_BAR_ID;
                     } else {
+                        // 先尝试找上一级的高亮项
                         parentId = document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
-                        // 如果没有找到高亮项，使用书签栏作为默认父级
+                        // 如果没有高亮项，查找当前列中任意一个项目的parentId
+                        if (!parentId) {
+                            const firstItem = column.querySelector('.bookmark-item');
+                            if (firstItem) {
+                                parentId = firstItem.dataset.parentId;
+                            }
+                        }
+                        // 最后的兜底方案
                         if (!parentId) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
                     }
                 }
