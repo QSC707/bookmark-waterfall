@@ -682,49 +682,37 @@ function isValidUrl(string) {
 // ========================================
 
 /**
- * ✅ 优化 #11: 统一的打开书签函数
+ * ✅ 极速优化: 智能书签打开函数
  * @param {string} url - 要打开的URL
- * @param {MouseEvent|null} [event=null] - 点击事件对象（用于检测Ctrl/Cmd/Shift键）
- * @returns {void}
- * ✅ 修复 #1: URL协议白名单验证，防止XSS攻击
+ * @param {MouseEvent|null} [event=null] - 点击事件对象
+ *
+ * 性能策略：
+ * - chrome.tabs.update: 复用进程（最快）
+ * - chrome.tabs.create: 新标签打开
  */
 function openBookmark(url, event = null) {
     if (!url) return;
 
-    // ✅ 性能优化: 移除URL验证（Chrome书签API已验证）
-    // Chrome不允许危险协议保存为书签，无需重复检查
+    const hasModifier = event && (event.metaKey || event.ctrlKey || event.shiftKey);
 
-    // ✅ 性能优化: 使用缓存的窗口类型检测
     if (isInPopupWindow) {
-        // 在弹出窗口中，打开书签后关闭窗口
-        window.open(url, '_blank');
+        chrome.tabs.create({ url, active: true });
         window.close();
         return;
     }
 
-    // ✅ 性能优化: 使用缓存的iframe检测
     if (isInIframe) {
-        // 在iframe中，发送消息给父窗口
-        window.parent.postMessage({
-            type: 'OPEN_BOOKMARK',
-            url: url
-        }, '*');
+        window.parent.postMessage({ type: 'OPEN_BOOKMARK', url }, '*');
         return;
     }
 
-    // 检查是否有修饰键
-    const hasModifier = event && (event.metaKey || event.ctrlKey || event.shiftKey);
-
+    // 智能选择最快方式
     if (hasModifier) {
-        // 有修饰键时始终在新标签打开
-        window.open(url, '_blank');
+        chrome.tabs.create({ url, active: true });
+    } else if (cachedOpenInCurrentTab) {
+        chrome.tabs.update({ url });
     } else {
-        // 使用缓存的设置，避免每次读取localStorage
-        if (cachedOpenInCurrentTab) {
-            window.location.href = url;
-        } else {
-            window.open(url, '_blank');
-        }
+        chrome.tabs.create({ url, active: true });
     }
 }
 
