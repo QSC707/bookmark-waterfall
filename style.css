@@ -107,6 +107,11 @@ body {
     filter: brightness(0.8);
 }
 
+/* 性能优化：隔离布局计算 */
+.bookmark-column {
+    contain: layout;
+}
+
 .bookmark-column[data-level="0"] {
     display: flex;
     align-items: center;
@@ -198,6 +203,7 @@ body {
     border-radius: 6px;
     transition: background-color 0.2s;
     position: relative;
+    contain: layout style; /* 性能优化：隔离布局计算 */
 }
 
 .bookmark-item:hover {

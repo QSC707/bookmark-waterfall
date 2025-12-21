@@ -40,7 +40,7 @@ async function createBookmarkWindow() {
     const top = Math.round(currentWindow.top + (currentWindow.height - height) / 2);
 
     const window = await chrome.windows.create({
-        url: 'newtab.html',
+        url: 'newtab.html?popup=true',
         type: 'popup',
         width: width,
         height: height,
