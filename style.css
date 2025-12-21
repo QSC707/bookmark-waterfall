@@ -15,7 +15,7 @@
     --link-color: #e2e2e2;
     --highlighted-bg: rgba(255, 255, 255, 0.08);
     --hover-bg: rgba(255, 255, 255, 0.12);
-    --dialog-bg: rgba(44, 44, 44, 0.7);
+    --dialog-bg: rgba(44, 44, 44, 0.95);     /* ✅ 优化：从 0.7 提升到 0.95，更清晰 */
     --dialog-primary-bg: #3772ff;
     --dialog-delete-bg: #f44336;
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
@@ -41,7 +41,7 @@
     --link-color: #111;
     --highlighted-bg: rgba(0, 0, 0, 0.05);
     --hover-bg: rgba(0, 0, 0, 0.08);
-    --dialog-bg: rgba(255, 255, 255, 0.7);
+    --dialog-bg: rgba(255, 255, 255, 0.95);  /* ✅ 优化：从 0.7 提升到 0.95，更清晰 */
     --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
     --module-bg-color: #ffffff;
     --module-header-color: #555;
@@ -193,7 +193,7 @@ body {
     display: flex;
     align-items: center;
     border-radius: 6px;
-    transition: background-color 0.2s;
+    /* ✅ 性能优化：移除 transition，使用即时切换，避免快速移动时的大量重绘 */
     position: relative;
     contain: layout style; /* 性能优化：隔离布局计算 */
 }
@@ -212,22 +212,19 @@ body {
 }
 
 /* 深色主题：柔和的蓝色高亮 */
+/* ✅ 性能优化：移除 box-shadow，只保留背景色动画 */
 @keyframes move-highlight {
     0% {
         background-color: rgba(55, 114, 255, 0.15);
-        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.2) inset;
     }
     20% {
         background-color: rgba(55, 114, 255, 0.22);
-        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.25) inset;
     }
     50% {
         background-color: rgba(55, 114, 255, 0.18);
-        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.15) inset;
     }
     100% {
         background-color: transparent;
-        box-shadow: 0 0 0 1px transparent inset;
     }
 }
 
@@ -239,19 +236,15 @@ body {
 @keyframes move-highlight-light {
     0% {
         background-color: rgba(55, 114, 255, 0.12);
-        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.15) inset;
     }
     20% {
         background-color: rgba(55, 114, 255, 0.18);
-        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.2) inset;
     }
     50% {
         background-color: rgba(55, 114, 255, 0.14);
-        box-shadow: 0 0 0 1px rgba(55, 114, 255, 0.12) inset;
     }
     100% {
         background-color: transparent;
-        box-shadow: 0 0 0 1px transparent inset;
     }
 }
 
@@ -335,9 +328,9 @@ body {
 
 .bookmark-item.drag-enter {
     background-color: var(--highlighted-bg);
+    /* ✅ 性能优化：移除 outline 动画，使用静态 outline */
     outline: 2px solid var(--dialog-primary-bg);
     outline-offset: -2px;
-    animation: drag-enter-pulse 0.6s ease-in-out infinite;
     position: relative;
 }
 
@@ -351,28 +344,12 @@ body {
     font-size: 18px;
     pointer-events: none;
     opacity: 0.8;
-    animation: drag-enter-icon 0.6s ease-in-out infinite;
+    /* ✅ 性能优化：移除图标动画 */
 }
 
-@keyframes drag-enter-icon {
-    0%, 100% {
-        transform: translateY(-50%) scale(1);
-        opacity: 0.8;
-    }
-    50% {
-        transform: translateY(-50%) scale(1.1);
-        opacity: 1;
-    }
-}
-
-@keyframes drag-enter-pulse {
-    0%, 100% {
-        outline-color: var(--dialog-primary-bg);
-    }
-    50% {
-        outline-color: rgba(55, 114, 255, 0.5);
-    }
-}
+/* ✅ 性能优化：已删除不再使用的拖拽动画 */
+/* @keyframes drag-enter-icon - 已移除 */
+/* @keyframes drag-enter-pulse - 已移除 */
 
 .bookmark-column[data-level="0"] .bookmark-item.drag-over-before {
     box-shadow: -2px 0 0 0 var(--dialog-primary-bg);
@@ -385,9 +362,9 @@ body {
 .bookmark-item.selected,
 .vertical-modules a.selected {
     background-color: rgba(79, 192, 141, 0.15) !important;
+    /* ✅ 性能优化：移除 box-shadow，只保留 outline */
     outline: 2px solid rgba(79, 192, 141, 0.8);
     outline-offset: -2px;
-    box-shadow: 0 0 0 4px rgba(79, 192, 141, 0.08);
 }
 
 .bookmark-item.selected .bookmark-title {
@@ -399,8 +376,7 @@ body {
 .vertical-modules a.preview-highlight,
 .top-site-item.preview-highlight {
     background-color: rgba(255, 159, 64, 0.12) !important;
-    outline: 1.5px solid rgba(255, 159, 64, 0.5);
-    outline-offset: -1.5px;
+    /* ✅ 性能优化：移除 outline，只用背景色即可 */
 }
 
 /* --- 7. UTILITY: 统一效果 --- */
@@ -425,7 +401,7 @@ body {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
-    will-change: opacity, transform;
+    /* ✅ 低功耗优化：移除 will-change，减少内存占用 */
 }
 
 .vertical-modules.visible {
@@ -963,7 +939,7 @@ input:checked+.slider:before {
 .move-dialog-content,
 .edit-dialog-content {
     animation: subtle-appear 0.15s ease-out forwards;
-    will-change: opacity, transform;
+    /* ✅ 低功耗优化：移除 will-change，减少内存占用 */
 }
 
 
@@ -1133,7 +1109,7 @@ input:checked+.slider:before {
     border-radius: 8px;
     text-decoration: none;
     color: var(--text-color);
-    transition: background-color 0.2s ease;
+    /* ✅ 性能优化：移除 transition，使用即时切换 */
 }
 
 #recentBookmarksModule .module-content>a:hover {
@@ -1362,7 +1338,7 @@ body.is-resizing .resize-indicator {
     padding: 4px 5px;
     cursor: pointer;
     border-radius: 6px;
-    transition: background-color 0.2s;
+    /* ✅ 性能优化：移除 transition，使用即时切换 */
 }
 
 .breadcrumb-item:hover {

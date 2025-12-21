@@ -3679,8 +3679,9 @@ function displayFrequentlyVisited() {
                 }
             });
 
-            item.addEventListener('mouseenter', () => currentlyHoveredItem = item);
-            item.addEventListener('mouseleave', () => currentlyHoveredItem = null);
+            // ✅ 性能优化：移除重复的事件监听器，完全依赖全局事件委托（第4269行）
+            // item.addEventListener('mouseenter', () => currentlyHoveredItem = item);
+            // item.addEventListener('mouseleave', () => currentlyHoveredItem = null);
 
             fragment.appendChild(item);
         });
@@ -5025,17 +5026,27 @@ window.addEventListener('unhandledrejection', (event) => {
     document.addEventListener('keydown', handleSpacebarPreview);
 
     // ========================================
-    // ✅ DNS Prefetch 优化：提前解析域名（防抖版 + 设置开关）
+    // ✅ DNS Prefetch 优化：提前解析域名（防抖版 + 设置开关 + 性能优化）
     // ========================================
     const prefetchedDomains = new Set();
     let prefetchTimer = null;
     let lastItem = null;
 
+    // ✅ 性能优化：改用冒泡阶段，减少不必要的触发
     document.body.addEventListener('mouseenter', (e) => {
         // 检查是否启用 DNS Prefetch
         if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
 
-        const item = e.target.closest('.bookmark-item, .top-site-item, .vertical-modules a');
+        // ✅ 性能优化：提前检查目标元素，避免不必要的 closest() 调用
+        const target = e.target;
+        if (!target.classList ||
+            (!target.classList.contains('bookmark-item') &&
+             !target.classList.contains('top-site-item') &&
+             !target.matches('.vertical-modules a'))) {
+            return;
+        }
+
+        const item = target.closest('.bookmark-item, .top-site-item, .vertical-modules a');
 
         // 清除之前的计时器
         if (prefetchTimer) {
@@ -5069,7 +5080,8 @@ window.addEventListener('unhandledrejection', (event) => {
             }
             prefetchTimer = null;
         }, 150);
-    }, true);
+    }, false); // ✅ 改为冒泡阶段（false），减少触发频率
+
 
     // 设置初始化标志，防止重复初始化
     window._bookmarkExtensionInitialized = true;
