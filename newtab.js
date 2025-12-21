@@ -4678,7 +4678,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 监听"在当前标签打开书签"开关的变化
     openInCurrentTabToggle.addEventListener('change', (e) => {
         const openInCurrentTab = e.target.checked;
-        localStorage.setItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB, openInCurrentTab);
+        localStorage.setItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB, String(openInCurrentTab));  // ✅ 修复：转换为字符串
         cachedOpenInCurrentTab = openInCurrentTab;  // ✅ 修复：同步更新缓存变量
         showToast(`书签将在${openInCurrentTab ? '当前标签' : '新标签'}中打开`);
     });
