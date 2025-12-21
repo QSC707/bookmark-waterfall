@@ -914,15 +914,23 @@ input:checked+.slider:before {
 }
 
 /* --- 11. 优化的入场动画 --- */
-/* ✅ 首次加载优化：移除书签列入场动画，加快首屏渲染 */
+/* ✅ 首次加载优化：书签栏（Level 0）即时显示，书签列保留动画 */
 
-/* 只对非第一列的书签列使用入场动画 */
-.bookmark-container>.bookmark-column:not([data-level="1"]) {
-    /* ✅ 首次加载优化：移除动画，即时显示 */
+@keyframes subtle-appear {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
-/* 🔧 修复：移除第一列的CSS动画，避免与JavaScript的margin调整冲突 */
-/* 第一列的显示完全由JavaScript控制，不需要CSS动画 */
+/* 书签列（Level 1+）使用入场动画 */
+.bookmark-container>.bookmark-column:not([data-level="0"]):not([data-level="1"]) {
+    animation: subtle-appear 0.12s ease-out forwards;
+}
+
+/* 第一列（Level 1）的显示完全由JavaScript控制，不需要CSS动画 */
 .bookmark-container>.bookmark-column[data-level="1"] {
     /* 不使用动画，让JavaScript完全控制首次渲染 */
 }
@@ -930,8 +938,7 @@ input:checked+.slider:before {
 .context-menu,
 .move-dialog-content,
 .edit-dialog-content {
-    /* ✅ 首次加载优化：移除入场动画，即时显示 */
-    /* ✅ 低功耗优化：移除 will-change，减少内存占用 */
+    animation: subtle-appear 0.15s ease-out forwards;
 }
 
 
@@ -1447,13 +1454,15 @@ body.is-resizing .resize-indicator {
     transform: translate(-50%, -50%);
     width: 18px;
     height: 18px;
-    opacity: 0.3;
+    opacity: 0.2;                            /* ✅ 降低不透明度：0.3 → 0.2，更低调 */
+    filter: grayscale(30%);                  /* ✅ 降低饱和度，减少鲜艳感 */
 }
 
 .frequently-visited-panel.expanded .top-site-item .module-icon {
     position: static;
     transform: none;
-    opacity: 1;
+    opacity: 0.85;                           /* ✅ 展开时也降低一点：1 → 0.85 */
+    filter: grayscale(15%);                  /* ✅ 展开时轻微降低饱和度 */
     flex-shrink: 0;
 }
 
@@ -1464,6 +1473,7 @@ body.is-resizing .resize-indicator {
 
 .top-site-item:hover .module-icon {
     opacity: 1;
+    filter: none;                            /* ✅ 悬停时恢复原色 */
 }
 
 /* 文字：隐藏时不显示，展开时显示 */
