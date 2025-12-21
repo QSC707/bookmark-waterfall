@@ -1413,18 +1413,25 @@ function handleFolderClick(folderItem, bookmarkId) {
     
     const level = parseInt(column.dataset.level, 10);
 
-    // P0修复：检查parentElement是否存在
-    // ✅ P1-2优化：使用 ElementCache 替代 querySelectorAll
+    // ✅ 修复：只清除同一列中的高亮,保留其他列的导航路径
+    // 这样用户可以看到完整的文件夹打开路径
+    const itemsToRemove = [];
     ElementCache.highlighted.forEach(i => {
         if (i.isConnected) {
-            i.classList.remove('highlighted');
-            // ✅ 修复 #5: 更新ARIA状态
-            if (i.classList.contains('is-folder')) {
-                i.setAttribute('aria-expanded', 'false');
+            const itemColumn = i.closest('.bookmark-column');
+            // 只移除同一列中的高亮
+            if (itemColumn && itemColumn.dataset.level === column.dataset.level) {
+                i.classList.remove('highlighted');
+                // ✅ 修复 #5: 更新ARIA状态
+                if (i.classList.contains('is-folder')) {
+                    i.setAttribute('aria-expanded', 'false');
+                }
+                itemsToRemove.push(i);
             }
         }
     });
-    ElementCache.highlighted.clear();
+    // 从缓存中移除已清除高亮的项目
+    itemsToRemove.forEach(i => ElementCache.highlighted.delete(i));
 
     if (!isHighlighted) {
         ElementCache.addHighlight(folderItem);
