@@ -5026,51 +5026,12 @@ window.addEventListener('unhandledrejection', (event) => {
     document.addEventListener('keydown', handleSpacebarPreview);
 
     // ========================================
-    // ✅ DNS Prefetch 三层优化策略：页面加载 + 悬停 + 预连接
+    // ✅ DNS Prefetch 极简优化：仅悬停预解析
     // ========================================
     const prefetchedDomains = new Set();
-    const preconnectedDomains = new Set();
     let prefetchTimer = null;
-    let lastItem = null;
 
-    // === 层级 1：页面加载时立即预解析前 20 个书签的域名 ===
-    function prefetchInitialBookmarks() {
-        if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
-
-        // 收集所有书签的 URL
-        const bookmarkItems = document.querySelectorAll('.bookmark-item[data-url], .top-site-item[data-url]');
-        const urls = Array.from(bookmarkItems)
-            .slice(0, 20)  // 只取前 20 个
-            .map(item => item.dataset.url)
-            .filter(url => url && !url.startsWith('chrome://'));
-
-        // 提取唯一域名
-        const domains = new Set();
-        urls.forEach(url => {
-            try {
-                const origin = new URL(url).origin;
-                domains.add(origin);
-            } catch (e) {}
-        });
-
-        // 批量添加 DNS Prefetch
-        domains.forEach(origin => {
-            if (prefetchedDomains.has(origin)) return;
-            prefetchedDomains.add(origin);
-
-            const link = document.createElement('link');
-            link.rel = 'dns-prefetch';
-            link.href = origin;
-            document.head.appendChild(link);
-        });
-
-        console.log(`✅ DNS Prefetch: 已预解析 ${domains.size} 个域名`);
-    }
-
-    // 页面加载完成后立即执行
-    setTimeout(prefetchInitialBookmarks, 100);
-
-    // === 层级 2：悬停时预解析（防抖优化：150ms → 50ms）===
+    // 悬停时预解析（防抖优化：50ms）
     document.body.addEventListener('mouseenter', (e) => {
         if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
 
@@ -5094,11 +5055,9 @@ window.addEventListener('unhandledrejection', (event) => {
         const url = item.dataset.url || item.href;
         if (!url || item.classList.contains('is-folder')) return;
 
-        // ✅ 优化：防抖延迟从 150ms 降低到 50ms
-        lastItem = { url, origin: null };
         prefetchTimer = setTimeout(() => {
             try {
-                const urlObj = new URL(lastItem.url);
+                const urlObj = new URL(url);
                 const origin = urlObj.origin;
 
                 if (prefetchedDomains.has(origin)) return;
@@ -5110,7 +5069,7 @@ window.addEventListener('unhandledrejection', (event) => {
                 document.head.appendChild(link);
             } catch (e) {}
             prefetchTimer = null;
-        }, 50);  // ✅ 从 150ms 降低到 50ms
+        }, 50);
     }, false);
 
 
