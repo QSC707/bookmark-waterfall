@@ -206,8 +206,13 @@ const previewHighlightElements = new Set();
 let cachedOpenInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
 
 // ✅ 性能优化: 缓存窗口类型检测，避免每次点击都检查
-const isInPopupWindow = window.opener === null && window.location.href.includes('newtab.html');
+let isInPopupWindow = false;
 const isInIframe = window.self !== window.top;
+
+// 异步检测窗口类型（使用 chrome.windows API 准确判断）
+chrome.windows.getCurrent((win) => {
+    isInPopupWindow = win.type === 'popup';
+});
 
 // ========================================
 // P1性能优化：DOM元素缓存
@@ -683,36 +688,37 @@ function isValidUrl(string) {
 // ========================================
 
 /**
- * ✅ 极速优化: 智能书签打开函数
+ * 智能书签打开函数
  * @param {string} url - 要打开的URL
  * @param {MouseEvent|null} [event=null] - 点击事件对象
- *
- * 性能策略：
- * - chrome.tabs.update: 复用进程（最快）
- * - chrome.tabs.create: 新标签打开
  */
 function openBookmark(url, event = null) {
     if (!url) return;
 
     const hasModifier = event && (event.metaKey || event.ctrlKey || event.shiftKey);
 
+    // 弹窗模式：始终在新标签打开并关闭弹窗
     if (isInPopupWindow) {
         chrome.tabs.create({ url, active: true });
         window.close();
         return;
     }
 
+    // iframe 模式：通过消息传递给父窗口
     if (isInIframe) {
         window.parent.postMessage({ type: 'OPEN_BOOKMARK', url }, '*');
         return;
     }
 
-    // 智能选择最快方式
+    // 普通模式：根据修饰键和用户设置决定打开方式
     if (hasModifier) {
+        // 有修饰键：始终在新标签打开
         chrome.tabs.create({ url, active: true });
     } else if (cachedOpenInCurrentTab) {
+        // 开关开启：在当前标签打开
         chrome.tabs.update({ url });
     } else {
+        // 开关关闭：在新标签打开
         chrome.tabs.create({ url, active: true });
     }
 }
@@ -2998,9 +3004,13 @@ function handleContextMenuAction(action, element) {
             selectedIds.forEach(id => {
                 const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"], .top-site-item[data-id="${id}"]`);
                 if (item && item.dataset.url) {
-                    if (action === 'open') window.open(item.dataset.url, '_blank');
-                    else if (action === 'openNew') chrome.windows.create({ url: item.dataset.url });
-                    else if (action === 'openIncognito') chrome.windows.create({ url: item.dataset.url, incognito: true });
+                    if (action === 'open') {
+                        openBookmark(item.dataset.url, null);
+                    } else if (action === 'openNew') {
+                        chrome.windows.create({ url: item.dataset.url });
+                    } else if (action === 'openIncognito') {
+                        chrome.windows.create({ url: item.dataset.url, incognito: true });
+                    }
                 }
             });
             break;
@@ -3009,7 +3019,7 @@ function handleContextMenuAction(action, element) {
                 chrome.bookmarks.getChildren(element.dataset.id, (children) => {
                     children.forEach(child => {
                         if (child.url) {
-                            window.open(child.url, '_blank');
+                            chrome.tabs.create({ url: child.url, active: true });
                         }
                     });
                 });
@@ -3876,8 +3886,8 @@ async function displayRecentBookmarks() {
             }
 
             const a = document.createElement('a');
-            a.href = item.url;
-            a.target = '_blank';
+            // ✅ 使用 href="#" 保持链接样式，点击事件由全局委托处理
+            a.href = '#';
             a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
             a.dataset.id = item.id;
             a.dataset.url = item.url;
@@ -4333,7 +4343,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }, true);
     
     document.body.addEventListener('click', (e) => {
-        // === 性能优化：复用缓存的选择器 ===
         const item = e.target.closest(ITEM_SELECTOR);
         if (!item) return;
 
@@ -4343,10 +4352,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (isFolder) {
             // 文件夹点击处理
             if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
                 handleFolderClick(item, item.dataset.id);
             }
-        } else if (url && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
-            // 使用统一的打开书签函数
+        } else if (url) {
+            // ✅ 阻止默认行为，使用统一的 openBookmark 函数
+            e.preventDefault();
             openBookmark(url, e);
         }
     }, true);
@@ -4673,13 +4684,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // 初始化"在当前标签打开书签"设置
-    openInCurrentTabToggle.checked = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
+    const storedValue = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB);
+    openInCurrentTabToggle.checked = storedValue === 'true';
 
     // 监听"在当前标签打开书签"开关的变化
     openInCurrentTabToggle.addEventListener('change', (e) => {
         const openInCurrentTab = e.target.checked;
-        localStorage.setItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB, String(openInCurrentTab));  // ✅ 修复：转换为字符串
-        cachedOpenInCurrentTab = openInCurrentTab;  // ✅ 修复：同步更新缓存变量
+        localStorage.setItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB, String(openInCurrentTab));
+        cachedOpenInCurrentTab = openInCurrentTab;
         showToast(`书签将在${openInCurrentTab ? '当前标签' : '新标签'}中打开`);
     });
 
