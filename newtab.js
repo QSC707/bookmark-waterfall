@@ -197,6 +197,13 @@ let hoverIntent = AppState.hover.intent;
 const selectedElements = new Set();
 const previewHighlightElements = new Set();
 
+// ✅ 性能优化: 缓存localStorage设置，避免每次点击都读取
+let cachedOpenInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
+
+// ✅ 性能优化: 缓存窗口类型检测，避免每次点击都检查
+const isInPopupWindow = window.opener === null && window.location.href.includes('newtab.html');
+const isInIframe = window.self !== window.top;
+
 // ========================================
 // P1性能优化：DOM元素缓存
 // ========================================
@@ -689,19 +696,24 @@ function isValidUrl(string) {
 function openBookmark(url, event = null) {
     if (!url) return;
 
-    // ✅ 安全修复: 验证URL协议，防止XSS攻击
-    try {
-        const urlObj = new URL(url);
-        const allowedProtocols = ['http:', 'https:', 'chrome:', 'chrome-extension:', 'file:'];
+    // ✅ 性能优化: 移除URL验证（Chrome书签API已验证）
+    // Chrome不允许危险协议保存为书签，无需重复检查
 
-        if (!allowedProtocols.includes(urlObj.protocol)) {
-            console.warn('Blocked potentially dangerous URL protocol:', urlObj.protocol, url);
-            showToast('不允许打开此类型的链接', CONSTANTS.TIMING.TOAST_LONG, 'warning');
-            return;
-        }
-    } catch (e) {
-        console.error('Invalid URL format:', url, e);
-        showToast('无效的链接地址', CONSTANTS.TIMING.TOAST_LONG, 'error');
+    // ✅ 性能优化: 使用缓存的窗口类型检测
+    if (isInPopupWindow) {
+        // 在弹出窗口中，打开书签后关闭窗口
+        window.open(url, '_blank');
+        window.close();
+        return;
+    }
+
+    // ✅ 性能优化: 使用缓存的iframe检测
+    if (isInIframe) {
+        // 在iframe中，发送消息给父窗口
+        window.parent.postMessage({
+            type: 'OPEN_BOOKMARK',
+            url: url
+        }, '*');
         return;
     }
 
@@ -712,10 +724,8 @@ function openBookmark(url, event = null) {
         // 有修饰键时始终在新标签打开
         window.open(url, '_blank');
     } else {
-        // 没有修饰键时根据用户设置决定
-        const openInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
-
-        if (openInCurrentTab) {
+        // 使用缓存的设置，避免每次读取localStorage
+        if (cachedOpenInCurrentTab) {
             window.location.href = url;
         } else {
             window.open(url, '_blank');

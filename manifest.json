@@ -13,6 +13,18 @@
   "chrome_url_overrides": {
       "newtab": "newtab.html"
   },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "toggle-bookmark-window": {
+      "suggested_key": {
+        "default": "Ctrl+Q",
+        "mac": "Command+Q"
+      },
+      "description": "打开/关闭书签主页窗口"
+    }
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
