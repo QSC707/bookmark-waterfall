@@ -952,32 +952,27 @@ input:checked+.slider:before {
     /* For Firefox */
 }
 
-/* --- 11. 简化的入场动画 --- */
+/* --- 11. 优化的入场动画 --- */
+/* 🔧 优化：使用更柔和的淡入效果，移除位移动画，减少"晃眼"感 */
 @keyframes subtle-appear {
     from {
         opacity: 0;
-        transform: translateY(4px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
 /* 只对非第一列的书签列使用入场动画 */
 .bookmark-container>.bookmark-column:not([data-level="1"]) {
-    animation: subtle-appear 0.15s ease-out forwards;
+    animation: subtle-appear 0.12s ease-out forwards;
 }
 
-/* 第一列使用更微妙的淡入效果 */
+/* 🔧 修复：移除第一列的CSS动画，避免与JavaScript的margin调整冲突 */
+/* 第一列的显示完全由JavaScript控制，不需要CSS动画 */
 .bookmark-container>.bookmark-column[data-level="1"] {
-    animation: fade-in 0.2s ease-out forwards;
-}
-
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    /* 不使用动画，让JavaScript完全控制首次渲染 */
 }
 
 .context-menu,
