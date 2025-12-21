@@ -15,7 +15,7 @@
     --link-color: #e2e2e2;
     --highlighted-bg: rgba(255, 255, 255, 0.08);
     --hover-bg: rgba(255, 255, 255, 0.12);
-    --dialog-bg: rgba(44, 44, 44, 0.95);     /* ✅ 优化：从 0.7 提升到 0.95，更清晰 */
+    --dialog-bg: #2c2c2c;                    /* ✅ 性能优化：移除透明度，改为纯色 */
     --dialog-primary-bg: #3772ff;
     --dialog-delete-bg: #f44336;
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
@@ -41,7 +41,7 @@
     --link-color: #111;
     --highlighted-bg: rgba(0, 0, 0, 0.05);
     --hover-bg: rgba(0, 0, 0, 0.08);
-    --dialog-bg: rgba(255, 255, 255, 0.95);  /* ✅ 优化：从 0.7 提升到 0.95，更清晰 */
+    --dialog-bg: #ffffff;                    /* ✅ 性能优化：移除透明度，改为纯色 */
     --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
     --module-bg-color: #ffffff;
     --module-header-color: #555;
@@ -394,7 +394,8 @@ body {
     transform: translate(-50%, -50%) scale(0.98);
     display: flex;
     flex-direction: column;
-    width: clamp(500px, 50vw, 720px);
+    width: 600px;                            /* ✅ 首次加载优化：移除 clamp() 计算，使用固定值 */
+    max-width: 90vw;                         /* 响应式兼容 */
     height: 85vh;
     z-index: 1001;
     overflow: hidden;
@@ -913,20 +914,11 @@ input:checked+.slider:before {
 }
 
 /* --- 11. 优化的入场动画 --- */
-/* 🔧 优化：使用更柔和的淡入效果，移除位移动画，减少"晃眼"感 */
-@keyframes subtle-appear {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
+/* ✅ 首次加载优化：移除书签列入场动画，加快首屏渲染 */
 
 /* 只对非第一列的书签列使用入场动画 */
 .bookmark-container>.bookmark-column:not([data-level="1"]) {
-    animation: subtle-appear 0.12s ease-out forwards;
+    /* ✅ 首次加载优化：移除动画，即时显示 */
 }
 
 /* 🔧 修复：移除第一列的CSS动画，避免与JavaScript的margin调整冲突 */
@@ -938,7 +930,7 @@ input:checked+.slider:before {
 .context-menu,
 .move-dialog-content,
 .edit-dialog-content {
-    animation: subtle-appear 0.15s ease-out forwards;
+    /* ✅ 首次加载优化：移除入场动画，即时显示 */
     /* ✅ 低功耗优化：移除 will-change，减少内存占用 */
 }
 
