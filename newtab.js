@@ -171,28 +171,6 @@ const AppState = {
     }
 };
 
-// ✅ 向后兼容：保留旧变量名作为 AppState 的引用（逐步迁移）
-let isHoverEnabled = AppState.hover.enabled;
-let isDragging = AppState.drag.isDragging;
-let suppressHover = AppState.hover.suppressHover;
-let draggedItem = AppState.drag.draggedItem;
-let dragOverTimeout = AppState.drag.dragOverTimeout;
-let lastDragOverTarget = AppState.drag.lastDragOverTarget;
-let previewWindowId = AppState.windows.preview;
-let currentlyHoveredItem = AppState.hover.currentItem;
-let selectedItems = AppState.selection.items;
-let lastClickedId = AppState.selection.lastClickedId;
-let allBookmarksFlat = AppState.data.allBookmarksFlat;
-let historyWindowId = AppState.windows.history;
-let pendingFolderRequest = AppState.requests.pendingFolder;
-let pendingRecentBookmarksRequest = AppState.requests.pendingRecentBookmarks;
-let initialMarginLeft = AppState.layout.initialMarginLeft;
-let savedMarginLeft = AppState.layout.savedMarginLeft;
-let marginWindowWidth = AppState.layout.marginWindowWidth;
-let currentColumnCount = AppState.layout.currentColumnCount;
-let needsRecenter = AppState.layout.needsRecenter;
-let hoverIntent = AppState.hover.intent;
-
 // ✅ 优化 #4: 缓存选中和预览高亮的DOM元素引用，避免频繁查询DOM
 const selectedElements = new Set();
 const previewHighlightElements = new Set();
@@ -355,9 +333,6 @@ let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
     });
 }, { rootMargin: '0px 0px 200px 0px' }); // 预加载视口下方200px内的图片
 
-// ✅ 修复 #2: 将 resizeObserver 提升到全局作用域，便于清理
-let resizeObserver = null;
-
 function observeLazyImages(container) {
     container.querySelectorAll('img[data-src]').forEach(img => {
         lazyLoadObserver.observe(img);
@@ -372,12 +347,6 @@ window.addEventListener('beforeunload', () => {
     if (lazyLoadObserver) {
         lazyLoadObserver.disconnect();
         lazyLoadObserver = null;
-    }
-
-    // ✅ 修复 #2: 断开 ResizeObserver
-    if (resizeObserver) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
     }
 
     // === 清理2：清除所有悬停意图计时器 ===
@@ -831,8 +800,6 @@ function createSkeletonLoader(count, shape = 'circle') {
     
     return container;
 }
-
-// ▼▼▼ 从这里开始添加新代码 ▼▼▼
 
 /**
  * 创建一个可复用的悬停意图监听器。
@@ -1942,7 +1909,13 @@ function performSmartScroll(container, params) {
  * @param {HTMLElement} container - 书签容器元素
  */
 function adjustColumnWidths(container) {
+    // ✅ 性能优化：提前检查，避免不必要的计算
     if (!container || resizing) return;
+
+    // ✅ 性能优化：提前检查容器宽度，避免无效计算
+    const availableWidth = container.clientWidth;
+    if (!availableWidth || availableWidth <= 0) return;
+
     resizing = true;
 
     requestAnimationFrame(() => {
@@ -1955,7 +1928,6 @@ function adjustColumnWidths(container) {
             }
 
             const gap = CONSTANTS.LAYOUT.COLUMN_GAP;
-            const availableWidth = container.clientWidth;
             const config = getResponsiveConfig();
             const DEFAULT_COL_WIDTH = config.ideal;
             const MIN_COL_WIDTH = config.min;
@@ -1972,7 +1944,7 @@ function adjustColumnWidths(container) {
             // === 阶段2：计算左边距 ===
             const newColumnCount = columns.length;
             const columnsChanged = newColumnCount !== currentColumnCount;
-            
+
             const marginLeft = calculateFirstColumnMargin({
                 firstColumn,
                 columns,
@@ -2817,7 +2789,6 @@ function handleContextMenuAction(action, element) {
         case 'properties':
             showPropertiesDialog(element);
             break;
-        // ▼▼▼ 在 switch 语句末尾添加这个新的 case ▼▼▼
         case 'removeTopSite':
             if (element && element.dataset.url) {
                 chrome.history.deleteUrl({ url: element.dataset.url }, () => {
@@ -2831,7 +2802,6 @@ function handleContextMenuAction(action, element) {
                 });
             }
             break;
-        // ▲▲▲ 添加结束 ▲▲▲
     }
 }
 
@@ -4242,48 +4212,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     window.addEventListener('scroll', hideContextMenu, true);
-    window.addEventListener('resize', () => {
-        hideContextMenu();
-        // 窗口大小变化时，不重置初始边距，保持视图位置稳定
-        // initialMarginLeft 会在列数变化或全部关闭时才重置
-        
-        const bookmarksBar = document.querySelector('.bookmark-column[data-level="0"]');
-        if (bookmarksBar) {
-            adjustBookmarksBarAlignment(bookmarksBar);
-        }
-    });
 
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    // 优化：使用节流+防抖组合，平衡响应速度和性能
     let resizeTimer;
-    let lastResizeTime = 0;
-    const THROTTLE_DELAY = 150; // 节流延迟（ms）
-    const DEBOUNCE_DELAY = 100; // 防抖延迟（ms）
-    
-    const handleResize = () => {
-        const now = Date.now();
-        
-        // 节流：如果距离上次执行超过阈值，立即执行
-        if (now - lastResizeTime >= THROTTLE_DELAY) {
-            adjustColumnWidths(bookmarkContainer);
-            lastResizeTime = now;
-        }
 
-        // 防抖：清除之前的定时器，在停止调整后再执行一次
+    // 简单的防抖处理：窗口大小变化时，延迟300ms后执行
+    window.addEventListener('resize', () => {
+        hideContextMenu();
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
+            const bookmarksBar = document.querySelector('.bookmark-column[data-level="0"]');
+            if (bookmarksBar) {
+                adjustBookmarksBarAlignment(bookmarksBar);
+            }
             adjustColumnWidths(bookmarkContainer);
-            lastResizeTime = Date.now();
-        }, DEBOUNCE_DELAY);
-    };
-
-    // ✅ 修复 #2: 使用全局 resizeObserver，便于在页面卸载时清理
-    if (window.ResizeObserver && bookmarkContainer) {
-        resizeObserver = new ResizeObserver(() => {
-            requestAnimationFrame(() => handleResize());
-        });
-        resizeObserver.observe(bookmarkContainer);
-    }
+        }, 300);
+    });
 
     // ============================================================
     // === ESC 键分层递进关闭逻辑（最终优化版）===
