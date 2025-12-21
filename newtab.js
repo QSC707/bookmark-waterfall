@@ -5026,18 +5026,54 @@ window.addEventListener('unhandledrejection', (event) => {
     document.addEventListener('keydown', handleSpacebarPreview);
 
     // ========================================
-    // ✅ DNS Prefetch 优化：提前解析域名（防抖版 + 设置开关 + 性能优化）
+    // ✅ DNS Prefetch 三层优化策略：页面加载 + 悬停 + 预连接
     // ========================================
     const prefetchedDomains = new Set();
+    const preconnectedDomains = new Set();
     let prefetchTimer = null;
     let lastItem = null;
 
-    // ✅ 性能优化：改用冒泡阶段，减少不必要的触发
-    document.body.addEventListener('mouseenter', (e) => {
-        // 检查是否启用 DNS Prefetch
+    // === 层级 1：页面加载时立即预解析前 20 个书签的域名 ===
+    function prefetchInitialBookmarks() {
         if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
 
-        // ✅ 性能优化：提前检查目标元素，避免不必要的 closest() 调用
+        // 收集所有书签的 URL
+        const bookmarkItems = document.querySelectorAll('.bookmark-item[data-url], .top-site-item[data-url]');
+        const urls = Array.from(bookmarkItems)
+            .slice(0, 20)  // 只取前 20 个
+            .map(item => item.dataset.url)
+            .filter(url => url && !url.startsWith('chrome://'));
+
+        // 提取唯一域名
+        const domains = new Set();
+        urls.forEach(url => {
+            try {
+                const origin = new URL(url).origin;
+                domains.add(origin);
+            } catch (e) {}
+        });
+
+        // 批量添加 DNS Prefetch
+        domains.forEach(origin => {
+            if (prefetchedDomains.has(origin)) return;
+            prefetchedDomains.add(origin);
+
+            const link = document.createElement('link');
+            link.rel = 'dns-prefetch';
+            link.href = origin;
+            document.head.appendChild(link);
+        });
+
+        console.log(`✅ DNS Prefetch: 已预解析 ${domains.size} 个域名`);
+    }
+
+    // 页面加载完成后立即执行
+    setTimeout(prefetchInitialBookmarks, 100);
+
+    // === 层级 2：悬停时预解析（防抖优化：150ms → 50ms）===
+    document.body.addEventListener('mouseenter', (e) => {
+        if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
+
         const target = e.target;
         if (!target.classList ||
             (!target.classList.contains('bookmark-item') &&
@@ -5048,7 +5084,6 @@ window.addEventListener('unhandledrejection', (event) => {
 
         const item = target.closest('.bookmark-item, .top-site-item, .vertical-modules a');
 
-        // 清除之前的计时器
         if (prefetchTimer) {
             clearTimeout(prefetchTimer);
             prefetchTimer = null;
@@ -5059,28 +5094,24 @@ window.addEventListener('unhandledrejection', (event) => {
         const url = item.dataset.url || item.href;
         if (!url || item.classList.contains('is-folder')) return;
 
-        // 防抖：只在停留 150ms 后才处理
+        // ✅ 优化：防抖延迟从 150ms 降低到 50ms
         lastItem = { url, origin: null };
         prefetchTimer = setTimeout(() => {
             try {
                 const urlObj = new URL(lastItem.url);
                 const origin = urlObj.origin;
 
-                // 避免重复预解析
                 if (prefetchedDomains.has(origin)) return;
                 prefetchedDomains.add(origin);
 
-                // 添加 DNS Prefetch
                 const link = document.createElement('link');
                 link.rel = 'dns-prefetch';
                 link.href = origin;
                 document.head.appendChild(link);
-            } catch (e) {
-                // 忽略无效 URL
-            }
+            } catch (e) {}
             prefetchTimer = null;
-        }, 150);
-    }, false); // ✅ 改为冒泡阶段（false），减少触发频率
+        }, 50);  // ✅ 从 150ms 降低到 50ms
+    }, false);
 
 
     // 设置初始化标志，防止重复初始化
