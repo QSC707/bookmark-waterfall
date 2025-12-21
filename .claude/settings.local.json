@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for var in \"isHoverEnabled\" \"isDragging\" \"suppressHover\" \"draggedItem\" \"dragOverTimeout\" \"lastDragOverTarget\" \"previewWindowId\" \"currentlyHoveredItem\" \"selectedItems\" \"lastClickedId\" \"allBookmarksFlat\" \"historyWindowId\" \"pendingFolderRequest\" \"pendingRecentBookmarksRequest\" \"initialMarginLeft\" \"savedMarginLeft\" \"marginWindowWidth\" \"currentColumnCount\" \"needsRecenter\" \"hoverIntent\")",
+      "Bash(do echo:*)",
+      "Bash(done)",
+      "Bash(node:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -61,7 +61,8 @@ const CONSTANTS = {
         HOVER_ENABLED: 'hoverToOpenEnabled',
         HOVER_DELAY: 'hoverDelay',
         EXCLUDE_RULES: 'bookmarkExcludeRules',
-        OPEN_IN_CURRENT_TAB: 'openInCurrentTab'
+        OPEN_IN_CURRENT_TAB: 'openInCurrentTab',
+        DNS_PREFETCH: 'dnsPrefetchEnabled'
     },
     // ✅ 优化 #8: 提取通用时间常量
     TIMING: {
@@ -4680,6 +4681,16 @@ document.addEventListener('DOMContentLoaded', function () {
         showToast(`书签将在${openInCurrentTab ? '当前标签' : '新标签'}中打开`);
     });
 
+    // DNS Prefetch 设置
+    const dnsPrefetchToggle = document.getElementById('dns-prefetch-toggle');
+    dnsPrefetchToggle.checked = localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) !== 'false';
+
+    dnsPrefetchToggle.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        localStorage.setItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH, enabled);
+        showToast(`DNS 预解析已${enabled ? '开启' : '关闭'}`);
+    });
+
     settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsPanel.classList.toggle('visible');
@@ -5012,6 +5023,53 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
     document.addEventListener('keydown', handleSpacebarPreview);
+
+    // ========================================
+    // ✅ DNS Prefetch 优化：提前解析域名（防抖版 + 设置开关）
+    // ========================================
+    const prefetchedDomains = new Set();
+    let prefetchTimer = null;
+    let lastItem = null;
+
+    document.body.addEventListener('mouseenter', (e) => {
+        // 检查是否启用 DNS Prefetch
+        if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
+
+        const item = e.target.closest('.bookmark-item, .top-site-item, .vertical-modules a');
+
+        // 清除之前的计时器
+        if (prefetchTimer) {
+            clearTimeout(prefetchTimer);
+            prefetchTimer = null;
+        }
+
+        if (!item) return;
+
+        const url = item.dataset.url || item.href;
+        if (!url || item.classList.contains('is-folder')) return;
+
+        // 防抖：只在停留 150ms 后才处理
+        lastItem = { url, origin: null };
+        prefetchTimer = setTimeout(() => {
+            try {
+                const urlObj = new URL(lastItem.url);
+                const origin = urlObj.origin;
+
+                // 避免重复预解析
+                if (prefetchedDomains.has(origin)) return;
+                prefetchedDomains.add(origin);
+
+                // 添加 DNS Prefetch
+                const link = document.createElement('link');
+                link.rel = 'dns-prefetch';
+                link.href = origin;
+                document.head.appendChild(link);
+            } catch (e) {
+                // 忽略无效 URL
+            }
+            prefetchTimer = null;
+        }, 150);
+    }, true);
 
     // 设置初始化标志，防止重复初始化
     window._bookmarkExtensionInitialized = true;
