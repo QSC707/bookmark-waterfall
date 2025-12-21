@@ -1251,6 +1251,144 @@ function createBookmarkItem(bookmark, index) {
 }
 
 /**
+ * ✅ 性能优化：创建空列（用于即时反馈）
+ * @param {number} level - 列的层级
+ * @returns {HTMLElement} 空列元素
+ */
+function createEmptyColumn(level) {
+    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
+
+    // ✅ 性能优化：批量移除旧列,减少重排次数
+    const nextColumns = container.querySelectorAll(`.bookmark-column`);
+    const columnsToRemove = [];
+    nextColumns.forEach(col => {
+        if (parseInt(col.dataset.level) >= level) {
+            columnsToRemove.push(col);
+        }
+    });
+
+    // 一次性移除所有列
+    columnsToRemove.forEach(col => col.remove());
+
+    // 检查是否要移除列1
+    const willRemoveLevel1 = level === 1 && columnsToRemove.some(col => col.dataset.level === '1');
+    if (willRemoveLevel1) {
+        resetLayoutState();
+    }
+
+    // 创建新列
+    const column = document.createElement('div');
+    column.className = 'bookmark-column new-column';
+    column.dataset.level = level;
+    column.setAttribute('role', 'navigation');
+    column.setAttribute('aria-label', `书签列 ${level}`);
+
+    // 如果是第一列，预先计算并应用边距
+    if (level === 1 && initialMarginLeft === null) {
+        const availableWidth = container.clientWidth;
+        const baseMargin = calculateCenteredMargin(availableWidth);
+        const finalMargin = applyCenteredMargin(baseMargin);
+        initialMarginLeft = finalMargin;
+        column.style.marginLeft = `${finalMargin}px`;
+        column.style.transition = 'none';
+    }
+
+    // ✅ 性能优化：禁用初始动画（大窗口）,减少渲染开销
+    if (level === 1 && window.innerWidth > 1600) {
+        column.style.animation = 'none';
+        column.style.opacity = '1'; // 直接设置为可见,不需要动画
+    }
+
+    // 创建内容包装器
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'column-content-wrapper';
+    column.appendChild(contentWrapper);
+
+    // 添加拖放事件
+    column.addEventListener('dragover', handleColumnDragOver);
+    column.addEventListener('dragleave', handleColumnDragLeave);
+    column.addEventListener('drop', handleColumnDrop);
+
+    makeColumnResizable(column);
+
+    return column;
+}
+
+/**
+ * ✅ 性能优化：填充列内容（分离创建和填充逻辑）
+ * @param {Array} bookmarks - 书签数组
+ * @param {number} level - 列的层级
+ */
+function fillColumnContent(bookmarks, level) {
+    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
+    const column = container.querySelector(`.bookmark-column[data-level="${level}"]`);
+
+    if (!column) return;
+
+    const contentWrapper = column.querySelector('.column-content-wrapper');
+    if (!contentWrapper) return;
+
+    // 清空加载状态
+    contentWrapper.innerHTML = '';
+
+    if (bookmarks.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'empty-folder-message';
+        emptyMsg.textContent = '这个文件夹是空的';
+        contentWrapper.appendChild(emptyMsg);
+    } else {
+        // 使用 DocumentFragment 批量添加
+        const fragment = document.createDocumentFragment();
+        bookmarks.forEach((bookmark, index) => {
+            const item = createBookmarkItem(bookmark, index);
+            fragment.appendChild(item);
+        });
+        contentWrapper.appendChild(fragment);
+        observeLazyImages(contentWrapper);
+    }
+
+    // ✅ 性能优化：移除不必要的动画恢复逻辑
+    // 大窗口下已经在 createEmptyColumn 中设置为直接可见,无需额外处理
+
+    // ✅ 性能优化：减少滚动延迟,提升响应速度
+    // 使用 requestAnimationFrame 替代 setTimeout,更精确的时机
+    requestAnimationFrame(() => {
+        if (container.contains(column) && column.classList.contains('new-column')) {
+            const currentScroll = container.scrollLeft;
+            const containerWidth = container.clientWidth;
+            const columnLeft = column.offsetLeft;
+            const columnRight = columnLeft + column.offsetWidth;
+
+            const prevColumn = column.previousElementSibling;
+            let targetScroll = currentScroll;
+
+            if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
+                const prevLeft = prevColumn.offsetLeft;
+                const totalWidth = columnRight - prevLeft;
+
+                if (totalWidth <= containerWidth) {
+                    targetScroll = prevLeft - 20;
+                } else {
+                    targetScroll = Math.max(0, columnLeft - 40);
+                }
+            } else {
+                targetScroll = Math.max(0, columnLeft - 20);
+            }
+
+            const scrollDiff = Math.abs(targetScroll - currentScroll);
+            if (scrollDiff > 10) {
+                container.scrollTo({
+                    left: targetScroll,
+                    behavior: 'smooth'
+                });
+            }
+
+            column.classList.remove('new-column');
+        }
+    });
+}
+
+/**
  * ✅ 优化 #11: 处理文件夹点击事件，打开/关闭文件夹
  * @param {HTMLElement} folderItem - 文件夹DOM元素
  * @param {string} bookmarkId - 书签ID
@@ -1293,14 +1431,28 @@ function handleFolderClick(folderItem, bookmarkId) {
         // ✅ 修复 #5: 更新ARIA状态
         folderItem.setAttribute('aria-expanded', 'true');
 
+        // ✅ 性能优化：立即创建空列,显示加载状态
+        const container = document.getElementById('bookmarkContainer');
+        if (container) {
+            // 先创建空列,给用户即时反馈
+            const emptyColumn = createEmptyColumn(level + 1);
+            container.appendChild(emptyColumn);
+
+            // ✅ 性能优化：延迟布局调整,优先显示空列
+            // 使用 setTimeout(0) 让浏览器先渲染空列,再进行布局计算
+            setTimeout(() => {
+                adjustColumnWidths(container);
+            }, 0);
+        }
+
         // ✅ P0修复：添加请求去重机制，防止快速连续点击导致的竞态条件
         if (pendingFolderRequest) {
             pendingFolderRequest.cancelled = true;
         }
-        
+
         const thisRequest = { cancelled: false, folderId: bookmarkId };
         pendingFolderRequest = thisRequest;
-        
+
         chrome.bookmarks.getChildren(bookmarkId, (freshChildren) => {
             // ✅ 修复 #3: 检查 Chrome API 错误
             if (chrome.runtime.lastError) {
@@ -1313,6 +1465,11 @@ function handleFolderClick(folderItem, bookmarkId) {
                 folderItem.classList.remove('highlighted');
                 // ✅ 修复 #5: 更新ARIA状态
                 folderItem.setAttribute('aria-expanded', 'false');
+                // 移除空列
+                if (container) {
+                    const emptyCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
+                    if (emptyCol) emptyCol.remove();
+                }
                 showToast('加载文件夹失败', CONSTANTS.TIMING.TOAST_NORMAL, 'error');
                 return;
             }
@@ -1331,6 +1488,11 @@ function handleFolderClick(folderItem, bookmarkId) {
                 folderItem.classList.remove('highlighted');
                 // ✅ 修复 #5: 更新ARIA状态
                 folderItem.setAttribute('aria-expanded', 'false');
+                // 移除空列
+                if (container) {
+                    const emptyCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
+                    if (emptyCol) emptyCol.remove();
+                }
                 return;
             }
 
@@ -1339,9 +1501,9 @@ function handleFolderClick(folderItem, bookmarkId) {
                 pendingFolderRequest = null;
             }
 
-            const container = document.getElementById('bookmarkContainer');
+            // ✅ 性能优化：直接填充内容到已存在的列
             if (container) {
-                renderBookmarks(freshChildren, container, level + 1);
+                fillColumnContent(freshChildren, level + 1);
             }
         });
     } else {
