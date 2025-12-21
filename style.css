@@ -455,7 +455,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
 }
 
 .sidebar-toggle-btn {
@@ -522,7 +522,7 @@ body {
     opacity: 0;
     transform: translateY(10px);
     visibility: hidden;
-    transition: all 0.25s ease;
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
     display: flex;
     flex-direction: column;
 }
@@ -556,7 +556,7 @@ body {
     font-weight: 500;
     background-color: var(--dialog-button-bg);
     color: var(--text-color);
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .dialog-button:hover {
@@ -658,7 +658,7 @@ input:checked+.slider:before {
     cursor: pointer;
     border-radius: 4px;
     font-size: 13px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .theme-option:hover {
@@ -890,10 +890,8 @@ input:checked+.slider:before {
 
 .toast {
     visibility: hidden;
-    /* --- 核心修改 1: 移除了 min-width: 250px --- */
     color: var(--text-color);
     text-align: center;
-    /* --- 核心修改 2: 减小了内边距，使其更紧凑 --- */
     padding: 10px 16px;
     position: fixed;
     z-index: 9999;
@@ -902,11 +900,8 @@ input:checked+.slider:before {
     transform: translateX(-50%);
     font-size: 14px;
     opacity: 0;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    /* --- 新增: 添加一个最大宽度，防止消息过长时拉得太宽 --- */
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     max-width: 500px;
-    /* --- 新增: 让宽度根据内容变化时更平滑 --- */
-    transition-property: all, width;
 }
 
 .toast.show {
@@ -1013,7 +1008,7 @@ input:checked+.slider:before {
     border-radius: 6px;
     color: var(--input-text);
     font-size: 14px;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input-base:focus {
@@ -1485,14 +1480,12 @@ body.is-resizing .resize-indicator {
     width: 18px;
     height: 18px;
     opacity: 0.3;
-    filter: saturate(0.2);
 }
 
 .frequently-visited-panel.expanded .top-site-item .module-icon {
     position: static;
     transform: none;
     opacity: 1;
-    filter: none;
     flex-shrink: 0;
 }
 
@@ -1503,7 +1496,6 @@ body.is-resizing .resize-indicator {
 
 .top-site-item:hover .module-icon {
     opacity: 1;
-    filter: none;
 }
 
 /* 文字：隐藏时不显示，展开时显示 */
