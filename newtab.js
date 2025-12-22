@@ -690,12 +690,15 @@ function isValidUrl(string) {
 /**
  * 智能书签打开函数
  * @param {string} url - 要打开的URL
- * @param {MouseEvent|null} [event=null] - 点击事件对象
+ * @param {MouseEvent|null} [event=null] - 点击事件对象（用于检测 Ctrl/Cmd 键）
+ *
+ * 注意：Shift 键用于多选，不会传递到此函数
  */
 function openBookmark(url, event = null) {
     if (!url) return;
 
-    const hasModifier = event && (event.metaKey || event.ctrlKey || event.shiftKey);
+    // 只检测 Ctrl/Cmd 键（Shift 键用于多选，已在 click 事件中过滤）
+    const hasModifier = event && (event.metaKey || event.ctrlKey);
 
     // 弹窗模式：始终在新标签打开并关闭弹窗
     if (isInPopupWindow) {
@@ -712,7 +715,7 @@ function openBookmark(url, event = null) {
 
     // 普通模式：根据修饰键和用户设置决定打开方式
     if (hasModifier) {
-        // 有修饰键：始终在新标签打开
+        // 有 Ctrl/Cmd 键：始终在新标签打开
         chrome.tabs.create({ url, active: true });
     } else if (cachedOpenInCurrentTab) {
         // 开关开启：在当前标签打开
@@ -2040,9 +2043,11 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
             // 小幅度变化：正常应用（会有动画）
             firstColumn.style.marginLeft = `${finalMarginLeft}px`;
         }
-    } else if (firstColumn.style.transition === 'none') {
-        // 🔧 温和修复：如果边距差异很小但 transition 被禁用了，恢复它
-        // 这处理首次渲染后 adjustColumnWidths 没有改变边距的情况
+    }
+
+    // ✅ 修复：无论边距是否变化，都确保 transition 被恢复
+    // 这解决了页面切换后 transition 一直是 'none' 的问题
+    if (firstColumn.style.transition === 'none' && firstColumn.dataset.initialized === 'true') {
         requestAnimationFrame(() => {
             firstColumn.offsetHeight; // 强制重排
             firstColumn.style.transition = '';
@@ -4349,14 +4354,17 @@ document.addEventListener('DOMContentLoaded', function () {
         const isFolder = item.classList.contains('is-folder');
         const url = item.dataset.url;
 
+        // 如果有多选修饰键（Ctrl/Cmd/Shift），跳过打开逻辑（由 mousedown 处理多选）
+        const hasSelectionModifier = e.metaKey || e.ctrlKey || e.shiftKey;
+
         if (isFolder) {
             // 文件夹点击处理
-            if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+            if (!hasSelectionModifier) {
                 e.preventDefault();
                 handleFolderClick(item, item.dataset.id);
             }
-        } else if (url) {
-            // ✅ 阻止默认行为，使用统一的 openBookmark 函数
+        } else if (url && !hasSelectionModifier) {
+            // 只有在没有修饰键时才打开书签
             e.preventDefault();
             openBookmark(url, e);
         }
