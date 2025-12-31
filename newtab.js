@@ -204,6 +204,45 @@ const previewHighlightElements = new Set();
 const childrenCache = new Map(); // folderId -> {children, timestamp}
 const CHILDREN_CACHE_TTL = 5000; // 5秒缓存
 
+// ✅ P1优化：localStorage 缓存，避免频繁读取和解析
+const StorageCache = {
+    excludeRules: null,
+    hoverDelay: null,
+    lastUpdate: 0,
+    TTL: 5000, // 5秒缓存
+
+    getExcludeRules() {
+        const now = Date.now();
+        if (this.excludeRules && now - this.lastUpdate < this.TTL) {
+            return this.excludeRules;
+        }
+        try {
+            const json = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
+            this.excludeRules = json ? JSON.parse(json) : [];
+        } catch (e) {
+            this.excludeRules = [];
+        }
+        this.lastUpdate = now;
+        return this.excludeRules;
+    },
+
+    getHoverDelay() {
+        const now = Date.now();
+        if (this.hoverDelay !== null && now - this.lastUpdate < this.TTL) {
+            return this.hoverDelay;
+        }
+        this.hoverDelay = parseInt(localStorage.getItem(CONSTANTS.STORAGE_KEYS.HOVER_DELAY) || '500', 10);
+        this.lastUpdate = now;
+        return this.hoverDelay;
+    },
+
+    invalidate() {
+        this.excludeRules = null;
+        this.hoverDelay = null;
+        this.lastUpdate = 0;
+    }
+};
+
 // ✅ 性能优化: 缓存localStorage设置，避免每次点击都读取
 let cachedOpenInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
 
@@ -377,8 +416,8 @@ let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
         }
     });
 }, {
-    rootMargin: '100px',  // 增加预加载距离，减少触发频率
-    threshold: 0.01       // 添加阈值，元素1%可见时触发
+    rootMargin: '50px',   // ✅ P0优化：减少预加载距离，避免过早加载
+    threshold: 0.1        // ✅ P0优化：提高阈值，减少触发频率
 });
 
 function observeLazyImages(container) {
@@ -1614,7 +1653,7 @@ function startHoverIntent(item) {
     AppState.hover.intent.targetId = itemId;
 
     // === 性能优化6：延迟计算放在外面，避免闭包捕获 localStorage ===
-    const delay = parseInt(localStorage.getItem(CONSTANTS.STORAGE_KEYS.HOVER_DELAY) || '500', 10);
+    const delay = StorageCache.getHoverDelay();
 
     // === 性能优化7：使用箭头函数避免 this 绑定开销 ===
     AppState.hover.intent.timer = setTimeout(() => {
@@ -4017,16 +4056,8 @@ async function displayRecentBookmarks() {
                 const bookmarks = [];
                 flattenBookmarks(tree, bookmarks);
 
-                // 加载排除规则（带错误处理）
-                let excludeRules = [];
-                try {
-                    const excludeRulesJson = localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
-                    excludeRules = excludeRulesJson ? JSON.parse(excludeRulesJson) : [];
-                } catch (error) {
-                    console.error('Failed to parse exclude rules:', error);
-                    localStorage.removeItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES);
-                    excludeRules = [];
-                }
+                // ✅ P1优化：使用缓存加载排除规则
+                const excludeRules = StorageCache.getExcludeRules();
 
                 // 筛选并排除规则
                 const filtered = bookmarks.filter(bm => {
@@ -5397,6 +5428,22 @@ window.addEventListener('unhandledrejection', (event) => {
         }, 50);
     }, false);
 
+
+    // ========================================
+    // ✅ P0优化：清理事件监听器，防止内存泄漏
+    // ========================================
+    window.addEventListener('beforeunload', () => {
+        // 清理所有计时器
+        if (refreshTimer) clearTimeout(refreshTimer);
+        if (scrollTimer) clearTimeout(scrollTimer);
+        if (rafId) cancelAnimationFrame(rafId);
+        if (prefetchTimer) clearTimeout(prefetchTimer);
+        if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
+        if (AppState.hover.dragOverTimeout) clearTimeout(AppState.hover.dragOverTimeout);
+
+        // 断开 Observer
+        if (lazyLoadObserver) lazyLoadObserver.disconnect();
+    }, { once: true });
 
     // 设置初始化标志，防止重复初始化
     window._bookmarkExtensionInitialized = true;
