@@ -1017,7 +1017,7 @@ function displayBookmarks(bookmarks) {
     } else {
         // ✅ 修复 #5: 显示空书签栏提示
         const emptyBar = document.createElement('div');
-        emptyBar.className = 'bookmark-column';
+        emptyBar.className = 'bookmark-column bookmarks-bar';
         emptyBar.dataset.level = '0';
         emptyBar.innerHTML = `
             <div style="padding: 8px 16px; color: var(--module-header-color); font-size: 13px; opacity: 0.6;">
@@ -2754,6 +2754,9 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
         return;
     }
 
+    // ✅ 修复：检查是否是书签栏（level 0）
+    const isBookmarksBar = parentColumn.dataset.level === '0';
+
     // ✅ 创建新的请求标记
     const thisRequest = { cancelled: false, parentId, timestamp: Date.now() };
     pendingRefreshMap.set(parentId, thisRequest);
@@ -2779,6 +2782,10 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
         const fragment = document.createDocumentFragment();
         children.forEach((child, idx) => {
             const item = createBookmarkItem(child, idx);
+            // ✅ 修复：为书签栏的书签项添加专用类名
+            if (isBookmarksBar) {
+                item.classList.add('bookmarks-bar-item');
+            }
             fragment.appendChild(item);
         });
         contentWrapper.appendChild(fragment);
@@ -5179,6 +5186,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 // ✅ 性能优化：使用缓存避免重复的 getChildren 调用
                 const cached = childrenCache.get(parentId);
                 const now = Date.now();
+                // ✅ 修复：检查是否是书签栏（level 0）
+                const isBookmarksBar = targetColumn.dataset.level === '0';
 
                 if (cached && now - cached.timestamp < CHILDREN_CACHE_TTL) {
                     // 使用缓存数据直接渲染
@@ -5190,6 +5199,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     const fragment = document.createDocumentFragment();
                     cached.children.forEach((child, idx) => {
                         const item = createBookmarkItem(child, idx);
+                        // ✅ 修复：为书签栏的书签项添加专用类名
+                        if (isBookmarksBar) {
+                            item.classList.add('bookmarks-bar-item');
+                        }
                         fragment.appendChild(item);
                     });
                     contentWrapper.appendChild(fragment);
@@ -5221,6 +5234,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         const fragment = document.createDocumentFragment();
                         children.forEach((child, idx) => {
                             const item = createBookmarkItem(child, idx);
+                            // ✅ 修复：为书签栏的书签项添加专用类名
+                            if (isBookmarksBar) {
+                                item.classList.add('bookmarks-bar-item');
+                            }
                             fragment.appendChild(item);
                         });
                         contentWrapper.appendChild(fragment);
