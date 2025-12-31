@@ -1442,8 +1442,8 @@ function handleFolderClick(folderItem, bookmarkId) {
     
     clearSelection();
     const isHighlighted = folderItem.classList.contains('highlighted');
-    const column = folderItem.closest('.bookmark-column');
-    
+    const column = folderItem.closest('.bookmark-column, .bookmarks-bar');
+
     // P0修复：检查column是否存在
     if (!column || !column.dataset.level) {
         console.error('handleFolderClick: Column not found or invalid');
@@ -1457,7 +1457,7 @@ function handleFolderClick(folderItem, bookmarkId) {
     const itemsToRemove = [];
     ElementCache.highlighted.forEach(i => {
         if (i.isConnected) {
-            const itemColumn = i.closest('.bookmark-column');
+            const itemColumn = i.closest('.bookmark-column, .bookmarks-bar');
             // 只移除同一列中的高亮
             if (itemColumn && itemColumn.dataset.level === column.dataset.level) {
                 i.classList.remove('highlighted');
@@ -2388,7 +2388,7 @@ function handleDragOver(e) {
     }
 
     const rect = targetItem.getBoundingClientRect();
-    const level = targetItem.closest('.bookmark-column').dataset.level;
+    const level = targetItem.closest('.bookmark-column, .bookmarks-bar').dataset.level;
     const isFolder = targetItem.classList.contains('is-folder');
 
     // 计算新的拖动状态
@@ -2738,7 +2738,7 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
         return;
     }
 
-    const column = parentItem.closest('.bookmark-column');
+    const column = parentItem.closest('.bookmark-column, .bookmarks-bar');
 
     if (!column?.dataset.level) {
         console.warn(`[refreshParent] ${parentLabel}所在列无效`);
@@ -2869,7 +2869,7 @@ function handleColumnDrop(e) {
         return; // 静默返回，没有要移动的书签
     }
 
-    const column = e.target.closest('.bookmark-column');
+    const column = e.target.closest('.bookmark-column, .bookmarks-bar');
 
     if (column) {
         column.classList.remove('column-drag-over');
@@ -3739,7 +3739,7 @@ function findColumnForParentId(parentId) {
 
     const parentItem = document.querySelector(`.bookmark-item[data-id="${parentId}"]`);
     if (parentItem && parentItem.classList.contains('highlighted')) {
-        const level = parseInt(parentItem.closest('.bookmark-column').dataset.level, 10);
+        const level = parseInt(parentItem.closest('.bookmark-column, .bookmarks-bar').dataset.level, 10);
         return document.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
     }
     return null;
@@ -3785,7 +3785,7 @@ function handleBookmarkRemoved(id, removeInfo) {
 
     const itemToRemove = document.querySelector(`.bookmark-item[data-id="${id}"]`);
     if (itemToRemove) {
-        const column = itemToRemove.closest('.bookmark-column');
+        const column = itemToRemove.closest('.bookmark-column, .bookmarks-bar');
         if (itemToRemove.classList.contains('highlighted')) {
             const level = parseInt(column.dataset.level, 10);
             document.querySelectorAll('.bookmark-column').forEach(col => {
@@ -4623,7 +4623,7 @@ document.addEventListener('DOMContentLoaded', function () {
             handleDragOver.call(item, e);
         } else {
             // 如果不是书签项，检查是否是列
-            const column = e.target.closest('.bookmark-column');
+            const column = e.target.closest('.bookmark-column, .bookmarks-bar');
             if (column) {
                 handleColumnDragOver.call(column, e);
             }
@@ -4636,7 +4636,7 @@ document.addEventListener('DOMContentLoaded', function () {
             handleDrop.call(item, e);
         } else {
             // 如果不是书签项，检查是否是列
-            const column = e.target.closest('.bookmark-column');
+            const column = e.target.closest('.bookmark-column, .bookmarks-bar');
             if (column) {
                 handleColumnDrop.call(column, e);
             }
@@ -4649,7 +4649,7 @@ document.addEventListener('DOMContentLoaded', function () {
             handleDragLeave.call(item, e);
         } else {
             // 如果不是书签项，检查是否是列
-            const column = e.target.closest('.bookmark-column');
+            const column = e.target.closest('.bookmark-column, .bookmarks-bar');
             if (column) {
                 handleColumnDragLeave.call(column, e);
             }
@@ -4702,7 +4702,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 向右导航到下一列（如果当前是打开的文件夹）
                 e.preventDefault();
                 if (focusedItem.classList.contains('highlighted')) {
-                    const currentColumn = focusedItem.closest('.bookmark-column');
+                    const currentColumn = focusedItem.closest('.bookmark-column, .bookmarks-bar');
                     if (currentColumn) {
                         const currentLevel = parseInt(currentColumn.dataset.level, 10);
                         const nextColumn = document.querySelector(`.bookmark-column[data-level="${currentLevel + 1}"]`);
@@ -4720,7 +4720,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 向左导航到上一列
                 e.preventDefault();
                 {
-                    const currentColumn = focusedItem.closest('.bookmark-column');
+                    const currentColumn = focusedItem.closest('.bookmark-column, .bookmarks-bar');
                     if (currentColumn) {
                         const currentLevel = parseInt(currentColumn.dataset.level, 10);
                         if (currentLevel > 0) {
@@ -5018,7 +5018,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.body.addEventListener('contextmenu', (e) => {
         const item = e.target.closest('.bookmark-item, .vertical-modules a, .top-site-item');
-        const column = e.target.closest('.bookmark-column');
+        const column = e.target.closest('.bookmark-column, .bookmarks-bar');
         if (!item && !column) return;
         e.preventDefault();
         showContextMenu(e, item, column);
@@ -5173,7 +5173,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 其他文件夹
                 const parentItem = document.querySelector(`.bookmark-item.highlighted[data-id="${parentId}"]`);
                 if (parentItem) {
-                    const column = parentItem.closest('.bookmark-column');
+                    const column = parentItem.closest('.bookmark-column, .bookmarks-bar');
                     // P0修复：检查column是否存在
                     if (column && column.dataset.level) {
                         const level = parseInt(column.dataset.level, 10);
