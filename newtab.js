@@ -3258,6 +3258,46 @@ function showContextMenu(e, bookmarkElement, column) {
     contextMenu.relatedColumn = column;
     document.body.dataset.contextMenuOpen = 'true';
 }
+// ========================================
+// ✅ 优化：右键菜单辅助函数
+// ========================================
+
+/**
+ * 获取父文件夹 ID
+ */
+function getParentIdFromContext(element, column) {
+    if (element && element.classList.contains('is-folder')) {
+        return element.dataset.id;
+    } else if (element) {
+        return element.dataset.parentId;
+    } else {
+        const level = parseInt(column.dataset.level, 10);
+        if (level === 0) return CONSTANTS.BOOKMARKS_BAR_ID;
+        return document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
+    }
+}
+
+/**
+ * 打开书签（支持批量）
+ */
+function openBookmarks(selectedIds, openMode) {
+    selectedIds.forEach(id => {
+        const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"], .top-site-item[data-id="${id}"]`);
+        if (item && item.dataset.url) {
+            if (openMode === 'open') {
+                openBookmark(item.dataset.url, null);
+            } else if (openMode === 'openNew') {
+                chrome.windows.create({ url: item.dataset.url });
+            } else if (openMode === 'openIncognito') {
+                chrome.windows.create({ url: item.dataset.url, incognito: true });
+            }
+        }
+    });
+}
+
+/**
+ * 右键菜单动作处理
+ */
 function handleContextMenuAction(action, element) {
     const selectionSize = AppState.selection.items.size;
     const selectedIds = Array.from(AppState.selection.items);
@@ -3265,16 +3305,8 @@ function handleContextMenuAction(action, element) {
     if (Object.values(CONSTANTS.SORT_TYPES).includes(action)) {
         const column = document.getElementById('contextMenu').relatedColumn;
         if (!column) return;
-        let parentId;
-        if (element && element.classList.contains('is-folder')) {
-            parentId = element.dataset.id;
-        } else if (element) {
-            parentId = element.dataset.parentId;
-        } else {
-            const level = parseInt(column.dataset.level, 10);
-            if (level === 0) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
-            else parentId = document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
-        }
+        // ✅ 优化：使用提取的辅助函数
+        const parentId = getParentIdFromContext(element, column);
         if (parentId) handleSortBookmarks(parentId, action);
         return;
     }
@@ -3283,18 +3315,8 @@ function handleContextMenuAction(action, element) {
         case 'open':
         case 'openNew':
         case 'openIncognito':
-            selectedIds.forEach(id => {
-                const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"], .top-site-item[data-id="${id}"]`);
-                if (item && item.dataset.url) {
-                    if (action === 'open') {
-                        openBookmark(item.dataset.url, null);
-                    } else if (action === 'openNew') {
-                        chrome.windows.create({ url: item.dataset.url });
-                    } else if (action === 'openIncognito') {
-                        chrome.windows.create({ url: item.dataset.url, incognito: true });
-                    }
-                }
-            });
+            // ✅ 优化：使用提取的辅助函数
+            openBookmarks(selectedIds, action);
             break;
         case 'openAll':
             if (element && element.dataset.id) {
@@ -3379,28 +3401,15 @@ function handleContextMenuAction(action, element) {
             {
                 const column = document.getElementById('contextMenu').relatedColumn;
                 if (!column) return;
-                let parentId;
-                if (element && element.classList.contains('is-folder')) {
-                    parentId = element.dataset.id;
-                } else if (element) {
-                    parentId = element.dataset.parentId;
-                } else {
-                    const level = parseInt(column.dataset.level, 10);
-                    if (level === 0) {
-                        parentId = CONSTANTS.BOOKMARKS_BAR_ID;
-                    } else {
-                        // 先尝试找上一级的高亮项
-                        parentId = document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
-                        // 如果没有高亮项，查找当前列中任意一个项目的parentId
-                        if (!parentId) {
-                            const firstItem = column.querySelector('.bookmark-item');
-                            if (firstItem) {
-                                parentId = firstItem.dataset.parentId;
-                            }
-                        }
-                        // 最后的兜底方案
-                        if (!parentId) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
+                // ✅ 优化：使用提取的辅助函数
+                let parentId = getParentIdFromContext(element, column);
+                // newFolder 需要额外的兜底逻辑
+                if (!parentId) {
+                    const firstItem = column.querySelector('.bookmark-item');
+                    if (firstItem) {
+                        parentId = firstItem.dataset.parentId;
                     }
+                    if (!parentId) parentId = CONSTANTS.BOOKMARKS_BAR_ID;
                 }
                 if (parentId) showEditDialog('新建文件夹', '', null, async (name) => {
                     if (name) {
