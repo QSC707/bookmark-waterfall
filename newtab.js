@@ -1702,6 +1702,7 @@ function makeColumnResizable(column) {
 }
 
 let resizing = false;
+let lastContainerWidth = 0; // 🔧 性能优化：缓存容器宽度，避免无效调用
 
 
 
@@ -1981,30 +1982,49 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
  * @param {Array} columnData - 列数据（用于判断变化大小）
  */
 function applyColumnWidthStyles(newStyles, columnData) {
+    // 🔧 修复：过滤掉没有实际变化的样式，避免触发意外动画
+    const actualChanges = new Map();
+
+    newStyles.forEach((style, el) => {
+        const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
+        const newWidth = parseFloat(style.width);
+        const widthDiff = Math.abs(currentWidth - newWidth);
+
+        // 只有宽度差异超过 1px 时才认为是真正的变化
+        if (widthDiff > 1) {
+            actualChanges.set(el, style);
+        }
+    });
+
+    // 如果没有实际变化，直接返回
+    if (actualChanges.size === 0) {
+        return;
+    }
+
     // 检查是否有大的变化
-    const hasLargeChanges = Array.from(newStyles.entries()).some(([el, style]) => {
+    const hasLargeChanges = Array.from(actualChanges.entries()).some(([el, style]) => {
         const cached = columnData.find(data => data.el === el);
         const currentWidth = cached ? cached.currentWidth : el.offsetWidth;
         const newWidth = parseFloat(style.width);
         return Math.abs(currentWidth - newWidth) > 50;
     });
-    
+
     if (hasLargeChanges) {
         // 大变化时禁用动画
-        newStyles.forEach((style, el) => {
+        actualChanges.forEach((style, el) => {
             el.style.transition = 'none';
             el.style.width = style.width;
         });
-        
+
         // 下一帧恢复动画
         requestAnimationFrame(() => {
-            newStyles.forEach((style, el) => {
+            actualChanges.forEach((style, el) => {
                 el.style.transition = '';
             });
         });
     } else {
         // 小变化时保持动画
-        newStyles.forEach((style, el) => {
+        actualChanges.forEach((style, el) => {
             el.style.width = style.width;
         });
     }
@@ -2027,7 +2047,7 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
     const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
     const marginDiff = Math.abs(finalMarginLeft - currentMargin);
 
-    // 只有边距差异超过 1px 时才应用，避免微小抖动
+    // 🔧 修复：只有边距差异超过 1px 时才应用，避免微小抖动和意外动画
     if (marginDiff > 1) {
         if (marginDiff > 100 || !firstColumn.dataset.initialized) {
             // 大幅度变化或首次初始化：禁用动画
@@ -2045,14 +2065,9 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
         }
     }
 
-    // ✅ 修复：无论边距是否变化，都确保 transition 被恢复
-    // 这解决了页面切换后 transition 一直是 'none' 的问题
-    if (firstColumn.style.transition === 'none' && firstColumn.dataset.initialized === 'true') {
-        requestAnimationFrame(() => {
-            firstColumn.offsetHeight; // 强制重排
-            firstColumn.style.transition = '';
-        });
-    }
+    // 🔧 修复：移除自动恢复 transition 的逻辑
+    // 这是导致标签页切换后出现意外动画的根本原因
+    // transition 只应该在真正需要动画时恢复（即上面的大幅度变化场景）
 }
 
 /**
@@ -2061,33 +2076,34 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
  * @param {Object} params - 参数对象
  */
 function performSmartScroll(container, params) {
-    const { firstColumn, finalMarginLeft, gap, marginRight, availableWidth } = params;
-    
+    const { firstColumn, finalMarginLeft, gap, marginRight, availableWidth, columns } = params;
+
     let scrollTarget = 0;
-    const finalColumns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
-    
+    // 🔧 性能优化：使用传入的 columns 数组，避免重复查询 DOM
+    const finalColumns = columns || Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
+
     // 获取第一列的实际左边距
     const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1"
         ? (parseFloat(firstColumn.style.marginLeft) || finalMarginLeft || 0)
         : 0;
-    
+
     // 计算实际占用的总宽度
     const finalColumnsWidth = finalColumns.reduce((sum, col) => sum + col.offsetWidth, 0);
     const finalGapsWidth = (finalColumns.length - 1) * gap;
     const finalTotalWidth = firstColumnMargin + finalColumnsWidth + finalGapsWidth + marginRight;
-    
+
     // 判断是否需要滚动
     if (finalTotalWidth > availableWidth) {
         // 从右往左计算能显示的列
         let visibleWidth = marginRight;
         let firstVisibleColumnIndex = finalColumns.length - 1;
         const maxVisibleWidth = availableWidth;
-        
+
         for (let i = finalColumns.length - 1; i >= 0; i--) {
             const currentCol = finalColumns[i];
             const colWidth = currentCol.offsetWidth;
             const widthToAdd = (i === finalColumns.length - 1) ? colWidth : colWidth + gap;
-            
+
             if (visibleWidth + widthToAdd <= maxVisibleWidth) {
                 visibleWidth += widthToAdd;
                 firstVisibleColumnIndex = i;
@@ -2095,7 +2111,7 @@ function performSmartScroll(container, params) {
                 break;
             }
         }
-        
+
         // 计算滚动目标
         if (firstVisibleColumnIndex === 0) {
             scrollTarget = 0;
@@ -2104,11 +2120,11 @@ function performSmartScroll(container, params) {
             scrollTarget = Math.max(0, targetColumn.offsetLeft - 10);
         }
     }
-    
+
     // 只在需要时滚动
     const currentScroll = container.scrollLeft;
     const scrollDiff = Math.abs(scrollTarget - currentScroll);
-    
+
     if (scrollDiff > 10) {
         container.scrollTo({
             left: Math.max(0, scrollTarget),
@@ -2132,6 +2148,13 @@ function adjustColumnWidths(container) {
     // ✅ 性能优化：提前检查容器宽度，避免无效计算
     const availableWidth = container.clientWidth;
     if (!availableWidth || availableWidth <= 0) return;
+
+    // 🔧 性能优化：检查容器宽度是否真正变化（容差 2px）
+    const widthDiff = Math.abs(availableWidth - lastContainerWidth);
+    if (lastContainerWidth > 0 && widthDiff < 2) {
+        return; // 宽度没有显著变化，跳过调整
+    }
+    lastContainerWidth = availableWidth;
 
     resizing = true;
 
@@ -2192,14 +2215,14 @@ function adjustColumnWidths(container) {
             applyFirstColumnMargin(firstColumn, marginLeft);
 
             // === 阶段5：智能滚动 ===
-            requestAnimationFrame(() => {
-                performSmartScroll(container, {
-                    firstColumn,
-                    finalMarginLeft: marginLeft,
-                    gap,
-                    marginRight,
-                    availableWidth
-                });
+            // 🔧 性能优化：移除嵌套的 RAF，直接调用并传递已有的 columns 数组
+            performSmartScroll(container, {
+                firstColumn,
+                finalMarginLeft: marginLeft,
+                gap,
+                marginRight,
+                availableWidth,
+                columns  // 传递已查询的 columns，避免重复 DOM 查询
             });
 
             resizing = false;
