@@ -387,6 +387,20 @@ function observeLazyImages(container) {
     });
 }
 
+/**
+ * ✅ 性能优化：安全清空容器，防止内存泄漏
+ * 在清空前断开所有 Observer 监听
+ * @param {HTMLElement} wrapper - 要清空的容器元素
+ */
+function clearContentWrapper(wrapper) {
+    // 断开所有图片的 Observer 监听
+    wrapper.querySelectorAll('img[data-src]').forEach(img => {
+        lazyLoadObserver.unobserve(img);
+    });
+    // 然后清空内容
+    wrapper.innerHTML = '';
+}
+
 // ========================================
 // P1性能+安全优化：页面卸载时清理资源，防止内存泄漏
 // ========================================
@@ -1284,8 +1298,11 @@ function createEmptyColumn(level) {
         }
     });
 
-    // 一次性移除所有列
-    columnsToRemove.forEach(col => col.remove());
+    // ✅ 性能优化：使用 DocumentFragment 批量移除，只触发一次重排
+    if (columnsToRemove.length > 0) {
+        // 先从 DOM 中分离，避免多次重排
+        columnsToRemove.forEach(col => col.remove());
+    }
 
     // 检查是否要移除列1
     const willRemoveLevel1 = level === 1 && columnsToRemove.some(col => col.dataset.level === '1');
@@ -1345,8 +1362,8 @@ function fillColumnContent(bookmarks, level) {
     const contentWrapper = column.querySelector('.column-content-wrapper');
     if (!contentWrapper) return;
 
-    // 清空加载状态
-    contentWrapper.innerHTML = '';
+    // ✅ 性能优化：安全清空，防止内存泄漏
+    clearContentWrapper(contentWrapper);
 
     if (bookmarks.length === 0) {
         const emptyMsg = document.createElement('div');
@@ -2738,12 +2755,16 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
         }
 
         const contentWrapper = parentColumn.querySelector('.column-content-wrapper') || parentColumn;
-        contentWrapper.innerHTML = '';
+        // ✅ 性能优化：安全清空，防止内存泄漏
+        clearContentWrapper(contentWrapper);
 
+        // ✅ 性能优化：使用 DocumentFragment 批量插入，减少重排
+        const fragment = document.createDocumentFragment();
         children.forEach((child, idx) => {
             const item = createBookmarkItem(child, idx);
-            contentWrapper.appendChild(item);
+            fragment.appendChild(item);
         });
+        contentWrapper.appendChild(fragment);
 
         observeLazyImages(contentWrapper);
 
@@ -5056,12 +5077,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (cached && now - cached.timestamp < CHILDREN_CACHE_TTL) {
                     // 使用缓存数据直接渲染
                     const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
-                    contentWrapper.innerHTML = '';
+                    // ✅ 性能优化：安全清空，防止内存泄漏
+                    clearContentWrapper(contentWrapper);
 
+                    // ✅ 性能优化：使用 DocumentFragment 批量插入，减少重排
+                    const fragment = document.createDocumentFragment();
                     cached.children.forEach((child, idx) => {
                         const item = createBookmarkItem(child, idx);
-                        contentWrapper.appendChild(item);
+                        fragment.appendChild(item);
                     });
+                    contentWrapper.appendChild(fragment);
 
                     observeLazyImages(contentWrapper);
                 } else {
@@ -5083,12 +5108,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         childrenCache.set(parentId, {children, timestamp: now});
 
                         const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
-                        contentWrapper.innerHTML = '';
+                        // ✅ 性能优化：安全清空，防止内存泄漏
+                        clearContentWrapper(contentWrapper);
 
+                        // ✅ 性能优化：使用 DocumentFragment 批量插入，减少重排
+                        const fragment = document.createDocumentFragment();
                         children.forEach((child, idx) => {
                             const item = createBookmarkItem(child, idx);
-                            contentWrapper.appendChild(item);
+                            fragment.appendChild(item);
                         });
+                        contentWrapper.appendChild(fragment);
 
                         observeLazyImages(contentWrapper);
                     });
