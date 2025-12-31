@@ -175,6 +175,7 @@ body {
 }
 
 .bookmark-column {
+    position: relative;
     background-color: var(--card-bg);
     border: 1px solid var(--header-border);
     border-radius: 12px;
@@ -1232,11 +1233,6 @@ input:checked+.slider:before {
 }
 
 /* --- 14. 可调整列宽功能样式 --- */
-.bookmark-column {
-    position: relative;
-    /* 移除冗余的过渡效果，因为已经在上面定义过了 */
-}
-
 .resize-handle {
     position: absolute;
     top: 0;
