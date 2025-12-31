@@ -240,7 +240,7 @@ const DOMCache = {
         this.header = document.querySelector('.page-header');  // ✅ 缓存header
         this.recentBookmarksContent = document.querySelector('#recentBookmarksModule .module-content');
         this.frequentlyVisitedContent = document.querySelector('.frequently-visited-content');
-        this.bookmarksBar = document.querySelector('.bookmark-column[data-level="0"]');
+        this.bookmarksBar = document.querySelector('.bookmarks-bar');
     },
 
     // 🔧 P1-2优化：更新第一列缓存（列数变化时调用）
@@ -1002,7 +1002,7 @@ function displayBookmarks(bookmarks) {
     bookmarkContainer.innerHTML = '';
 
     // ✅ 性能优化：清理所有旧的书签栏（防止累积）
-    header.querySelectorAll('.bookmark-column[data-level="0"]').forEach(col => col.remove());
+    header.querySelectorAll('.bookmarks-bar').forEach(col => col.remove());
 
     // ✅ 修复 #5: 验证数据有效性
     if (!bookmarks || !Array.isArray(bookmarks) || bookmarks.length === 0) {
@@ -1052,8 +1052,8 @@ function refreshBookmarksBar() {
         }
 
         // 3. 移除所有旧的书签栏DOM（防止累积）
-        // ✅ 性能优化：使用 querySelectorAll 清理所有可能累积的书签栏
-        header.querySelectorAll('.bookmark-column[data-level="0"]').forEach(col => col.remove());
+        // ✅ 性能优化：使用类选择器清理所有可能累积的书签栏
+        header.querySelectorAll('.bookmarks-bar').forEach(col => col.remove());
 
         // 4. 使用我们现有的 renderBookmarks 函数，只在 header 中渲染 level 0 的内容
         renderBookmarks(bookmarksBarItems, header, 0);
@@ -3735,7 +3735,7 @@ async function showPropertiesDialog(element) {
 
 // Chrome API 事件监听与处理
 function findColumnForParentId(parentId) {
-    if (parentId === CONSTANTS.BOOKMARKS_BAR_ID) return document.querySelector('.bookmark-column[data-level="0"]');
+    if (parentId === CONSTANTS.BOOKMARKS_BAR_ID) return document.querySelector('.bookmarks-bar');
 
     const parentItem = document.querySelector(`.bookmark-item[data-id="${parentId}"]`);
     if (parentItem && parentItem.classList.contains('highlighted')) {
@@ -5168,7 +5168,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (parentId === CONSTANTS.BOOKMARKS_BAR_ID) {
                 // 书签栏
-                targetColumn = document.querySelector('.bookmark-column[data-level="0"]');
+                targetColumn = document.querySelector('.bookmarks-bar');
             } else {
                 // 其他文件夹
                 const parentItem = document.querySelector(`.bookmark-item.highlighted[data-id="${parentId}"]`);
