@@ -78,8 +78,7 @@ const CONSTANTS = {
         HOVER_ENABLED: 'hoverToOpenEnabled',
         HOVER_DELAY: 'hoverDelay',
         EXCLUDE_RULES: 'bookmarkExcludeRules',
-        OPEN_IN_CURRENT_TAB: 'openInCurrentTab',
-        DNS_PREFETCH: 'dnsPrefetchEnabled'
+        OPEN_IN_CURRENT_TAB: 'openInCurrentTab'
     },
     // ✅ 优化 #8: 提取通用时间常量
     TIMING: {
@@ -4992,16 +4991,6 @@ document.addEventListener('DOMContentLoaded', function () {
         showToast(`书签将在${openInCurrentTab ? '当前标签' : '新标签'}中打开`);
     });
 
-    // DNS Prefetch 设置
-    const dnsPrefetchToggle = document.getElementById('dns-prefetch-toggle');
-    dnsPrefetchToggle.checked = localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) !== 'false';
-
-    dnsPrefetchToggle.addEventListener('change', (e) => {
-        const enabled = e.target.checked;
-        localStorage.setItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH, enabled);
-        showToast(`DNS 预解析已${enabled ? '开启' : '关闭'}`);
-    });
-
     settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsPanel.classList.toggle('visible');
@@ -5382,54 +5371,6 @@ window.addEventListener('unhandledrejection', (event) => {
     document.addEventListener('keydown', handleSpacebarPreview);
 
     // ========================================
-    // ✅ DNS Prefetch 极简优化：仅悬停预解析
-    // ========================================
-    const prefetchedDomains = new Set();
-    let prefetchTimer = null;
-
-    // 悬停时预解析（防抖优化：50ms）
-    document.body.addEventListener('mouseenter', (e) => {
-        if (localStorage.getItem(CONSTANTS.STORAGE_KEYS.DNS_PREFETCH) === 'false') return;
-
-        const target = e.target;
-        if (!target.classList ||
-            (!target.classList.contains('bookmark-item') &&
-             !target.classList.contains('top-site-item') &&
-             !target.matches('.vertical-modules a'))) {
-            return;
-        }
-
-        const item = target.closest('.bookmark-item, .top-site-item, .vertical-modules a');
-
-        if (prefetchTimer) {
-            clearTimeout(prefetchTimer);
-            prefetchTimer = null;
-        }
-
-        if (!item) return;
-
-        const url = item.dataset.url || item.href;
-        if (!url || item.classList.contains('is-folder')) return;
-
-        prefetchTimer = setTimeout(() => {
-            try {
-                const urlObj = new URL(url);
-                const origin = urlObj.origin;
-
-                if (prefetchedDomains.has(origin)) return;
-                prefetchedDomains.add(origin);
-
-                const link = document.createElement('link');
-                link.rel = 'dns-prefetch';
-                link.href = origin;
-                document.head.appendChild(link);
-            } catch (e) {}
-            prefetchTimer = null;
-        }, 50);
-    }, false);
-
-
-    // ========================================
     // ✅ P0优化：清理事件监听器，防止内存泄漏
     // ========================================
     window.addEventListener('beforeunload', () => {
@@ -5437,7 +5378,6 @@ window.addEventListener('unhandledrejection', (event) => {
         if (refreshTimer) clearTimeout(refreshTimer);
         if (scrollTimer) clearTimeout(scrollTimer);
         if (rafId) cancelAnimationFrame(rafId);
-        if (prefetchTimer) clearTimeout(prefetchTimer);
         if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
         if (AppState.hover.dragOverTimeout) clearTimeout(AppState.hover.dragOverTimeout);
 
