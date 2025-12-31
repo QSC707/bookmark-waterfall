@@ -2465,18 +2465,33 @@ function handleDrop(e) {
     e.stopPropagation();
     clearTimeout(dragOverTimeout);
 
-    const idsToMove = JSON.parse(e.dataTransfer.getData('application/json'));
+    // 🔧 修复：检查是否是有效的拖拽操作
+    if (!isDragging) {
+        return; // 静默返回，不是有效的拖拽操作
+    }
+
+    // 🔧 修复：安全解析拖拽数据，处理异常情况
+    let idsToMove;
+    try {
+        const data = e.dataTransfer.getData('application/json');
+        if (!data) {
+            return; // 静默返回，没有数据
+        }
+        idsToMove = JSON.parse(data);
+    } catch (error) {
+        // 静默返回，数据格式错误（可能是外部拖拽）
+        return;
+    }
 
     if (!idsToMove || idsToMove.length === 0) {
-        console.warn('[handleDrop] 没有要移动的书签');
-        return;
+        return; // 静默返回，没有要移动的书签
     }
 
     const dropTarget = e.target.closest('.bookmark-item');
 
+    // 🔧 修复：静默处理无效目标（用户拖到空白处是正常行为）
     if (!dropTarget || idsToMove.includes(dropTarget.dataset.id)) {
-        console.warn('[handleDrop] 无效的拖放目标');
-        return;
+        return; // 静默返回，无效的拖放目标
     }
 
     // 🔧 修复：先检查拖拽状态，再清除样式
@@ -2730,11 +2745,26 @@ function handleColumnDrop(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    const idsToMove = JSON.parse(e.dataTransfer.getData('application/json'));
+    // 🔧 修复：检查是否是有效的拖拽操作
+    if (!isDragging) {
+        return; // 静默返回，不是有效的拖拽操作
+    }
+
+    // 🔧 修复：安全解析拖拽数据，处理异常情况
+    let idsToMove;
+    try {
+        const data = e.dataTransfer.getData('application/json');
+        if (!data) {
+            return; // 静默返回，没有数据
+        }
+        idsToMove = JSON.parse(data);
+    } catch (error) {
+        // 静默返回，数据格式错误（可能是外部拖拽）
+        return;
+    }
 
     if (!idsToMove || idsToMove.length === 0) {
-        console.warn('[handleColumnDrop] 没有要移动的书签');
-        return;
+        return; // 静默返回，没有要移动的书签
     }
 
     const column = e.target.closest('.bookmark-column');
