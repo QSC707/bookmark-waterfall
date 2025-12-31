@@ -369,6 +369,17 @@ const ElementCache = {
 };
 
 // ========================================
+// ✅ 优化：DOM 查询辅助函数
+// ========================================
+
+/**
+ * 根据 ID 查找书签元素
+ */
+function findBookmarkElement(id) {
+    return document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"], .top-site-item[data-id="${id}"]`);
+}
+
+// ========================================
 // ✅ 优化：Chrome API 辅助函数
 // ========================================
 
@@ -3282,7 +3293,7 @@ function getParentIdFromContext(element, column) {
  */
 function openBookmarks(selectedIds, openMode) {
     selectedIds.forEach(id => {
-        const item = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"], .top-site-item[data-id="${id}"]`);
+        const item = findBookmarkElement(id);
         if (item && item.dataset.url) {
             if (openMode === 'open') {
                 openBookmark(item.dataset.url, null);
