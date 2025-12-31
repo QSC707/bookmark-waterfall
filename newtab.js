@@ -1073,13 +1073,18 @@ function renderBookmarks(bookmarks, parentElement, level) {
 
     bookmarks.forEach((bookmark, index) => {
         const item = createBookmarkItem(bookmark, index);
+        // ✅ 性能优化：为书签栏的书签项添加专用类名，避免复杂选择器
+        if (level === 0) {
+            item.classList.add('bookmarks-bar-item');
+        }
         fragment.appendChild(item);
     });
 
     if (level === 0) {
         const header = getCachedElement('header', () => document.querySelector('.page-header'));
         column = document.createElement('div');
-        column.className = 'bookmark-column';
+        // ✅ 性能优化：添加专用类名，避免复杂的属性选择器
+        column.className = 'bookmark-column bookmarks-bar';
         column.dataset.level = level;
         // ✅ 修复 #5: 添加ARIA导航属性
         column.setAttribute('role', 'navigation');
