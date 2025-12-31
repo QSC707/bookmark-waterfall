@@ -369,6 +369,30 @@ const ElementCache = {
 };
 
 // ========================================
+// ✅ 优化：Chrome API 辅助函数
+// ========================================
+
+/**
+ * 安全调用 Chrome API，自动处理错误
+ * @param {Function} apiCall - Chrome API 调用函数
+ * @param {string} errorContext - 错误上下文描述
+ * @returns {Promise} API 调用结果
+ */
+async function safeChromeAPI(apiCall, errorContext = 'Chrome API') {
+    try {
+        const result = await apiCall();
+        if (chrome.runtime.lastError) {
+            console.error(`${errorContext} 失败:`, chrome.runtime.lastError);
+            return null;
+        }
+        return result;
+    } catch (error) {
+        console.error(`${errorContext} 异常:`, error);
+        return null;
+    }
+}
+
+// ========================================
 // ✅ P1-3优化：BookmarkTreeCache - 缓存书签树结构，避免 DOM 查询
 // ========================================
 const BookmarkTreeCache = new Map();
