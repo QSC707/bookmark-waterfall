@@ -4045,6 +4045,57 @@ function setupFrequentlyVisitedHover() {
     panel.addEventListener('mouseleave', collapsePanel);
 }
 
+// ========================================
+// ✅ 优化：日期和时间辅助函数
+// ========================================
+
+/**
+ * 获取相对日期字符串（今天/昨天/日期）
+ */
+function getRelativeDateString(date) {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    today.setHours(0, 0, 0, 0);
+    yesterday.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date.getTime());
+    checkDate.setHours(0, 0, 0, 0);
+    if (checkDate.getTime() === today.getTime()) return '今天';
+    if (checkDate.getTime() === yesterday.getTime()) return '昨天';
+    return formatDate(date.getTime());
+}
+
+/**
+ * 检查书签是否在排除规则的时间范围内
+ */
+function isBookmarkInExcludeRule(bookmarkDate, rule) {
+    if (!rule.enabled) return false;
+
+    const ruleDate = new Date(rule.date);
+    // 检查日期是否匹配
+    if (bookmarkDate.getFullYear() !== ruleDate.getFullYear() ||
+        bookmarkDate.getMonth() !== ruleDate.getMonth() ||
+        bookmarkDate.getDate() !== ruleDate.getDate()) {
+        return false;
+    }
+
+    // 使用分钟数进行时间比较
+    const bookmarkTimeInMinutes = bookmarkDate.getHours() * 60 + bookmarkDate.getMinutes();
+    const [startHour, startMin] = rule.startTime.split(':').map(Number);
+    const [endHour, endMin] = rule.endTime.split(':').map(Number);
+    const ruleStartMinutes = startHour * 60 + startMin;
+    const ruleEndMinutes = endHour * 60 + endMin;
+
+    // 检查时间是否在排除范围内
+    if (ruleStartMinutes <= ruleEndMinutes) {
+        // 正常时间范围（如 09:00 - 17:00）
+        return bookmarkTimeInMinutes >= ruleStartMinutes && bookmarkTimeInMinutes <= ruleEndMinutes;
+    } else {
+        // 跨越午夜的时间范围（如 22:00 - 02:00）
+        return bookmarkTimeInMinutes >= ruleStartMinutes || bookmarkTimeInMinutes <= ruleEndMinutes;
+    }
+}
+
 /**
  * ✅ 优化 #11: 显示最近添加的书签列表（支持排除规则过滤）
  * @async
@@ -4058,19 +4109,6 @@ async function displayRecentBookmarks() {
     const endDateInput = document.getElementById('endDate');
     const quickFiltersContainer = document.getElementById('quickFilters');
     if (!container || !startDateInput || !endDateInput || !quickFiltersContainer) return;
-
-    const getRelativeDateString = (date) => {
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
-        today.setHours(0, 0, 0, 0);
-        yesterday.setHours(0, 0, 0, 0);
-        const checkDate = new Date(date.getTime());
-        checkDate.setHours(0, 0, 0, 0);
-        if (checkDate.getTime() === today.getTime()) return '今天';
-        if (checkDate.getTime() === yesterday.getTime()) return '昨天';
-        return formatDate(date.getTime());
-    };
 
     // 从所有书签中获取最近添加的书签（不限制数量）
     const getAllRecentBookmarks = async (startTime, endTime) => {
@@ -4088,36 +4126,11 @@ async function displayRecentBookmarks() {
                     const itemDate = bm.dateAdded;
                     if (itemDate < startTime || itemDate > endTime) return false;
 
-                    // 检查是否在排除规则中
+                    // ✅ 优化：使用提取的辅助函数检查排除规则
                     const date = new Date(itemDate);
                     for (const rule of excludeRules) {
-                        if (!rule.enabled) continue;
-
-                        const ruleDate = new Date(rule.date);
-                        // 检查日期是否匹配
-                        if (date.getFullYear() === ruleDate.getFullYear() &&
-                            date.getMonth() === ruleDate.getMonth() &&
-                            date.getDate() === ruleDate.getDate()) {
-
-                            // 使用分钟数进行时间比较（更准确）
-                            const bookmarkTimeInMinutes = date.getHours() * 60 + date.getMinutes();
-                            const [startHour, startMin] = rule.startTime.split(':').map(Number);
-                            const [endHour, endMin] = rule.endTime.split(':').map(Number);
-                            const ruleStartMinutes = startHour * 60 + startMin;
-                            const ruleEndMinutes = endHour * 60 + endMin;
-
-                            // 检查时间是否在排除范围内
-                            if (ruleStartMinutes <= ruleEndMinutes) {
-                                // 正常时间范围（如 09:00 - 17:00）
-                                if (bookmarkTimeInMinutes >= ruleStartMinutes && bookmarkTimeInMinutes <= ruleEndMinutes) {
-                                    return false; // 排除此书签
-                                }
-                            } else {
-                                // 跨越午夜的时间范围（如 22:00 - 02:00）
-                                if (bookmarkTimeInMinutes >= ruleStartMinutes || bookmarkTimeInMinutes <= ruleEndMinutes) {
-                                    return false; // 排除此书签
-                                }
-                            }
+                        if (isBookmarkInExcludeRule(date, rule)) {
+                            return false; // 排除此书签
                         }
                     }
 
