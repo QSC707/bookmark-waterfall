@@ -200,6 +200,10 @@ const AppState = {
 const selectedElements = new Set();
 const previewHighlightElements = new Set();
 
+// ✅ 性能优化：onMoved 局部刷新缓存（5秒TTL）
+const childrenCache = new Map(); // folderId -> {children, timestamp}
+const CHILDREN_CACHE_TTL = 5000; // 5秒缓存
+
 // ✅ 性能优化: 缓存localStorage设置，避免每次点击都读取
 let cachedOpenInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
 
@@ -979,7 +983,7 @@ function selectRange(startId, endId, column) {
  * ✅ 修复 #5: 处理空书签栏状态
  */
 function displayBookmarks(bookmarks) {
-    const bookmarkContainer = document.getElementById('bookmarkContainer');
+    const bookmarkContainer = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
     const header = getCachedElement('header', () => document.querySelector('.page-header'));
     bookmarkContainer.innerHTML = '';
 
@@ -1155,8 +1159,8 @@ function renderBookmarks(bookmarks, parentElement, level) {
     requestAnimationFrame(() => {
         if (!container.contains(column)) return;
 
-        // 先调整列宽
-        adjustColumnWidths(container);
+        // ✅ 性能优化：使用 RAF 防抖调整列宽
+        scheduleAdjustColumnWidths(container);
 
         // 新列的智能滚动逻辑（直接执行，不再嵌套）
         if (level > 0 && column.classList.contains('new-column')) {
@@ -1452,17 +1456,15 @@ function handleFolderClick(folderItem, bookmarkId) {
         folderItem.setAttribute('aria-expanded', 'true');
 
         // ✅ 性能优化：立即创建空列,显示加载状态
-        const container = document.getElementById('bookmarkContainer');
+        const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
         if (container) {
             // 先创建空列,给用户即时反馈
             const emptyColumn = createEmptyColumn(level + 1);
             container.appendChild(emptyColumn);
 
             // ✅ 性能优化：延迟布局调整,优先显示空列
-            // 使用 setTimeout(0) 让浏览器先渲染空列,再进行布局计算
-            setTimeout(() => {
-                adjustColumnWidths(container);
-            }, 0);
+            // 使用 RAF 防抖调整列宽
+            scheduleAdjustColumnWidths(container);
         }
 
         // ✅ P0修复：添加请求去重机制，防止快速连续点击导致的竞态条件
@@ -1527,7 +1529,7 @@ function handleFolderClick(folderItem, bookmarkId) {
             }
         });
     } else {
-        const container = document.getElementById('bookmarkContainer');
+        const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
         if (!container) return;
         
         const nextColumns = container.querySelectorAll(`.bookmark-column`);
@@ -1666,7 +1668,7 @@ function makeColumnResizable(column) {
 
     const overlay = document.querySelector('.resizing-overlay');
     const indicator = document.querySelector('.resize-indicator');
-    const container = document.getElementById('bookmarkContainer');
+    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
 
     handle.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -2151,6 +2153,17 @@ function performSmartScroll(container, params) {
 // ========================================
 // 恢复原始的平滑动画 + 稳定布局算法（只修复抖动）
 // ========================================
+
+// ✅ 性能优化：RAF 防抖，合并同一帧内的多次调用
+let adjustRAF = null;
+function scheduleAdjustColumnWidths(container) {
+    if (adjustRAF) return; // 已有待执行的调整
+    adjustRAF = requestAnimationFrame(() => {
+        adjustRAF = null;
+        adjustColumnWidths(container);
+    });
+}
+
 /**
  * ✅ P2重构：简化后的主函数，职责更清晰
  * 调整书签列宽度以适应容器大小，支持响应式布局和智能居中
@@ -2395,7 +2408,7 @@ function highlightBookmarkItems(itemIds, delay = 50) {
         : (callback) => setTimeout(callback, delay);
     
     scheduleHighlight(() => {
-        const bookmarkContainer = document.getElementById('bookmarkContainer');
+        const bookmarkContainer = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
         if (!bookmarkContainer) return;
         
         let observer = null;
@@ -3277,12 +3290,13 @@ async function handleSortBookmarks(parentId, sortType) {
 
 // 弹窗对话框 (Dialogs)
 function showEditDialog(title, initialValue, validator, callback) {
-    const dialog = document.getElementById('editDialog'),
-        titleEl = document.getElementById('editDialogTitle'),
-        inputEl = document.getElementById('editDialogInput'),
-        errorEl = document.getElementById('editDialogError'),
-        cancelBtn = document.getElementById('cancelEdit'),
-        confirmBtn = document.getElementById('confirmEdit');
+    // ✅ 性能优化：缓存对话框元素
+    const dialog = getCachedElement('editDialog', () => document.getElementById('editDialog'));
+    const titleEl = getCachedElement('editDialogTitle', () => document.getElementById('editDialogTitle'));
+    const inputEl = getCachedElement('editDialogInput', () => document.getElementById('editDialogInput'));
+    const errorEl = getCachedElement('editDialogError', () => document.getElementById('editDialogError'));
+    const cancelBtn = getCachedElement('cancelEdit', () => document.getElementById('cancelEdit'));
+    const confirmBtn = getCachedElement('confirmEdit', () => document.getElementById('confirmEdit'));
 
     titleEl.textContent = title;
     inputEl.value = initialValue || '';
@@ -3328,11 +3342,12 @@ function showEditDialog(title, initialValue, validator, callback) {
 }
 
 function showConfirmDialog(title, message, callback, isDeleteDialog = false) {
-    const dialog = document.getElementById('confirmDialog'),
-        titleEl = document.getElementById('confirmDialogTitle'),
-        messageEl = document.getElementById('confirmDialogMessage'),
-        cancelBtn = document.getElementById('cancelConfirm'),
-        confirmBtn = document.getElementById('confirmConfirm');
+    // ✅ 性能优化：缓存确认对话框元素
+    const dialog = getCachedElement('confirmDialog', () => document.getElementById('confirmDialog'));
+    const titleEl = getCachedElement('confirmDialogTitle', () => document.getElementById('confirmDialogTitle'));
+    const messageEl = getCachedElement('confirmDialogMessage', () => document.getElementById('confirmDialogMessage'));
+    const cancelBtn = getCachedElement('cancelConfirm', () => document.getElementById('cancelConfirm'));
+    const confirmBtn = getCachedElement('confirmConfirm', () => document.getElementById('confirmConfirm'));
 
     titleEl.textContent = title;
     
@@ -3616,11 +3631,14 @@ function reindexColumnItems(column) {
 
 // --- [修复后] 的 handleBookmarkCreated 函数 ---
 function handleBookmarkCreated(id, bookmark) {
+    // ✅ 性能优化：清除父文件夹的缓存
+    childrenCache.delete(bookmark.parentId);
+
     const parentColumn = findColumnForParentId(bookmark.parentId);
     if (parentColumn) {
         const newItem = createBookmarkItem(bookmark, bookmark.index);
         const wrapper = parentColumn.querySelector('.column-content-wrapper') || parentColumn;
-        
+
         // ✅ P1修复：添加索引边界检查，防止越界
         const targetIndex = Math.min(bookmark.index, wrapper.children.length);
         const targetChild = wrapper.children[targetIndex] || null;
@@ -3635,6 +3653,9 @@ function handleBookmarkCreated(id, bookmark) {
 }
 
 function handleBookmarkRemoved(id, removeInfo) {
+    // ✅ 性能优化：清除父文件夹的缓存
+    childrenCache.delete(removeInfo.parentId);
+
     const itemToRemove = document.querySelector(`.bookmark-item[data-id="${id}"]`);
     if (itemToRemove) {
         const column = itemToRemove.closest('.bookmark-column');
@@ -4678,7 +4699,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (bookmarksBar) {
             adjustBookmarksBarAlignment(bookmarksBar);
         }
-        adjustColumnWidths(bookmarkContainer);
+        // ✅ 性能优化：使用 RAF 防抖调整列宽
+        scheduleAdjustColumnWidths(bookmarkContainer);
     }, 300);
 
     window.addEventListener('resize', debouncedResize);
@@ -4936,6 +4958,8 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     };
 
+    // ✅ 性能优化：书签事件防抖合并
+    let refreshTimer = null;
     const refreshAllData = () => {
         setTimeout(() => {
             // 优化：直接刷新最近书签，无需遍历整个书签树
@@ -4956,6 +4980,12 @@ document.addEventListener('DOMContentLoaded', function () {
             );
         }, 250);
     };
+
+    // ✅ 性能优化：防抖函数，合并连续的刷新请求（100ms内的多次调用只执行一次）
+    function scheduleRefresh() {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => refreshAllData(), 100);
+    }
 
     // ✅ 优化 #13: 为主应用初始化添加错误处理
     chrome.bookmarks.getTree((bookmarks) => {
@@ -4979,11 +5009,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     chrome.bookmarks.onCreated.addListener((id, bookmark) => {
         handleBookmarkCreated(id, bookmark);
-        refreshAllData();
+        scheduleRefresh(); // ✅ 性能优化：使用防抖合并刷新
     });
     chrome.bookmarks.onRemoved.addListener((id, removeInfo) => {
         handleBookmarkRemoved(id, removeInfo);
-        refreshAllData();
+        scheduleRefresh(); // ✅ 性能优化：使用防抖合并刷新
     });
     chrome.bookmarks.onChanged.addListener((id, changeInfo) => {
         handleBookmarkChanged(id, changeInfo); // <-- 只保留这一行
@@ -5019,30 +5049,50 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (targetColumn) {
-                // 重新获取该文件夹的所有子项并重新渲染
-                chrome.bookmarks.getChildren(parentId, (children) => {
-                    // ✅ 修复 #3: 检查 Chrome API 错误
-                    if (chrome.runtime.lastError) {
-                        console.error('[onMoved] getChildren失败:', chrome.runtime.lastError);
-                        return;
-                    }
+                // ✅ 性能优化：使用缓存避免重复的 getChildren 调用
+                const cached = childrenCache.get(parentId);
+                const now = Date.now();
 
-                    // ✅ 修复 #3: 验证返回数据有效性
-                    if (!Array.isArray(children)) {
-                        console.error('[onMoved] 无效的children数据');
-                        return;
-                    }
-
+                if (cached && now - cached.timestamp < CHILDREN_CACHE_TTL) {
+                    // 使用缓存数据直接渲染
                     const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
                     contentWrapper.innerHTML = '';
 
-                    children.forEach((child, idx) => {
+                    cached.children.forEach((child, idx) => {
                         const item = createBookmarkItem(child, idx);
                         contentWrapper.appendChild(item);
                     });
 
                     observeLazyImages(contentWrapper);
-                });
+                } else {
+                    // 缓存过期或不存在，重新获取
+                    chrome.bookmarks.getChildren(parentId, (children) => {
+                        // ✅ 修复 #3: 检查 Chrome API 错误
+                        if (chrome.runtime.lastError) {
+                            console.error('[onMoved] getChildren失败:', chrome.runtime.lastError);
+                            return;
+                        }
+
+                        // ✅ 修复 #3: 验证返回数据有效性
+                        if (!Array.isArray(children)) {
+                            console.error('[onMoved] 无效的children数据');
+                            return;
+                        }
+
+                        // ✅ 性能优化：更新缓存
+                        childrenCache.set(parentId, {children, timestamp: now});
+
+                        const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
+                        contentWrapper.innerHTML = '';
+
+                        children.forEach((child, idx) => {
+                            const item = createBookmarkItem(child, idx);
+                            contentWrapper.appendChild(item);
+                        });
+
+                        observeLazyImages(contentWrapper);
+                    });
+                }
             }
 
             // 如果涉及书签栏，刷新书签栏
