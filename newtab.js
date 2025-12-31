@@ -2907,8 +2907,9 @@ function hideContextMenu() {
     if (contextMenu && contextMenu.style.display === 'block') {
         contextMenu.style.display = 'none';
         delete document.body.dataset.contextMenuOpen;
-        // 🐛 修复：关闭右键菜单时清除选中状态，避免高亮效果残留
-        clearSelection();
+        // 🔧 修复：不要在关闭右键菜单时清除选中状态
+        // 选中状态应该保持，直到用户执行操作或点击空白区域
+        // clearSelection(); // 移除这行，保持高亮
     }
 }
 
@@ -3294,6 +3295,8 @@ function showEditDialog(title, initialValue, validator, callback) {
         confirmBtn.onclick = null;
         cancelBtn.onclick = null;
         inputEl.onkeydown = null;
+        // 🔧 修复：关闭编辑对话框时清除选中状态
+        clearSelection();
     };
 
     const confirm = () => {
@@ -3375,6 +3378,8 @@ function showConfirmDialog(title, message, callback, isDeleteDialog = false) {
         cancelBtn.onclick = null;
         // 一次性清理所有通过 signal 注册的监听器
         abortController.abort();
+        // 🔧 修复：关闭确认对话框时清除选中状态
+        clearSelection();
     };
 
     const confirm = () => {
@@ -3414,6 +3419,8 @@ function showMoveDialog(bookmarkElement, idsToMove) {
         treeContainer.innerHTML = '';
         // 一次性清理所有通过 signal 注册的监听器
         abortController.abort();
+        // 🔧 修复：关闭移动对话框时清除选中状态
+        clearSelection();
     };
 
     const renderTree = (nodes, parentElement, level) => {
@@ -3569,6 +3576,8 @@ async function showPropertiesDialog(element) {
         closeBtn.onclick = null;
         // 一次性清理所有通过 signal 注册的监听器
         abortController.abort();
+        // 🔧 修复：关闭属性窗口时清除选中状态
+        clearSelection();
     };
 
     // 使用 AbortController 的 signal 注册监听器
