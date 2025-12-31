@@ -1017,7 +1017,7 @@ function displayBookmarks(bookmarks) {
     } else {
         // ✅ 修复 #5: 显示空书签栏提示
         const emptyBar = document.createElement('div');
-        emptyBar.className = 'bookmark-column bookmarks-bar';
+        emptyBar.className = 'bookmarks-bar';
         emptyBar.dataset.level = '0';
         emptyBar.innerHTML = `
             <div style="padding: 8px 16px; color: var(--module-header-color); font-size: 13px; opacity: 0.6;">
@@ -1084,7 +1084,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
         const header = getCachedElement('header', () => document.querySelector('.page-header'));
         column = document.createElement('div');
         // ✅ 性能优化：添加专用类名，避免复杂的属性选择器
-        column.className = 'bookmark-column bookmarks-bar';
+        column.className = 'bookmarks-bar';
         column.dataset.level = level;
         // ✅ 修复 #5: 添加ARIA导航属性
         column.setAttribute('role', 'navigation');

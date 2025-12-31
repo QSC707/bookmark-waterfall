@@ -108,7 +108,8 @@ body {
 }
 
 /* 性能优化：隔离布局计算 */
-.bookmark-column {
+.bookmark-column,
+.bookmarks-bar {
     /* ✅ 性能优化：CSS Containment 隔离布局计算 */
     contain: layout style;
     /* ✅ 性能优化：content-visibility 自动跳过不可见内容的渲染 */
@@ -116,7 +117,7 @@ body {
     content-visibility: auto;
 }
 
-/* ✅ 性能优化：使用简单类选择器替代复杂的属性选择器 */
+/* ✅ 性能优化：使用简单类选择器替���复杂的属性选择器 */
 /* 优化前：.bookmark-column[data-level="0"] - 属性选择器慢 10-20 倍 */
 /* 优化后：.bookmarks-bar - 类选择器，书签栏渲染性能提升 30-50% */
 .bookmarks-bar {
@@ -134,6 +135,12 @@ body {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb-bg) transparent;
     border-radius: 6px;
+    /* ✅ 覆盖 .bookmark-column 的卡片样式 */
+    border-left: 1px solid var(--header-border);
+    border-right: 1px solid var(--header-border);
+    width: 100%;
+    flex-shrink: 0;
+    transition: none;
 }
 
 /* 当内容不溢出时，居中显示 */
