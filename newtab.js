@@ -226,6 +226,8 @@ const DOMCache = {
     header: null,  // ✅ 性能优化：缓存页面头部（书签栏容器）
     recentBookmarksContent: null,
     frequentlyVisitedContent: null,
+    bookmarksBar: null,  // 🔧 P1-2优化：缓存书签栏（level 0）
+    firstColumn: null,   // 🔧 P1-2优化：缓存第一列
 
     init() {
         this.bookmarkContainer = document.getElementById('bookmarkContainer');
@@ -236,6 +238,14 @@ const DOMCache = {
         this.header = document.querySelector('.page-header');  // ✅ 缓存header
         this.recentBookmarksContent = document.querySelector('#recentBookmarksModule .module-content');
         this.frequentlyVisitedContent = document.querySelector('.frequently-visited-content');
+        this.bookmarksBar = document.querySelector('.bookmark-column[data-level="0"]');
+    },
+
+    // 🔧 P1-2优化：更新第一列缓存（列数变化时调用）
+    updateFirstColumn() {
+        if (!this.bookmarkContainer) return;
+        const columns = this.bookmarkContainer.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
+        this.firstColumn = columns[0] || null;
     },
 
     get(key) {
@@ -1131,62 +1141,65 @@ function renderBookmarks(bookmarks, parentElement, level) {
         makeColumnResizable(column);
     }
 
-    // P1优化：拖放事件也使用委托，但保留在列级别
-    column.addEventListener('dragover', handleColumnDragOver);
-    column.addEventListener('dragleave', handleColumnDragLeave);
-    column.addEventListener('drop', handleColumnDrop);
+    // 🔧 P0-1优化：移除列级别的事件监听器，完全依赖全局事件委托
+    // 这些监听器从未被清理，导致内存泄漏
+    // 全局委托已在 newtab.js:4441-4460 实现
+    // column.addEventListener('dragover', handleColumnDragOver);
+    // column.addEventListener('dragleave', handleColumnDragLeave);
+    // column.addEventListener('drop', handleColumnDrop);
 
-    // 优化：更智能的列宽调整和滚动
-    setTimeout(() => {
-        if (container.contains(column)) {
-            // 先调整列宽
-            adjustColumnWidths(container);
+    // 🔧 P1-3优化：使用 requestAnimationFrame 替代嵌套 setTimeout
+    // 更精确的时机控制，减少延迟
+    requestAnimationFrame(() => {
+        if (!container.contains(column)) return;
 
-            // 新列的智能滚动逻辑
-            if (level > 0 && column.classList.contains('new-column')) {
-                // 延迟一下，等待列宽调整完成
-                setTimeout(() => {
-                    const currentScroll = container.scrollLeft;
-                    const containerWidth = container.clientWidth;
-                    const columnLeft = column.offsetLeft;
-                    const columnRight = columnLeft + column.offsetWidth;
+        // 先调整列宽
+        adjustColumnWidths(container);
 
-                    // 计算前一列的位置
-                    const prevColumn = column.previousElementSibling;
-                    let targetScroll = currentScroll;
+        // 新列的智能滚动逻辑（直接执行，不再嵌套）
+        if (level > 0 && column.classList.contains('new-column')) {
+            // 使用另一个 RAF 确保列宽调整完成后再滚动
+            requestAnimationFrame(() => {
+                const currentScroll = container.scrollLeft;
+                const containerWidth = container.clientWidth;
+                const columnLeft = column.offsetLeft;
+                const columnRight = columnLeft + column.offsetWidth;
 
-                    if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
-                        // 尝试同时显示前一列和当前列
-                        const prevLeft = prevColumn.offsetLeft;
-                        const totalWidth = columnRight - prevLeft;
+                // 计算前一列的位置
+                const prevColumn = column.previousElementSibling;
+                let targetScroll = currentScroll;
 
-                        if (totalWidth <= containerWidth) {
-                            // 可以同时显示两列
-                            targetScroll = prevLeft - 20;
-                        } else {
-                            // 空间不够，优先显示新列
-                            targetScroll = Math.max(0, columnLeft - 40);
-                        }
+                if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
+                    // 尝试同时显示前一列和当前列
+                    const prevLeft = prevColumn.offsetLeft;
+                    const totalWidth = columnRight - prevLeft;
+
+                    if (totalWidth <= containerWidth) {
+                        // 可以同时显示两列
+                        targetScroll = prevLeft - 20;
                     } else {
-                        // 没有前一列，直接显示当前列
-                        targetScroll = Math.max(0, columnLeft - 20);
+                        // 空间不够，优先显示新列
+                        targetScroll = Math.max(0, columnLeft - 40);
                     }
+                } else {
+                    // 没有前一列，直接显示当前列
+                    targetScroll = Math.max(0, columnLeft - 20);
+                }
 
-                    // 只有当需要滚动时才执行
-                    const scrollDiff = Math.abs(targetScroll - currentScroll);
-                    if (scrollDiff > 10) {
-                        container.scrollTo({
-                            left: targetScroll,
-                            behavior: 'smooth'
-                        });
-                    }
+                // 只有当需要滚动时才执行
+                const scrollDiff = Math.abs(targetScroll - currentScroll);
+                if (scrollDiff > 10) {
+                    container.scrollTo({
+                        left: targetScroll,
+                        behavior: 'smooth'
+                    });
+                }
 
-                    // 移除标记类
-                    column.classList.remove('new-column');
-                }, 150); // 等待列宽调整
-            }
+                // 移除标记类
+                column.classList.remove('new-column');
+            });
         }
-    }, 0);
+    });
 }
 
 /**
@@ -1302,10 +1315,10 @@ function createEmptyColumn(level) {
     contentWrapper.className = 'column-content-wrapper';
     column.appendChild(contentWrapper);
 
-    // 添加拖放事件
-    column.addEventListener('dragover', handleColumnDragOver);
-    column.addEventListener('dragleave', handleColumnDragLeave);
-    column.addEventListener('drop', handleColumnDrop);
+    // 🔧 P0-1优化：移除列级别的事件监听器，完全依赖全局事件委托
+    // column.addEventListener('dragover', handleColumnDragOver);
+    // column.addEventListener('dragleave', handleColumnDragLeave);
+    // column.addEventListener('drop', handleColumnDrop);
 
     makeColumnResizable(column);
 
@@ -2174,11 +2187,17 @@ function adjustColumnWidths(container) {
             const marginRight = CONSTANTS.LAYOUT.COLUMN_GAP;
             const firstColumn = columns[0];
 
-            const columnData = columns.map(col => ({
+            // 🔧 P1-1优化：批量读取布局信息，避免 Layout Thrashing
+            // 先一次性读取所有需要的 DOM 属性（触发一次重排）
+            const widths = columns.map(col => col.offsetWidth);
+            const userResizedFlags = columns.map(col => col.dataset.userResized === 'true');
+
+            // 然后创建数据对象（纯计算，无 DOM 操作）
+            const columnData = columns.map((col, i) => ({
                 el: col,
-                currentWidth: col.offsetWidth,
-                userResized: col.dataset.userResized === 'true',
-                canResize: col.dataset.userResized !== 'true'
+                currentWidth: widths[i],
+                userResized: userResizedFlags[i],
+                canResize: !userResizedFlags[i]
             }));
 
             // === 阶段2：计算左边距 ===
@@ -4437,25 +4456,44 @@ document.addEventListener('DOMContentLoaded', function () {
             handleDragEnd.call(item, e);
         }
     }, true);
-    
+
+    // 🔧 P0-1优化：扩展全局事件委托，处理列级别的拖放
     document.body.addEventListener('dragover', (e) => {
         const item = e.target.closest('.bookmark-item');
         if (item) {
             handleDragOver.call(item, e);
+        } else {
+            // 如果不是书签项，检查是否是列
+            const column = e.target.closest('.bookmark-column');
+            if (column) {
+                handleColumnDragOver.call(column, e);
+            }
         }
     }, true);
-    
+
     document.body.addEventListener('drop', (e) => {
         const item = e.target.closest('.bookmark-item');
         if (item) {
             handleDrop.call(item, e);
+        } else {
+            // 如果不是书签项，检查是否是列
+            const column = e.target.closest('.bookmark-column');
+            if (column) {
+                handleColumnDrop.call(column, e);
+            }
         }
     }, true);
-    
+
     document.body.addEventListener('dragleave', (e) => {
         const item = e.target.closest('.bookmark-item');
         if (item) {
             handleDragLeave.call(item, e);
+        } else {
+            // 如果不是书签项，检查是否是列
+            const column = e.target.closest('.bookmark-column');
+            if (column) {
+                handleColumnDragLeave.call(column, e);
+            }
         }
     }, true);
 
@@ -4619,20 +4657,20 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('scroll', hideContextMenu, true);
 
     const bookmarkContainer = document.getElementById('bookmarkContainer');
-    let resizeTimer;
 
-    // 简单的防抖处理：窗口大小变化时，延迟300ms后执行
-    window.addEventListener('resize', () => {
+    // 🔧 P0-2优化：完整的防抖处理，避免 resize 时频繁执行 DOM 操作
+    // 之前每次 resize 都会执行 hideContextMenu()，导致高 CPU 占用
+    const debouncedResize = debounce(() => {
         hideContextMenu();
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-            const bookmarksBar = document.querySelector('.bookmark-column[data-level="0"]');
-            if (bookmarksBar) {
-                adjustBookmarksBarAlignment(bookmarksBar);
-            }
-            adjustColumnWidths(bookmarkContainer);
-        }, 300);
-    });
+        // 🔧 P1-2优化：使用缓存的 bookmarksBar，避免重复查询
+        const bookmarksBar = DOMCache.get('bookmarksBar');
+        if (bookmarksBar) {
+            adjustBookmarksBarAlignment(bookmarksBar);
+        }
+        adjustColumnWidths(bookmarkContainer);
+    }, 300);
+
+    window.addEventListener('resize', debouncedResize);
 
     // ============================================================
     // === ESC 键分层递进关闭逻辑（最终优化版）===
