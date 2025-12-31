@@ -43,6 +43,23 @@
  */
 
 // ========================================
+// 🔧 P3-2优化：条件编译 console 调用
+// ========================================
+const DEBUG = false;  // 生产环境设为 false
+
+const Logger = {
+    error(...args) {
+        if (DEBUG) console.error(...args);
+    },
+    warn(...args) {
+        if (DEBUG) console.warn(...args);
+    },
+    log(...args) {
+        if (DEBUG) console.log(...args);
+    }
+};
+
+// ========================================
 // 全局常量
 // ========================================
 const CONSTANTS = {
@@ -364,6 +381,7 @@ function buildBookmarkTreeCache(bookmarks) {
 // 核心修复：将 Observers 移至全局作用域
 // ========================================
 
+// 🔧 P2-2优化：优化 IntersectionObserver 配置
 let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -373,7 +391,10 @@ let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
             observer.unobserve(img);
         }
     });
-}, { rootMargin: '0px 0px 200px 0px' }); // 预加载视口下方200px内的图片
+}, {
+    rootMargin: '100px',  // 增加预加载距离，减少触发频率
+    threshold: 0.01       // 添加阈值，元素1%可见时触发
+});
 
 function observeLazyImages(container) {
     container.querySelectorAll('img[data-src]').forEach(img => {
@@ -2246,8 +2267,8 @@ function adjustColumnWidths(container) {
 
             resizing = false;
         } catch (error) {
-            // 捕获并记录错误，防止阻塞
-            console.error('Error in adjustColumnWidths:', error);
+            // 🔧 P3-2优化：使用 Logger 替代 console
+            Logger.error('Error in adjustColumnWidths:', error);
             resizing = false;
         }
     });
