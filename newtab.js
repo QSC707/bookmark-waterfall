@@ -439,26 +439,38 @@ function buildBookmarkTreeCache(bookmarks) {
 // 核心修复：将 Observers 移至全局作用域
 // ========================================
 
-// 🔧 首屏优化：激进预加载，立即加载可见图标
+// 🔧 首屏优化：极致激进预加载 + 立即触发
 let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
             const img = entry.target;
-            img.src = img.dataset.src;
+            const src = img.dataset.src;
+            if (src && img.src !== src) {
+                img.src = src;
+            }
             observer.unobserve(img);
         }
     });
 }, {
-    rootMargin: '200px',  // 提前200px加载
-    threshold: 0.01       // 只要1%可见就加载
+    rootMargin: '500px',  // 极致预加载：提前500px
+    threshold: 0          // 立即触发
 });
 
 function observeLazyImages(container) {
-    // 🔧 首屏优化：批量处理，减少observer调用
     const images = container.querySelectorAll('img[data-src]');
     if (images.length === 0) return;
 
-    images.forEach(img => lazyLoadObserver.observe(img));
+    // 🔧 首屏优化：立即加载前8个图标（书签栏可见部分）
+    const visibleCount = Math.min(8, images.length);
+    for (let i = 0; i < visibleCount; i++) {
+        const img = images[i];
+        img.src = img.dataset.src;
+    }
+
+    // 其余的使用懒加载
+    for (let i = visibleCount; i < images.length; i++) {
+        lazyLoadObserver.observe(images[i]);
+    }
 }
 
 /**
