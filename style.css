@@ -186,6 +186,8 @@ body {
     box-sizing: border-box;
     transition: width 0.2s ease-out,
                 margin-left 0.2s ease-out;
+    /* 🎨 高性能阴影：单层 box-shadow */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .column-content-wrapper {
@@ -406,6 +408,8 @@ body {
     background-color: var(--dialog-bg);
     border: 1px solid var(--header-border);
     border-radius: 12px;
+    /* 🎨 高性能阴影：单层 box-shadow */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 /* --- 8. 右侧按钮和面板定位 --- */
@@ -510,6 +514,8 @@ body {
     width: 200px;
     display: none;
     padding: 6px;
+    /* 🎨 高性能阴影：单层 box-shadow */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .settings-panel {
