@@ -4497,12 +4497,9 @@ function createSizedPreviewWindow(url) {
     });
 }
 
-// ==================================================================
-// --- DOMContentLoaded: 页面加载完成后的初始化 ---
-// ==================================================================
-// ✅ P0-1优化：防止重复初始化
-if (!window._bookmarkExtensionInitialized) {
-document.addEventListener('DOMContentLoaded', function () {
+// ✅ 首屏优化：移除DOMContentLoaded，立即执行
+// defer script会在DOMContentLoaded前执行，但DOM已可用
+(function() {
     // P1优化：初始化DOM缓存
     DOMCache.init();
     
@@ -5312,24 +5309,20 @@ window.addEventListener('unhandledrejection', (event) => {
     // event.preventDefault();
 });
 
-    document.addEventListener('keydown', handleSpacebarPreview);
+document.addEventListener('keydown', handleSpacebarPreview);
 
-    // ========================================
-    // ✅ P0优化：清理事件监听器，防止内存泄漏
-    // ========================================
-    window.addEventListener('beforeunload', () => {
-        // 清理所有计时器
-        if (refreshTimer) clearTimeout(refreshTimer);
-        if (scrollTimer) clearTimeout(scrollTimer);
-        if (adjustRAF) cancelAnimationFrame(adjustRAF);
-        if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
-        if (AppState.drag.dragOverTimeout) clearTimeout(AppState.drag.dragOverTimeout);
+// ========================================
+// ✅ P0优化：清理事件监听器，防止内存泄漏
+// ========================================
+window.addEventListener('beforeunload', () => {
+    // 清理所有计时器
+    if (refreshTimer) clearTimeout(refreshTimer);
+    if (scrollTimer) clearTimeout(scrollTimer);
+    if (adjustRAF) cancelAnimationFrame(adjustRAF);
+    if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
+    if (AppState.drag.dragOverTimeout) clearTimeout(AppState.drag.dragOverTimeout);
 
-        // 断开 Observer
-        if (lazyLoadObserver) lazyLoadObserver.disconnect();
-    }, { once: true });
-
-    // 设置初始化标志，防止重复初始化
-    window._bookmarkExtensionInitialized = true;
-});
-}
+    // 断开 Observer
+    if (lazyLoadObserver) lazyLoadObserver.disconnect();
+}, { once: true });
+})();
