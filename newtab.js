@@ -644,12 +644,6 @@ function showToast(message, duration = 2000, type = 'info') {
     }, duration);
 }
 
-function sanitizeText(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 // ========================================
 // ✅ P1修复：统一错误处理工具函数
 // ========================================
@@ -3095,9 +3089,9 @@ function handleDeleteBookmarks(selectedIds) {
 
     // 构建删除提示消息
     const message = itemsToDelete.length === 1
-        ? `确定要删除${itemsToDelete[0].isFolder ? '文件夹' : '书签'} "<span class="delete-item-name">${sanitizeText(itemsToDelete[0].title)}</span>" 吗？`
+        ? `确定要删除${itemsToDelete[0].isFolder ? '文件夹' : '书签'} "<span class="delete-item-name">${itemsToDelete[0].title}</span>" 吗？`
         : `确定要删除以下 ${itemsToDelete.length} 个项目吗？\n\n${itemsToDelete.map(item =>
-            `${item.isFolder ? '📁' : '🔖'} <span class="delete-item-name">${sanitizeText(item.title)}</span>`
+            `${item.isFolder ? '📁' : '🔖'} <span class="delete-item-name">${item.title}</span>`
         ).join('\n')}`;
 
     showConfirmDialog(`删除 ${itemsToDelete.length} 个项目`, message, () => {
@@ -3925,7 +3919,7 @@ async function displayRecentBookmarks() {
             const a = document.createElement('a');
             // ✅ 使用 href="#" 保持链接样式，点击事件由全局委托处理
             a.href = '#';
-            a.title = `${sanitizeText(item.title)}\nURL: ${item.url}`;
+            a.title = `${item.title}\nURL: ${item.url}`;
             a.dataset.id = item.id;
             a.dataset.url = item.url;
             a.dataset.parentId = item.parentId;
@@ -4290,6 +4284,8 @@ function scheduleRefresh() {
 
 // ✅ 首屏优化：移除DOMContentLoaded，立即执行
 // defer script会在DOMContentLoaded前执行，但DOM已可用
+let scrollTimer = null;
+
 (function() {
     // P1优化：初始化DOM缓存
     DOMCache.init();
@@ -4623,7 +4619,6 @@ function scheduleRefresh() {
     // ✅ 性能优化：scroll 事件防抖 + passive 监听器
     // 优化前：每次滚动都触发 hideContextMenu，造成性能浪费
     // 优化后：50ms 防抖 + passive 标志，滚动性能提升 30-40%
-    let scrollTimer = null;
     window.addEventListener('scroll', () => {
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(() => hideContextMenu(), 50);
