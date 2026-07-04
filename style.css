@@ -15,6 +15,9 @@
     --dialog-bg: #2c2c2c;                
     --dialog-primary-bg: #3772ff;
     --dialog-delete-bg: #f44336;
+    --dialog-delete-hover-bg: rgba(244, 67, 54, 0.1);
+    --scrollbar-dim: var(--scrollbar-dim);
+    --scrollbar-bright: var(--scrollbar-bright);
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
     --module-header-color: rgba(255, 255, 255, 0.6);
     --module-header-border-color: rgba(255, 255, 255, 0.15);
@@ -146,7 +149,7 @@ body {
 }
 
 .bookmarks-bar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(128, 128, 128, 0.4);
+    background-color: var(--scrollbar-bright);
 }
 
 /* --- 4. 主视图区域卡片式美化 --- */
@@ -781,13 +784,13 @@ body {
     margin: 4px 6px;
 }
 
-.context-menu ul {
+.menu-list {
     list-style: none;
     padding: 0;
     margin: 0;
 }
 
-.context-menu ul li {
+.menu-list li {
     cursor: pointer;
     color: var(--text-color);
     padding: 8px 12px;
@@ -815,22 +818,22 @@ body {
     stroke-linejoin: round;
 }
 
-.context-menu ul li:hover {
+.menu-list li:hover {
     background-color: var(--hover-bg);
 }
 
 /* 删除菜单项特殊样式 */
-.context-menu ul li[data-action="delete"] {
+.menu-list li[data-action="delete"] {
     color: var(--dialog-delete-bg);
 }
 
-.context-menu ul li[data-action="delete"] .menu-icon {
+.menu-list li[data-action="delete"] .menu-icon {
     stroke: var(--dialog-delete-bg);
     opacity: 1;
 }
 
-.context-menu ul li[data-action="delete"]:hover {
-    background-color: rgba(244, 67, 54, 0.1);
+.menu-list li[data-action="delete"]:hover {
+    background-color: var(--dialog-delete-hover-bg);
 }
 
 .empty-folder-message {
@@ -1328,7 +1331,7 @@ body.is-resizing .resize-indicator {
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: rgba(128, 128, 128, 0.15);
+    background-color: var(--scrollbar-dim);
     border-radius: 10px;
     border: 4px solid transparent;
     background-clip: content-box;
@@ -1336,18 +1339,20 @@ body.is-resizing .resize-indicator {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(128, 128, 128, 0.4);
+    background-color: var(--scrollbar-bright);
 }
 
-/* ✅ 优化 #10: 限制通用选择器范围，避免应用于所有元素 */
-.bookmark-container *,
-.vertical-modules *,
-.settings-panel *,
-#moveDialog *,
-#propertyDialog *,
-#deleteDialog * {
+/* 只对实际可滚动的容器设置细滚动条，避免 * 通配符遍历所有子元素 */
+.bookmark-container,
+.vertical-modules,
+.settings-panel,
+.dialog-body,
+.move-dialog-content,
+.column-content-wrapper,
+.module-content,
+.confirm-message {
     scrollbar-width: thin;
-    scrollbar-color: rgba(128, 128, 128, 0.15) transparent;
+    scrollbar-color: var(--scrollbar-dim) transparent;
 }
 
 /* --- 补充修复：确保所有书签列的垂直滚动条都隐藏 --- */

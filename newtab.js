@@ -2570,6 +2570,7 @@ const ContextMenuPool = (() => {
     };
 
     const ul = document.createElement('ul');
+    ul.className = 'menu-list';
 
     return {
         items,
