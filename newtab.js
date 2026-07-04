@@ -374,10 +374,6 @@ function findBookmarkElement(id) {
 // ========================================
 const BookmarkTreeCache = new Map();
 
-/**
- * 构建书签树缓存
- * @param {BookmarkNode[]} bookmarks - 书签树根节点数组
- */
 // ========================================
 // 核心修复：将 Observers 移至全局作用域
 // ========================================
@@ -399,19 +395,16 @@ let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
     threshold: 0          // 立即触发
 });
 
-function observeLazyImages(container) {
+function observeLazyImages(container, eagerCount = 0) {
     const images = container.querySelectorAll('img[data-src]');
     if (images.length === 0) return;
 
-    // 🔧 首屏优化：立即加载前8个图标（书签栏可见部分）
-    const visibleCount = Math.min(8, images.length);
-    for (let i = 0; i < visibleCount; i++) {
-        const img = images[i];
-        img.src = img.dataset.src;
+    // 立即加载前 eagerCount 个（只有书签栏首屏才需要，其他容器传 0）
+    const eager = Math.min(eagerCount, images.length);
+    for (let i = 0; i < eager; i++) {
+        images[i].src = images[i].dataset.src;
     }
-
-    // 其余的使用懒加载
-    for (let i = visibleCount; i < images.length; i++) {
+    for (let i = eager; i < images.length; i++) {
         lazyLoadObserver.observe(images[i]);
     }
 }
@@ -965,7 +958,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
         DOMCache.bookmarksBar = column; // 创建后立即更新缓存
 
         column.appendChild(fragment);
-        observeLazyImages(column);
+        observeLazyImages(column, 8); // 书签栏首屏：立即加载前8个
 
         // 检测书签栏是否需要居中显示
         requestAnimationFrame(() => {
@@ -1088,7 +1081,6 @@ function renderBookmarks(bookmarks, parentElement, level) {
 /**
  * ✅ 优化 #11: 创建单个书签项的DOM元素
  * @param {BookmarkNode} bookmark - 书签节点对象
- * @param {number} index - 在父节点中的索引位置
  * @returns {HTMLDivElement} 书签项DOM元素
  */
 function createBookmarkItem(bookmark) {
@@ -1221,7 +1213,7 @@ function fillColumnContent(bookmarks, level) {
         // 使用 DocumentFragment 批量添加
         const fragment = document.createDocumentFragment();
         bookmarks.forEach((bookmark, index) => {
-            const item = createBookmarkItem(bookmark, index);
+            const item = createBookmarkItem(bookmark);
             fragment.appendChild(item);
         });
         contentWrapper.appendChild(fragment);
@@ -2058,11 +2050,10 @@ function handleDragStart(e) {
         setTimeout(() => dragImage.remove(), 0);
     }
 
+    // 直接遍历 selectedElements（已有元素引用），省掉 O(N) 次 querySelector
     queueMicrotask(() => {
-        idsToDrag.forEach(id => {
-            const el = document.querySelector(`.bookmark-item[data-id="${id}"]`);
-            // ✅ P1-2优化：使用 ElementCache 替代直接操作 classList
-            if (el) ElementCache.addDragging(el);
+        selectedElements.forEach(el => {
+            if (el.isConnected) ElementCache.addDragging(el);
         });
     });
 
@@ -2678,8 +2669,7 @@ const ContextMenuPool = (() => {
         removeTopSite: createMenuItem('removeTopSite', 'icon-delete', '移除'),
     };
 
-    // 预先创建分隔符（需要多个）
-    const separators = Array.from({ length: 5 }, () => createSeparator());
+    // 分隔符每次新建，DOM节点不能同时存在于两处，循环复用会导致前一个消失
     let separatorIndex = 0;
     const ul = document.createElement('ul');
 
@@ -2687,9 +2677,8 @@ const ContextMenuPool = (() => {
         items,
         ul,
         getSeparator() {
-            const sep = separators[separatorIndex % separators.length];
             separatorIndex++;
-            return sep;
+            return createSeparator();
         },
         resetSeparators() {
             separatorIndex = 0;
@@ -3421,7 +3410,7 @@ function handleBookmarkCreated(id, bookmark) {
 
     const parentColumn = findColumnForParentId(bookmark.parentId);
     if (parentColumn) {
-        const newItem = createBookmarkItem(bookmark, bookmark.index);
+        const newItem = createBookmarkItem(bookmark);
         const wrapper = parentColumn.querySelector('.column-content-wrapper') || parentColumn;
 
         const targetIndex = Math.min(bookmark.index, wrapper.children.length);
@@ -3850,6 +3839,7 @@ async function displayRecentBookmarks() {
             const link = e.target.closest('a[data-id]');
             if (link) {
                 e.preventDefault();
+                e.stopPropagation(); // 防止冒泡到 document.body 的全局委托重复触发
                 showContextMenu(e, link, link.closest('.vertical-modules'));
             }
         });
@@ -4414,7 +4404,7 @@ let scrollTimer = null;
     window.addEventListener('scroll', () => {
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(() => hideContextMenu(), 50);
-    }, { passive: true, capture: true });
+    }, { passive: true });
 
     const bookmarkContainer = document.getElementById('bookmarkContainer');
 
