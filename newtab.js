@@ -2735,14 +2735,15 @@ function handleColumnDrop(e) {
     if (level === 0) {
         parentId = CONSTANTS.BOOKMARKS_BAR_ID;
     } else {
-        const prevColumn = document.querySelector(`.bookmark-column[data-level="${level - 1}"]`);
+        // level-1 可能是书签栏（.bookmarks-bar），也可能是普通列（.bookmark-column）
+        const prevColumn = document.querySelector(
+            `.bookmark-column[data-level="${level - 1}"], .bookmarks-bar[data-level="${level - 1}"]`
+        );
         if (prevColumn) {
-            // 优先从高亮文件夹获取（最可靠）
             const highlightedFolder = prevColumn.querySelector('.bookmark-item.highlighted');
             if (highlightedFolder) {
                 parentId = highlightedFolder.dataset.id;
             } else {
-                // 兜底：从当前列第一个项目的parentId获取
                 const firstItem = column.querySelector('.bookmark-item');
                 if (firstItem) {
                     parentId = firstItem.dataset.parentId;
