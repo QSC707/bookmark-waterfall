@@ -1084,7 +1084,6 @@ function createBookmarkItem(bookmark) {
     return item;
 }
 
-}
 
 /**
  * ✅ 性能优化：填充列内容（分离创建和填充逻辑）
