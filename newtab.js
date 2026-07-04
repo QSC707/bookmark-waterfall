@@ -4274,12 +4274,10 @@ function createSizedPreviewWindow(url) {
     });
 }
 
-// refreshAllData 和 scheduleRefresh 需要在 IIFE 外定义，
-// 因为 handleSortBookmarks / handleBookmarkChanged 等外部函数也会调用它们
 let refreshTimer = null;
 function refreshAllData() {
-    safeInitializeModule(() => displayRecentBookmarks(), '最近书签刷新', null);
-    safeInitializeModule(() => clearPreviewHighlight(), '预览高亮清除', null);
+    displayRecentBookmarks().catch(err => console.error('最近书签刷新失败:', err));
+    clearPreviewHighlight();
 }
 function scheduleRefresh() {
     clearTimeout(refreshTimer);
