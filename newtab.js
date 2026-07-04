@@ -3756,48 +3756,15 @@ function setupFrequentlyVisitedHover() {
 /**
  * 获取相对日期字符串（今天/昨天/日期）
  */
-function getRelativeDateString(date) {
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    today.setHours(0, 0, 0, 0);
-    yesterday.setHours(0, 0, 0, 0);
-    const checkDate = new Date(date.getTime());
-    checkDate.setHours(0, 0, 0, 0);
-    if (checkDate.getTime() === today.getTime()) return '今天';
-    if (checkDate.getTime() === yesterday.getTime()) return '昨天';
-    return formatDate(date.getTime());
-}
-
-/**
- * 检查书签是否在排除规则的时间范围内
- */
-function isBookmarkInExcludeRule(bookmarkDate, rule) {
-    if (!rule.enabled) return false;
-
-    const ruleDate = new Date(rule.date);
-    // 检查日期是否匹配
-    if (bookmarkDate.getFullYear() !== ruleDate.getFullYear() ||
-        bookmarkDate.getMonth() !== ruleDate.getMonth() ||
-        bookmarkDate.getDate() !== ruleDate.getDate()) {
-        return false;
-    }
-
-    // 使用分钟数进行时间比较
-    const bookmarkTimeInMinutes = bookmarkDate.getHours() * 60 + bookmarkDate.getMinutes();
-    const [startHour, startMin] = rule.startTime.split(':').map(Number);
-    const [endHour, endMin] = rule.endTime.split(':').map(Number);
-    const ruleStartMinutes = startHour * 60 + startMin;
-    const ruleEndMinutes = endHour * 60 + endMin;
-
-    // 检查时间是否在排除范围内
-    if (ruleStartMinutes <= ruleEndMinutes) {
-        // 正常时间范围（如 09:00 - 17:00）
-        return bookmarkTimeInMinutes >= ruleStartMinutes && bookmarkTimeInMinutes <= ruleEndMinutes;
-    } else {
-        // 跨越午夜的时间范围（如 22:00 - 02:00）
-        return bookmarkTimeInMinutes >= ruleStartMinutes || bookmarkTimeInMinutes <= ruleEndMinutes;
-    }
+function getRelativeDateString(ts) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayMs = todayStart.getTime();
+    const d = new Date(ts);
+    const checkMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    if (checkMs === todayMs) return '今天';
+    if (checkMs === todayMs - 86400000) return '昨天';
+    return formatDate(ts);
 }
 
 /**
@@ -3893,8 +3860,7 @@ async function displayRecentBookmarks() {
 
         for (let i = 0; i < filteredBookmarks.length; i++) {
             const item = filteredBookmarks[i];
-            const currentDate = new Date(item.dateAdded);
-            const currentDateString = getRelativeDateString(currentDate);
+            const currentDateString = getRelativeDateString(item.dateAdded);
 
             if (currentDateString !== lastDateString) {
                 const dateHeader = document.createElement('div');
