@@ -3991,45 +3991,46 @@ let scrollTimer = null;
     // P1优化：事件委托 - 统一处理所有书签项的事件（性能优化版）
     // ==================================================================
     
-    // === 性能优化1：缓存 CSS 选择器，避免重复创建字符串 ===
     const ITEM_SELECTOR = '.bookmark-item, .vertical-modules a, .top-site-item';
-    
-    // === 性能优化2：使用 mouseover/mouseout 替代 mouseenter/mouseleave ===
-    // 配合 relatedTarget 检查，避免在嵌套元素之间移动时频繁触发
+
+    // 悬停意图检测：只处理文件夹的自动展开，视觉高亮完全由 CSS :hover 负责
+    // mouseover 用 closest 遍历 DOM 是高频开销，用 is-folder class 快速过滤
     document.body.addEventListener('mouseover', (e) => {
-        // === 性能优化3：使用 closest() 进行事件委托 ===
-        const item = e.target.closest(ITEM_SELECTOR);
-        
-        // === 性能优化4：快速路径 - 如果不是目标元素或者是同一元素，直接返回 ===
-        if (!item || AppState.hover.currentItem === item) return;
-        
+        const target = e.target;
+        // 快速路径：只有 .bookmark-item 内的元素才需要处理
+        const item = target.closest('.bookmark-item');
+        if (!item) {
+            // 更新 currentItem 用于 spacebar preview
+            AppState.hover.currentItem = target.closest(ITEM_SELECTOR);
+            return;
+        }
+
         AppState.hover.currentItem = item;
-        
-        // === 性能优化5：只在文件夹元素上启动悬停意图 ===
+
+        // 只有文件夹才需要启动悬停意图（自动展开）
         if (item.classList.contains('is-folder')) {
             startHoverIntent(item);
         }
-    }, { passive: true }); // === 性能优化6：passive listener，提升滚动性能 ===
-    
+    }, { passive: true });
+
     document.body.addEventListener('mouseout', (e) => {
-        const item = e.target.closest(ITEM_SELECTOR);
-        
-        // === 性能优化7：快速路径 - 提前返回 ===
-        if (!item) return;
-        
-        // === 安全优化：检查是否真的离开了元素（防止误触发） ===
-        // relatedTarget 为 null 表示离开了整个文档，也应该清除
+        const item = e.target.closest('.bookmark-item');
+        if (!item) {
+            if (!e.relatedTarget || !e.relatedTarget.closest(ITEM_SELECTOR)) {
+                AppState.hover.currentItem = null;
+            }
+            return;
+        }
+
         if (!e.relatedTarget || !item.contains(e.relatedTarget)) {
             if (AppState.hover.currentItem === item) {
                 AppState.hover.currentItem = null;
-                
-                // === 性能优化8：只在必要时清除悬停意图 ===
                 if (item.classList.contains('is-folder')) {
                     clearHoverIntent();
                 }
             }
         }
-    }, { passive: true }); // === 性能优化9：passive listener ===
+    }, { passive: true });
     
     document.body.addEventListener('mousedown', (e) => {
         // === 性能优化：复用缓存的选择器 ===
