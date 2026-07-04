@@ -731,14 +731,24 @@ body {
     padding: 6px 8px;
     cursor: pointer;
     border-radius: 6px;
-    transition: background-color 60ms ease;
+    position: relative;
 }
 
-.folder-content:hover {
+.folder-content::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
     background-color: var(--hover-bg);
+    opacity: 0;
+    pointer-events: none;
 }
 
-.bookmark-tree-item.selected>.folder-content {
+.folder-content:hover::before {
+    opacity: 1;
+}
+
+.bookmark-tree-item.selected > .folder-content {
     background-color: var(--dialog-primary-bg);
     color: #fff;
 }
@@ -834,6 +844,21 @@ body {
     font-size: 14px;
     border-radius: 6px;
     margin: 0 4px;
+    position: relative;
+}
+
+.menu-list li::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    background-color: var(--hover-bg);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.menu-list li:hover::before {
+    opacity: 1;
 }
 
 /* 新增的SVG图标样式 */
@@ -852,10 +877,6 @@ body {
     stroke-linejoin: round;
 }
 
-.menu-list li:hover {
-    background-color: var(--hover-bg);
-}
-
 /* 删除菜单项特殊样式 */
 .menu-list li[data-action="delete"] {
     color: var(--dialog-delete-bg);
@@ -866,8 +887,12 @@ body {
     opacity: 1;
 }
 
-.menu-list li[data-action="delete"]:hover {
+.menu-list li[data-action="delete"]::before {
     background-color: var(--dialog-delete-hover-bg);
+}
+
+.menu-list li[data-action="delete"]:hover::before {
+    opacity: 1;
 }
 
 .empty-folder-message {
@@ -1116,10 +1141,21 @@ body {
     border-radius: 8px;
     text-decoration: none;
     color: var(--text-color);
+    position: relative;
 }
 
-.recent-item:hover {
+.recent-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
     background-color: var(--hover-bg);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.recent-item:hover::before {
+    opacity: 1;
 }
 
 .recent-item .module-icon {
