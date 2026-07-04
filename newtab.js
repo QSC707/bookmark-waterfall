@@ -415,28 +415,6 @@ const BookmarkTreeCache = new Map();
  * 构建书签树缓存
  * @param {BookmarkNode[]} bookmarks - 书签树根节点数组
  */
-function buildBookmarkTreeCache(bookmarks) {
-    BookmarkTreeCache.clear();
-
-    function traverse(nodes, parentId = null) {
-        if (!nodes) return;
-        nodes.forEach(node => {
-            BookmarkTreeCache.set(node.id, {
-                id: node.id,
-                parentId: parentId,
-                title: node.title,
-                url: node.url
-            });
-
-            if (node.children) {
-                traverse(node.children, node.id);
-            }
-        });
-    }
-
-    traverse(bookmarks);
-}
-
 // ========================================
 // 核心修复：将 Observers 移至全局作用域
 // ========================================
@@ -570,22 +548,6 @@ function getBookmarkPath(bookmarkId) {
             else resolve('');
         });
     });
-}
-
-/**
- * 递归展平书签树为一维数组（仅包含书签，不包含文件夹）
- * @param {Array} nodes - 书签树节点数组
- * @param {Array} flatList - 用于收集结果的一维数组（会被修改）
- */
-function flattenBookmarks(nodes, flatList) {
-    for (const node of nodes) {
-        if (node.url) {
-            flatList.push(node);
-        }
-        if (node.children) {
-            flattenBookmarks(node.children, flatList);
-        }
-    }
 }
 
 /**
@@ -2253,91 +2215,57 @@ function handleDragOver(e) {
 function highlightBookmarkItems(itemIds, delay = 50) {
     if (!itemIds || itemIds.length === 0) return;
 
-    setTimeout(() => {
-        const bookmarkContainer = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
-        if (!bookmarkContainer) return;
-        
-        let observer = null;
-        let timeoutId = null;
-        
-        // 清理函数：确保资源释放
-        const cleanup = () => {
-            if (observer) {
-                observer.disconnect();
-                observer = null;
-            }
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
-        };
-        
-        // 执行高亮的核心逻辑
-        const applyHighlight = (items) => {
-            if (!items || items.length === 0) return;
-            
-            // 使用 requestAnimationFrame 批量处理DOM操作
-            requestAnimationFrame(() => {
-                items.forEach(item => {
-                    if (item && item.classList) {
-                        item.classList.add('just-moved');
-                    }
+    const bookmarkContainer = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
+    if (!bookmarkContainer) return;
+
+    let observer = null;
+    let timeoutId = null;
+
+    const cleanup = () => {
+        if (observer) { observer.disconnect(); observer = null; }
+        if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+    };
+
+    const applyHighlight = (items) => {
+        if (!items || items.length === 0) return;
+        requestAnimationFrame(() => {
+            items.forEach(item => { if (item?.classList) item.classList.add('just-moved'); });
+            if (items[0]) items[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    items.forEach(item => { if (item?.classList) item.classList.remove('just-moved'); });
                 });
-                
-                // 滚动到第一个项目
-                if (items[0]) {
-                    items[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-                
-                // 定时移除高亮类
-                setTimeout(() => {
-                    requestAnimationFrame(() => {
-                        items.forEach(item => {
-                            if (item && item.classList) {
-                                item.classList.remove('just-moved');
-                            }
-                        });
-                    });
-                }, 1200);
-            });
-        };
-        
-        // 尝试查找元素
-        const findItems = () => itemIds.map(id => document.querySelector(`.bookmark-item[data-id="${id}"]`)).filter(Boolean);
-        
-        // 立即尝试查找
+            }, 1200);
+        });
+    };
+
+    const findItems = () => itemIds.map(id => document.querySelector(`.bookmark-item[data-id="${id}"]`)).filter(Boolean);
+
+    // 立即尝试，找到就直接高亮（delay 用于拖入文件夹展开后等待 DOM 更新）
+    const tryImmediate = findItems();
+    if (tryImmediate.length === itemIds.length) {
+        applyHighlight(tryImmediate);
+        return;
+    }
+
+    // 找不到：等 delay 后再尝试，仍找不到则启动 MutationObserver
+    setTimeout(() => {
         const immediateItems = findItems();
         if (immediateItems.length === itemIds.length) {
-            // 所有元素已经在DOM中，直接高亮
             applyHighlight(immediateItems);
             return;
         }
-        
-        // 部分或全部元素不在DOM中，使用 MutationObserver 监听
+
         observer = new MutationObserver(() => {
             const foundItems = findItems();
-            if (foundItems.length === itemIds.length) {
-                cleanup();
-                applyHighlight(foundItems);
-            }
+            if (foundItems.length === itemIds.length) { cleanup(); applyHighlight(foundItems); }
         });
-        
-        // 只观察 bookmark-column 的子节点变化，减少触发次数
-        observer.observe(bookmarkContainer, {
-            childList: true,
-            subtree: true,
-            // 只关注子节点变化，不关注属性和文本
-            attributes: false,
-            characterData: false
-        });
-        
-        // 安全超时：最多等待1.5秒
+        observer.observe(bookmarkContainer, { childList: true, subtree: true, attributes: false, characterData: false });
+
         timeoutId = setTimeout(() => {
             const foundItems = findItems();
             cleanup();
-            if (foundItems.length > 0) {
-                applyHighlight(foundItems);
-            }
+            if (foundItems.length > 0) applyHighlight(foundItems);
         }, 1500);
     }, delay);
 }
