@@ -1183,24 +1183,24 @@ function fillColumnContent(bookmarks, level) {
     const contentWrapper = column.querySelector('.column-content-wrapper');
     if (!contentWrapper) return;
 
-    // ✅ 性能优化：安全清空，防止内存泄漏
-    clearContentWrapper(contentWrapper);
-
+    // 先构建新内容，再原子替换——避免"先清空再填入"造成的闪烁帧
+    let newNodes;
     if (bookmarks.length === 0) {
         const emptyMsg = document.createElement('div');
         emptyMsg.className = 'empty-folder-message';
         emptyMsg.textContent = '这个文件夹是空的';
-        contentWrapper.appendChild(emptyMsg);
+        newNodes = [emptyMsg];
     } else {
-        // 使用 DocumentFragment 批量添加
-        const fragment = document.createDocumentFragment();
-        bookmarks.forEach((bookmark, index) => {
-            const item = createBookmarkItem(bookmark);
-            fragment.appendChild(item);
-        });
-        contentWrapper.appendChild(fragment);
-        observeLazyImages(contentWrapper);
+        newNodes = bookmarks.map(bookmark => createBookmarkItem(bookmark));
     }
+
+    // 先 unobserve 旧图片（防止内存泄漏），再原子替换整个内容
+    if (lazyLoadObserver) {
+        contentWrapper.querySelectorAll('img[data-src]').forEach(img => lazyLoadObserver.unobserve(img));
+    }
+    contentWrapper.replaceChildren(...newNodes);
+
+    if (bookmarks.length > 0) observeLazyImages(contentWrapper);
 
     // ✅ 性能优化：移除不必要的动画恢复逻辑
     // 大窗口下已经在 createEmptyColumn 中设置为直接可见,无需额外处理
@@ -2348,16 +2348,17 @@ async function moveBookmarksToDestination(idsToMove, destination) {
     return { successCount, errorCount };
 }
 
-// 将一批书签渲染到目标 wrapper（通用，三处调用方共用）
+// 将一批书签渲染到目标 wrapper，原子替换避免闪烁
 function renderChildrenToWrapper(wrapper, children, isBookmarksBar) {
-    clearContentWrapper(wrapper);
-    const fragment = document.createDocumentFragment();
-    for (const child of children) {
+    const nodes = children.map(child => {
         const item = createBookmarkItem(child);
         if (isBookmarksBar) item.classList.add('bookmarks-bar-item');
-        fragment.appendChild(item);
+        return item;
+    });
+    if (lazyLoadObserver) {
+        wrapper.querySelectorAll('img[data-src]').forEach(img => lazyLoadObserver.unobserve(img));
     }
-    wrapper.appendChild(fragment);
+    wrapper.replaceChildren(...nodes);
     observeLazyImages(wrapper);
 }
 
