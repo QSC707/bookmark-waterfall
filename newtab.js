@@ -176,7 +176,7 @@ const selectedElements = new Set();
 const previewHighlightElements = new Set();
 
 // 1x1 透明 GIF 占位图（模块常量，避免重复硬编码长字符串）
-const TRANSPARENT_GIF = TRANSPARENT_GIF;
+const TRANSPARENT_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // ✅ 性能优化：onMoved 局部刷新缓存（5秒TTL）
 const childrenCache = new Map(); // folderId -> {children, timestamp}
