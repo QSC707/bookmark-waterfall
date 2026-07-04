@@ -2448,10 +2448,19 @@ function handleDrop(e) {
     }
 
     const dropTarget = e.target.closest('.bookmark-item');
+    const hasDragIndicator = dropTarget && (
+        dropTarget.classList.contains('drag-over-top') ||
+        dropTarget.classList.contains('drag-over-bottom') ||
+        dropTarget.classList.contains('drag-over-before') ||
+        dropTarget.classList.contains('drag-over-after') ||
+        dropTarget.classList.contains('drag-enter')
+    );
 
-    // 拖到列空白处：回退到列级别的 drop 处理（移动到该文件夹末尾）
-    if (!dropTarget) {
-        const column = e.target.closest('.bookmark-column, .bookmarks-bar');
+    // 拖到空白处，或鼠标停在书签上但没有明确放置指示时，
+    // 回退到列级别处理（移动到该文件夹末尾）
+    if (!hasDragIndicator) {
+        const column = (dropTarget?.closest('.bookmark-column, .bookmarks-bar'))
+            || e.target.closest('.bookmark-column, .bookmarks-bar');
         if (column) handleColumnDrop.call(column, e);
         return;
     }
