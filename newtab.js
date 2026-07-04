@@ -1894,51 +1894,35 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
  * @param {Array} columnData - 列数据（用于判断变化大小）
  */
 function applyColumnWidthStyles(newStyles, columnData) {
-    // 🔧 修复：过滤掉没有实际变化的样式，避免触发意外动画
     const actualChanges = new Map();
 
     newStyles.forEach((style, el) => {
         const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
         const newWidth = parseFloat(style.width);
-        const widthDiff = Math.abs(currentWidth - newWidth);
-
-        // 只有宽度差异超过 1px 时才认为是真正的变化
-        if (widthDiff > 1) {
+        if (Math.abs(currentWidth - newWidth) > 1) {
             actualChanges.set(el, style);
         }
     });
 
-    // 如果没有实际变化，直接返回
-    if (actualChanges.size === 0) {
-        return;
-    }
+    if (actualChanges.size === 0) return;
 
-    // 检查是否有大的变化
-    const hasLargeChanges = Array.from(actualChanges.entries()).some(([el, style]) => {
-        const cached = columnData.find(data => data.el === el);
-        const currentWidth = cached ? cached.currentWidth : el.offsetWidth;
-        const newWidth = parseFloat(style.width);
-        return Math.abs(currentWidth - newWidth) > 50;
+    // 用 Map 预建宽度查找，消除内层 find() 的 O(n²)
+    const widthByEl = new Map(columnData.map(d => [d.el, d.currentWidth]));
+    const hasLargeChanges = Array.from(actualChanges).some(([el, style]) => {
+        const cur = widthByEl.get(el) ?? el.offsetWidth;
+        return Math.abs(cur - parseFloat(style.width)) > 50;
     });
 
     if (hasLargeChanges) {
-        // 大变化时禁用动画
         actualChanges.forEach((style, el) => {
             el.style.transition = 'none';
             el.style.width = style.width;
         });
-
-        // 下一帧恢复动画
         requestAnimationFrame(() => {
-            actualChanges.forEach((style, el) => {
-                el.style.transition = '';
-            });
+            actualChanges.forEach((_, el) => { el.style.transition = ''; });
         });
     } else {
-        // 小变化时保持动画
-        actualChanges.forEach((style, el) => {
-            el.style.width = style.width;
-        });
+        actualChanges.forEach((style, el) => { el.style.width = style.width; });
     }
 }
 
@@ -2112,7 +2096,7 @@ function adjustColumnWidths(container) {
         if (totalUsedWidth > availableWidth) {
             const overflowWidth = totalUsedWidth - availableWidth;
             newStyles = shrinkColumnsToFit(resizableColumns, overflowWidth, MIN_COL_WIDTH);
-            } else {
+        } else {
             const availableSpace = availableWidth - totalUsedWidth;
             newStyles = enlargeColumnsToFill(resizableColumns, availableSpace, DEFAULT_COL_WIDTH);
         }
@@ -3594,9 +3578,7 @@ function handleBookmarkRemoved(id, removeInfo) {
     // 不在这里调 displayRecentBookmarks，由外层 scheduleRefresh 统一处理
 }
 
-// --- [最终修复版] handleBookmarkChanged 函数 ---
 function handleBookmarkChanged(id, changeInfo) {
-    // 优化：直接更新界面上所有匹配的元素，无需维护内存中的书签数据
     document.querySelectorAll(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`).forEach(item => {
         if (changeInfo.title) {
             item.dataset.title = changeInfo.title;
@@ -3607,17 +3589,19 @@ function handleBookmarkChanged(id, changeInfo) {
             item.dataset.url = changeInfo.url;
             const iconEl = item.querySelector('.bookmark-icon') || item.querySelector('.module-icon');
             if (iconEl) {
-                // 核心修复：不再清空 src，而是直接更新 data-src 并重新观察
-                // 这样可以避免不必要的闪烁
-                const newIconUrl = getIconUrl(changeInfo.url);
-                iconEl.dataset.src = newIconUrl;
-                lazyLoadObserver.observe(iconEl);
+                iconEl.dataset.src = getIconUrl(changeInfo.url);
+                if (lazyLoadObserver) lazyLoadObserver.observe(iconEl);
             }
         }
     });
 
-    // 刷新最近书签模块以反映更改
-    refreshAllData();
+    // 书签改名/改URL不改变 dateAdded，最近书签列表顺序不变，
+    // 只需刷新显示的文字（已在上面完成），不需要完整重渲染
+    if (changeInfo.url) {
+        // URL 变了才需要刷新路径信息（getBookmarkPath 依赖 BookmarkTreeCache）
+        invalidateBookmarkCache();
+        scheduleRefresh();
+    }
 }
 
 // --- 侧边栏模块 (Modules) ---
