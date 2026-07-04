@@ -2,25 +2,19 @@
 /* --- 最终修复与美化版样式 (Final Corrected Version 3.0) --- */
 /* ================================================================== */
 
-/* --- 1. 变量与色彩体系 (严格按照 #3C3C3C 统一) --- */
 /* --- 1. 变量与色彩体系 (macOS 风格) --- */
 :root {
     color-scheme: dark;
-    /* 新增：告知浏览器此为深色方案 */
-    --bg-color: #1E1E1E;                     /* <-- macOS 窗口最深层的基础背景色 */
-    --text-color: rgba(255, 255, 255, 0.85);  /* <-- macOS 主要文本颜色 (非纯白，更柔和) */
-    --header-bg: #2d2d2d;                    /* <-- 顶部书签栏/工具栏颜色，比背景稍亮 */
+    --bg-color: #1E1E1E;                 
+    --header-bg: #2d2d2d;                
     --header-border: rgba(255, 255, 255, 0.1);
-    --card-bg: #282828;                      /* <-- 书签列/卡片/模块背景，用于内容区域 */
-    --link-color: #e2e2e2;
+    --card-bg: #282828;                  
     --highlighted-bg: rgba(255, 255, 255, 0.08);
     --hover-bg: rgba(255, 255, 255, 0.12);
-    --dialog-bg: #2c2c2c;                    /* ✅ 性能优化：移除透明度，改为纯色 */
+    --dialog-bg: #2c2c2c;                
     --dialog-primary-bg: #3772ff;
     --dialog-delete-bg: #f44336;
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
-    --module-bg-color: #282828;              /* <-- 侧边模块与卡片颜色统一 */
-    --module-header-color: rgba(255, 255, 255, 0.6); /* <-- macOS 次要文本颜色 */
     --module-header-border-color: rgba(255, 255, 255, 0.15);
     --context-menu-icon-filter: none;
     --input-bg: rgba(0, 0, 0, 0.2);
@@ -32,18 +26,15 @@
 
 [data-theme="light"] {
     color-scheme: light;
-    /* 新增：告知浏览器此为浅色方案 */
     --bg-color: #f7f7f7;
     --text-color: #333;
     --header-bg: rgba(255, 255, 255, 0.7);
     --header-border: rgba(0, 0, 0, 0.08);
     --card-bg: rgba(255, 255, 255, 0.6);
-    --link-color: #111;
     --highlighted-bg: rgba(0, 0, 0, 0.05);
     --hover-bg: rgba(0, 0, 0, 0.08);
-    --dialog-bg: #ffffff;                    /* ✅ 性能优化：移除透明度，改为纯色 */
+    --dialog-bg: #ffffff;                
     --scrollbar-thumb-bg: rgba(0, 0, 0, 0.2);
-    --module-bg-color: #ffffff;
     --module-header-color: #555;
     --module-header-border-color: rgba(0, 0, 0, 0.12);
     --context-menu-icon-filter: invert(0.8);
@@ -195,11 +186,9 @@ body {
     overflow-y: auto;
 }
 
+/* level 1 列去掉左边框（与父列视觉分离） */
 .bookmark-column[data-level="1"] {
     border-left: none;
-    /* 简化过渡效果 */
-    transition: width 0.2s ease-out,
-                margin-left 0.2s ease-out;
 }
 
 
@@ -223,14 +212,7 @@ body {
     background-color: var(--highlighted-bg);
 }
 
-/* 拖动后的临时高亮效果 - 柔和优化版 */
-/* ✅ 性能优化：使用伪元素 + opacity 动画替代 background-color 动画 */
-/* 优化前：background-color 动画触发重绘（repaint）*/
-/* 优化后：opacity 动画使用 GPU 加速，性能提升 30-40% */
-.bookmark-item.just-moved {
-    position: relative;
-}
-
+/* 拖动后的临时高亮效果，伪元素 opacity 动画使用 GPU 加速 */
 .bookmark-item.just-moved::before {
     content: '';
     position: absolute;
@@ -459,39 +441,29 @@ body {
     z-index: 101;
 }
 
-.settings-btn {
-    position: fixed;
+/* 两个按钮共用的基础样式 */
+.settings-btn,
+.sidebar-toggle-btn {
     z-index: 1002;
-    background-color: transparent;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: opacity 0.2s ease, background-color 0.2s ease;
+    background-color: transparent;
+    opacity: 0.6;
 }
 
 .sidebar-toggle-btn {
     position: static;
-    z-index: 1002;
-    background-color: transparent;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s ease, background-color 0.2s ease;
     transform: none;
     color: var(--text-color);
-    opacity: 0.6;
     width: 32px;
     height: 32px;
     border-radius: 8px;
     font-size: 16px;
-    writing-mode: horizontal-tb;
-    text-orientation: mixed;
     background-color: var(--highlighted-bg);
-    /* <-- 添加这一行 */
 }
 
 .sidebar-toggle-btn:hover {
@@ -508,7 +480,6 @@ body {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    opacity: 0.6;
 }
 
 .settings-btn svg {
@@ -577,7 +548,7 @@ body {
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
-    background-color: var(--dialog-button-bg);
+    background-color: var(--card-bg);
     color: var(--text-color);
     transition: background-color 0.2s ease, transform 0.2s ease;
 }
@@ -1077,7 +1048,6 @@ input:checked+.slider:before {
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
-    transform: scale(1);
 }
 
 .filter-btn:hover:not(.active) {
@@ -1289,7 +1259,6 @@ body.is-resizing .resize-indicator {
 
 #history-btn {
     top: 78px;
-    /* <-- 修改这里 */
     right: 56px;
     width: 32px;
     height: 32px;
@@ -1299,7 +1268,6 @@ body.is-resizing .resize-indicator {
     left: auto;
     transform-origin: center;
     background-color: var(--highlighted-bg);
-    /* <-- 添加这一行 */
 }
 
 #history-btn:hover {
