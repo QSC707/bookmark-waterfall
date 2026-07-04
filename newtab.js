@@ -631,7 +631,8 @@ function showToast(message, duration = 2000, type = 'info') {
 
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
-        toast.className = 'toast glass-effect';
+        // 只移除 show，让 transition 完整淡出，颜色 class 保留到动画结束
+        toast.classList.remove('show');
     }, duration);
 }
 
@@ -2754,9 +2755,9 @@ function handleColumnDrop(e) {
 
     if (parentId) {
         const moveBookmarksSequentially = async () => {
+            // 不指定 index，Chrome 自动放到文件夹末尾
             const result = await moveBookmarksToDestination(idsToMove, {
-                parentId: parentId,
-                index: 0
+                parentId: parentId
             });
             const { successCount, errorCount } = result;
 
