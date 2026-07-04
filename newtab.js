@@ -127,9 +127,10 @@ const CONSTANTS = {
 const AppState = {
     // 悬停与交互状态
     hover: {
-        enabled: true,              // 悬停功能是否启用
-        currentItem: null,          // 当前悬停的项目
-        suppressHover: false,       // 临时禁用悬停（如拖拽时）
+        enabled: true,
+        currentItem: null,
+        suppressHover: false,
+        suppressTimer: null,
         intent: {
             timer: null,            // 悬停意图计时器
             target: null,           // 悬停目标元素
@@ -157,9 +158,15 @@ const AppState = {
 
     // 请求管理（防止竞态条件）
     requests: {
-        pendingFolder: null,        // 当前待处理的文件夹请求
-        pendingRecentBookmarks: null, // 最近书签请求
-        pendingParentRefresh: new Map() // 父文件夹刷新请求映射 (parentId -> request)
+        pendingFolder: null,
+        pendingRecentBookmarks: null,
+        pendingParentRefresh: new Map()
+    },
+
+    // 右键菜单关联状态（避免直接挂载到 DOM 元素）
+    contextMenu: {
+        target: null,
+        column: null
     },
 
     layout: {
@@ -246,9 +253,18 @@ function getBookmarkTree() {
         chrome.bookmarks.getTree(tree => {
             cachedBookmarkTree = tree;
             bookmarkCacheDirty = false;
-            buildBookmarkTreeCache(tree);
+            // 合并两次遍历为一次：同时建 TreeCache 和 flat 列表
+            BookmarkTreeCache.clear();
             const flat = [];
-            flattenBookmarks(tree, flat);
+            const traverseAll = (nodes, parentId = null) => {
+                if (!nodes) return;
+                for (const node of nodes) {
+                    BookmarkTreeCache.set(node.id, { id: node.id, parentId, title: node.title, url: node.url });
+                    if (node.url) flat.push(node);
+                    if (node.children) traverseAll(node.children, node.id);
+                }
+            };
+            traverseAll(tree);
             AppState.data.allBookmarksFlat = flat;
             resolve(tree);
         });
@@ -1023,6 +1039,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
         column.setAttribute('role', 'navigation');
         column.setAttribute('aria-label', '书签栏');
         header.appendChild(column);
+        DOMCache.bookmarksBar = column; // 创建后立即更新缓存
 
         column.appendChild(fragment);
         observeLazyImages(column);
@@ -2169,7 +2186,8 @@ function handleDragEnd(e) {
     document.querySelectorAll('.column-drag-over').forEach(el => el.classList.remove('column-drag-over'));
 
     AppState.hover.suppressHover = true;
-    setTimeout(() => {
+    clearTimeout(AppState.hover.suppressTimer);
+    AppState.hover.suppressTimer = setTimeout(() => {
         AppState.hover.suppressHover = false;
     }, 500);
 }
@@ -2326,7 +2344,7 @@ function highlightBookmarkItems(itemIds, delay = 50) {
 
 function handleDragLeave(e) {
     const targetItem = e.target.closest('.bookmark-item');
-    if (targetItem) {
+    if (targetItem && !targetItem.contains(e.relatedTarget)) {
         targetItem.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
     }
 }
@@ -2543,6 +2561,7 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
     chrome.bookmarks.getChildren(parentId, (children) => {
         // ✅ 检查请求是否已被取消
         if (thisRequest.cancelled) {
+            pendingRefreshMap.delete(parentId);
             return;
         }
 
@@ -2584,19 +2603,20 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
  * @param {string} nodeId - 要检查的节点ID
  * @returns {boolean} 如果是祖先关系则返回true
  */
+const _isAncestorVisited = new Set(); // 复用，避免每次调用 new Set()
+
 function isAncestor(potentialAncestorId, nodeId) {
     if (!potentialAncestorId || !nodeId) return false;
     if (potentialAncestorId === nodeId) return true;
 
-    // 使用缓存查找节点关系
     let current = BookmarkTreeCache.get(nodeId);
     if (!current) return false;
 
-    const visited = new Set(); // 防止无限循环
+    _isAncestorVisited.clear();
 
     while (current && current.parentId) {
-        if (visited.has(current.parentId)) break; // 检测到循环
-        visited.add(current.parentId);
+        if (_isAncestorVisited.has(current.parentId)) break;
+        _isAncestorVisited.add(current.parentId);
 
         if (current.parentId === potentialAncestorId) {
             return true;
@@ -2953,8 +2973,8 @@ function showContextMenu(e, bookmarkElement, column) {
     contextMenu.style.left = `${left}px`;
     contextMenu.style.top = `${top}px`;
 
-    contextMenu.relatedTarget = bookmarkElement;
-    contextMenu.relatedColumn = column;
+    AppState.contextMenu.target = bookmarkElement;
+    AppState.contextMenu.column = column;
     document.body.dataset.contextMenuOpen = 'true';
 }
 // ========================================
@@ -3047,7 +3067,7 @@ function handleContextMenuAction(action, element) {
     const selectedIds = Array.from(AppState.selection.items);
 
     if (Object.values(CONSTANTS.SORT_TYPES).includes(action)) {
-        const column = document.getElementById('contextMenu').relatedColumn;
+        const column = AppState.contextMenu.column;
         if (!column) return;
         const parentId = getParentIdFromContext(element, column);
         if (parentId) handleSortBookmarks(parentId, action);
@@ -3105,7 +3125,7 @@ function handleContextMenuAction(action, element) {
             break;
         case 'newFolder':
             {
-                const column = document.getElementById('contextMenu').relatedColumn;
+                const column = AppState.contextMenu.column;
                 if (!column) return;
                 // ✅ 优化：使用提取的辅助函数
                 let parentId = getParentIdFromContext(element, column);
@@ -3379,7 +3399,7 @@ function showMoveDialog(bookmarkElement, idsToMove) {
     dialog.style.display = 'flex';
     confirmBtn.disabled = true;
 
-    // 用事件委托替代每个 content.onclick 闭包
+    // 用事件委托替代每个 content.onclick 闭包，用 signal 统一管理生命周期
     treeContainer.addEventListener('click', (e) => {
         const content = e.target.closest('.folder-content');
         if (!content) return;
@@ -3389,7 +3409,7 @@ function showMoveDialog(bookmarkElement, idsToMove) {
         item.classList.add('selected');
         selectedFolderId = item.dataset.id;
         confirmBtn.disabled = false;
-    });
+    }, { signal });
 
     getBookmarkTree().then(tree => {
         const topLevelFolders = tree[0]?.children;
@@ -3600,8 +3620,7 @@ function displayFrequentlyVisited() {
     const container = getCachedElement('frequentlyVisitedContent', () => document.querySelector('.frequently-visited-content'));
     if (!container) return;
 
-    // 性能优化：初始为空，不显示骨架屏
-    container.innerHTML = '';
+    clearContentWrapper(container);
 
     // P0修复：添加错误处理
     try {
@@ -3665,7 +3684,6 @@ function displayFrequentlyVisited() {
             fragment.appendChild(item);
         }
 
-        container.innerHTML = '';
         container.appendChild(fragment);
         observeLazyImages(container);
         });
@@ -3835,8 +3853,18 @@ async function displayRecentBookmarks() {
         const fragment = document.createDocumentFragment();
         let lastDateString = '';
 
-        // 并发获取所有路径，避免串行等待
-        const paths = await Promise.all(filteredBookmarks.map(item => getBookmarkPath(item.id)));
+        // 按 parentId 记忆化路径查询：同一文件夹的书签共享一次路径计算
+        const pathCache = new Map();
+        const getPathMemoized = (item) => {
+            if (pathCache.has(item.parentId)) {
+                return Promise.resolve(pathCache.get(item.parentId));
+            }
+            return getBookmarkPath(item.id).then(p => {
+                pathCache.set(item.parentId, p);
+                return p;
+            });
+        };
+        const paths = await Promise.all(filteredBookmarks.map(getPathMemoized));
 
         for (let i = 0; i < filteredBookmarks.length; i++) {
             const item = filteredBookmarks[i];
@@ -4725,7 +4753,7 @@ let scrollTimer = null;
     contextMenu.addEventListener('click', (e) => {
         const li = e.target.closest('li');
         if (li && li.id) {
-            handleContextMenuAction(li.id, contextMenu.relatedTarget);
+            handleContextMenuAction(li.id, AppState.contextMenu.target);
             hideContextMenu();
         }
     });
@@ -4860,6 +4888,8 @@ let scrollTimer = null;
 
                         // ✅ 性能优化：更新缓存
                         childrenCache.set(parentId, {children, timestamp: now});
+                        // 到期自动清理，防止大文件夹数据常驻内存
+                        setTimeout(() => childrenCache.delete(parentId), CHILDREN_CACHE_TTL);
 
                         const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
                         // ✅ 性能优化：安全清空，防止内存泄漏
