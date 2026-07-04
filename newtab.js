@@ -2240,15 +2240,14 @@ function handleDragStart(e) {
 function handleDragEnd(e) {
     AppState.drag.isDragging = false;
 
-    // 清理拖拽相关状态
-
-    // 清理所有拖拽相关的样式
     ElementCache.clearDragging();
     AppState.drag.draggedItem = null;
     AppState.drag.lastDragOverTarget = null;
     ElementCache.clearDragOver();
 
-    // 延迟恢复悬停功能，防止立即触发
+    // 清除列高亮样式（column-drag-over 不在 ElementCache 里追踪）
+    document.querySelectorAll('.column-drag-over').forEach(el => el.classList.remove('column-drag-over'));
+
     AppState.hover.suppressHover = true;
     setTimeout(() => {
         AppState.hover.suppressHover = false;
