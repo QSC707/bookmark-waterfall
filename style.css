@@ -101,11 +101,10 @@ body {
     filter: brightness(0.8);
 }
 
-/* 性能优化：隔离布局计算 */
+/* 列只做 layout 隔离，不做 content-visibility（会干扰 hover repaint） */
 .bookmark-column,
 .bookmarks-bar {
     contain: layout style;
-    content-visibility: auto;
 }
 
 /* ✅ 性能优化：使用简单类选择器替���复杂的属性选择器 */
@@ -197,6 +196,8 @@ body {
     align-items: center;
     border-radius: 6px;
     position: relative;
+    /* contain:paint 让 :hover repaint 只影响这个元素的绘制层，不向上传播 */
+    contain: paint;
 }
 
 .bookmark-item:hover {

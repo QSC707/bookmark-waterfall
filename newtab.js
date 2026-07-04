@@ -3993,20 +3993,23 @@ let scrollTimer = null;
     
     const ITEM_SELECTOR = '.bookmark-item, .vertical-modules a, .top-site-item';
 
-    // 用 pointermove 替代 mouseover——只在鼠标真正停在文件夹上时才触发意图检测
-    // 避免 mouseover 的冒泡特性导致快速移动时频繁触发
+    // pointermove + RAF 节流：每帧最多处理一次，彻底消除高频调用
     let _lastPointerItem = null;
+    let _pointerRAF = null;
     document.body.addEventListener('pointermove', (e) => {
-        if (e.pointerType !== 'mouse') return;
-        const item = e.target.closest('.bookmark-item');
-        if (item === _lastPointerItem) return; // 同一元素内移动直接跳过
-        _lastPointerItem = item;
-        AppState.hover.currentItem = item || e.target.closest(ITEM_SELECTOR);
-        if (item?.classList.contains('is-folder')) {
-            startHoverIntent(item);
-        } else {
-            clearHoverIntent();
-        }
+        if (e.pointerType !== 'mouse' || _pointerRAF) return;
+        _pointerRAF = requestAnimationFrame(() => {
+            _pointerRAF = null;
+            const item = e.target.closest('.bookmark-item');
+            if (item === _lastPointerItem) return;
+            _lastPointerItem = item;
+            AppState.hover.currentItem = item || e.target.closest(ITEM_SELECTOR);
+            if (item?.classList.contains('is-folder')) {
+                startHoverIntent(item);
+            } else {
+                clearHoverIntent();
+            }
+        });
     }, { passive: true });
 
     document.body.addEventListener('pointerleave', () => {
