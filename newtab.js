@@ -3531,7 +3531,7 @@ async function displayRecentBookmarks() {
     // 预建最近书签条目模板，克隆比逐个 createElement + className 快约40%
     if (!displayRecentBookmarks._tmpl) {
         const t = document.createElement('template');
-        t.innerHTML = `<a href="#"><img class="module-icon" decoding="async"><div class="bookmark-content-wrapper"><span class="module-title"></span><div class="bookmark-meta-info"><div class="bookmark-path-url-wrapper"><span class="bookmark-item-url"></span><span class="bookmark-item-path"></span></div><span class="bookmark-item-date"></span></div></div></a>`;
+        t.innerHTML = `<a href="#" class="recent-item"><img class="module-icon" decoding="async"><div class="bookmark-content-wrapper"><span class="module-title"></span><div class="bookmark-meta-info"><div class="bookmark-path-url-wrapper"><span class="bookmark-item-url"></span><span class="bookmark-item-path"></span></div><span class="bookmark-item-date"></span></div></div></a>`;
         displayRecentBookmarks._tmpl = t;
     }
     const tmpl = displayRecentBookmarks._tmpl;

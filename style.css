@@ -356,7 +356,8 @@ body {
 }
 
 .bookmark-item.selected,
-.vertical-modules a.selected {
+.vertical-modules a.selected,
+.top-site-item.selected {
     background-color: rgba(79, 192, 141, 0.15) !important;
     /* ✅ 性能优化：移除 box-shadow，只保留 outline */
     outline: 2px solid rgba(79, 192, 141, 0.8);
@@ -410,7 +411,7 @@ body {
 
 #sidebar-toggle-container {
     position: absolute;
-    top: 72.2px;
+    top: 72px;
     right: 0;
     height: 44px;
     display: flex;
@@ -435,7 +436,6 @@ body {
 
 .sidebar-toggle-btn {
     position: static;
-    transform: none;
     color: var(--text-color);
     width: 32px;
     height: 32px;
@@ -565,10 +565,7 @@ body {
 .slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: var(--input-bg);
     transition: .4s;
     border-radius: 24px;
@@ -586,11 +583,11 @@ body {
     border-radius: 50%;
 }
 
-input:checked+.slider {
+.toggle-switch input:checked+.slider {
     background-color: var(--dialog-primary-bg);
 }
 
-input:checked+.slider:before {
+.toggle-switch input:checked+.slider:before {
     transform: translateX(20px);
 }
 
@@ -1070,11 +1067,10 @@ input:checked+.slider:before {
     border: 1px solid var(--input-border);
     border-radius: 16px;
     padding: 4px 12px;
-    margin-top: 8px;
-    margin-bottom: 8px;
+    margin-block: 8px;
 }
 
-#recentBookmarksModule .module-content>a {
+.recent-item {
     padding: 6px 10px;
     display: flex;
     margin-left: 32px;
@@ -1086,11 +1082,11 @@ input:checked+.slider:before {
     /* ✅ 性能优化：移除 transition，使用即时切换 */
 }
 
-#recentBookmarksModule .module-content>a:hover {
+.recent-item:hover {
     background-color: var(--hover-bg);
 }
 
-#recentBookmarksModule .module-content>a .module-icon {
+.recent-item .module-icon {
     width: 20px;
     height: 20px;
     margin-top: 3px;
@@ -1105,7 +1101,7 @@ input:checked+.slider:before {
     overflow: hidden;
 }
 
-#recentBookmarksModule .module-content>a .module-title {
+.recent-item .module-title {
     font-size: 15px;
     font-weight: 500;
     color: var(--text-color);
@@ -1452,6 +1448,3 @@ body.is-resizing .resize-indicator {
 }
 
 /* 选中状态 */
-.top-site-item.selected {
-    background-color: rgba(79, 192, 141, 0.15) !important;
-}
