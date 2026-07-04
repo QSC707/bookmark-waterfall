@@ -155,7 +155,7 @@ body {
     flex: 1;
     height: 100%;
     overflow-x: auto;
-    padding: 20px 0 20px 0;
+    padding: 20px 0;
     gap: 20px;
     scroll-behavior: smooth;
     box-sizing: border-box;
@@ -259,29 +259,29 @@ body {
     padding: 6px 10px;
 }
 
-.bookmarks-bar-item .bookmark-icon {
+.bookmarks-bar-item .bookmark-title {
+    display: none;
+}
+
+/* 非文件夹书签栏图标稍大，文件夹图标保持默认 18px */
+.bookmarks-bar-item:not(.is-folder) .bookmark-icon {
     margin: 0;
     width: 20px;
     height: 20px;
-}
-
-.bookmarks-bar-item .bookmark-title {
-    display: none;
 }
 
 .bookmarks-bar-item.is-folder {
     padding: 6px 12px;
 }
 
+.bookmarks-bar-item.is-folder .bookmark-icon {
+    margin: 0;
+}
+
 .bookmarks-bar-item.is-folder .bookmark-title {
     display: inline;
     font-size: 13px;
     margin-left: 8px;
-}
-
-.bookmarks-bar-item.is-folder .bookmark-icon {
-    width: 18px;
-    height: 18px;
 }
 
 /* --- 6. 拖拽与多选样式 --- */
@@ -878,21 +878,14 @@ input:checked+.slider:before {
     transform: translateX(-50%) translateY(-10px);
 }
 
-/* P2改进：不同类型的toast样式 */
-.toast-success {
-    background-color: rgba(76, 175, 80, 0.95);
-    color: white;
-}
+/* toast 类型颜色 */
+.toast-success, .toast-error, .toast-warning { color: #fff; }
 
-.toast-error {
-    background-color: rgba(244, 67, 54, 0.95);
-    color: white;
-}
+.toast-success { background-color: rgba(76, 175, 80, 0.95); }
 
-.toast-warning {
-    background-color: rgba(255, 152, 0, 0.95);
-    color: white;
-}
+.toast-error { background-color: rgba(244, 67, 54, 0.95); }
+
+.toast-warning { background-color: rgba(255, 152, 0, 0.95); }
 
 /* --- 10. UTILITY: 隐藏滚动条 --- */
 .hide-scrollbar::-webkit-scrollbar {
@@ -901,7 +894,6 @@ input:checked+.slider:before {
 
 .hide-scrollbar {
     scrollbar-width: none;
-    /* For Firefox */
 }
 
 /* --- 11. 优化的入场动画 --- */
@@ -1233,12 +1225,7 @@ body.is-resizing .resize-indicator {
     border-radius: 8px;
     bottom: auto;
     left: auto;
-    transform-origin: center;
     background-color: var(--highlighted-bg);
-}
-
-#history-btn:hover {
-    transform: none;
 }
 
 .delay-input {
@@ -1300,7 +1287,7 @@ body.is-resizing .resize-indicator {
 .breadcrumb-container {
     display: flex;
     align-items: center;
-    padding: 4px 20px 8px 20px;
+    padding: 4px 20px 8px;
     min-height: 20px;
     overflow-x: auto;
     white-space: nowrap;
@@ -1375,7 +1362,6 @@ body.is-resizing .resize-indicator {
 
 .column-content-wrapper::-webkit-scrollbar {
     display: none;
-    /* For Webkit browsers */
 }
 
 /* --- 18. 经常访问悬浮面板样式（极简高性能版）--- */
