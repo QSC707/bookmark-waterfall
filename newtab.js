@@ -466,11 +466,11 @@ function observeLazyImages(container) {
  * @param {HTMLElement} wrapper - 要清空的容器元素
  */
 function clearContentWrapper(wrapper) {
-    // 断开所有图片的 Observer 监听
-    wrapper.querySelectorAll('img[data-src]').forEach(img => {
-        lazyLoadObserver.unobserve(img);
-    });
-    // 然后清空内容
+    if (lazyLoadObserver) {
+        wrapper.querySelectorAll('img[data-src]').forEach(img => {
+            lazyLoadObserver.unobserve(img);
+        });
+    }
     wrapper.innerHTML = '';
 }
 
@@ -949,15 +949,13 @@ function displayBookmarks(bookmarks) {
     if (bookmarksBar && bookmarksBar.children && bookmarksBar.children.length > 0) {
         renderBookmarks(bookmarksBar.children, header, 0);
     } else {
-        // ✅ 修复 #5: 显示空书签栏提示
         const emptyBar = document.createElement('div');
         emptyBar.className = 'bookmarks-bar';
         emptyBar.dataset.level = '0';
-        emptyBar.innerHTML = `
-            <div style="padding: 8px 16px; color: var(--module-header-color); font-size: 13px; opacity: 0.6;">
-                书签栏为空，请在Chrome中添加书签
-            </div>
-        `;
+        const hint = document.createElement('div');
+        hint.style.cssText = 'padding: 8px 16px; color: var(--module-header-color); font-size: 13px; opacity: 0.6;';
+        hint.textContent = '书签栏为空，请在Chrome中添加书签';
+        emptyBar.appendChild(hint);
         header.appendChild(emptyBar);
     }
 }
@@ -4230,15 +4228,14 @@ function handleSpacebarPreview(e) {
 function openPreviewWindow(url) {
     if (AppState.windows.preview !== null) {
         chrome.windows.get(AppState.windows.preview, {}, (win) => {
-            if (chrome.runtime.lastError) {
+            if (chrome.runtime.lastError || !win) {
                 AppState.windows.preview = null;
                 createSizedPreviewWindow(url);
             } else {
                 chrome.tabs.query({ windowId: AppState.windows.preview, active: true }, (tabs) => {
-                    if (tabs.length > 0) {
-                        chrome.tabs.update(tabs[0].id, { url: url, active: true });
-                        chrome.windows.update(AppState.windows.preview, { focused: true });
-                    }
+                    if (chrome.runtime.lastError || !tabs?.length) return;
+                    chrome.tabs.update(tabs[0].id, { url, active: true });
+                    chrome.windows.update(AppState.windows.preview, { focused: true });
                 });
             }
         });
