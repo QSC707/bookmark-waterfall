@@ -475,31 +475,6 @@ function clearContentWrapper(wrapper) {
 }
 
 // ========================================
-// P1性能+安全优化：页面卸载时清理资源，防止内存泄漏
-// ========================================
-window.addEventListener('beforeunload', () => {
-    // === 清理1：断开 IntersectionObserver ===
-    if (lazyLoadObserver) {
-        lazyLoadObserver.disconnect();
-        lazyLoadObserver = null;
-    }
-
-    // === 清理2：清除所有悬停意图计时器 ===
-    clearHoverIntent();
-
-    // === 清理3：清除所有选中状态（释放内存） ===
-    AppState.selection.items.clear();
-
-    // === 清理4：清空 DOM 缓存引用 ===
-    Object.keys(DOMCache).forEach(key => {
-        if (key !== 'init' && key !== 'get') {
-            DOMCache[key] = null;
-        }
-    });
-}, { passive: true, once: true }); // 只执行一次，且为 passive
-
-
-// ========================================
 // 核心功能函数
 // ========================================
 
@@ -3060,8 +3035,11 @@ function getParentIdFromContext(element, column) {
 function openBookmarks(selectedIds, openMode) {
     const openActions = {
         'open': (url) => openBookmark(url, null),
-        'openNew': (url) => chrome.windows.create({ url }),
-        'openIncognito': (url) => chrome.windows.create({ url, incognito: true })
+        'openNew': (url) => chrome.windows.create({ url }).catch(err => console.error('新窗口打开失败:', err)),
+        'openIncognito': (url) => chrome.windows.create({ url, incognito: true }).catch(err => {
+            console.error('隐身模式打开失败:', err);
+            showToast('无法打开隐身模式', 2000, 'error');
+        })
     };
 
     selectedIds.forEach(id => {
@@ -3135,6 +3113,7 @@ function handleContextMenuAction(action, element) {
         case 'openAll':
             if (element?.dataset.id) {
                 chrome.bookmarks.getChildren(element.dataset.id, (children) => {
+                    if (chrome.runtime.lastError || !children) return;
                     children.forEach(child => {
                         if (child.url) chrome.tabs.create({ url: child.url, active: true });
                     });
@@ -5048,13 +5027,12 @@ document.addEventListener('keydown', handleSpacebarPreview);
 // ✅ P0优化：清理事件监听器，防止内存泄漏
 // ========================================
 window.addEventListener('beforeunload', () => {
-    // 清理所有计时器
     if (refreshTimer) clearTimeout(refreshTimer);
     if (scrollTimer) clearTimeout(scrollTimer);
     if (adjustRAF) cancelAnimationFrame(adjustRAF);
     if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
-
-    // 断开 Observer
+    clearHoverIntent();
+    AppState.selection.items.clear();
     if (lazyLoadObserver) lazyLoadObserver.disconnect();
 }, { once: true });
 })();
