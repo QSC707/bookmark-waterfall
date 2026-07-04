@@ -2449,9 +2449,16 @@ function handleDrop(e) {
 
     const dropTarget = e.target.closest('.bookmark-item');
 
-    // 🔧 修复：静默处理无效目标（用户拖到空白处是正常行为）
-    if (!dropTarget || idsToMove.includes(dropTarget.dataset.id)) {
-        return; // 静默返回，无效的拖放目标
+    // 拖到列空白处：回退到列级别的 drop 处理（移动到该文件夹末尾）
+    if (!dropTarget) {
+        const column = e.target.closest('.bookmark-column, .bookmarks-bar');
+        if (column) handleColumnDrop.call(column, e);
+        return;
+    }
+
+    // 拖到自身上：忽略
+    if (idsToMove.includes(dropTarget.dataset.id)) {
+        return;
     }
 
     // 🔧 修复：先检查拖拽状态，再清除样式
@@ -2672,14 +2679,14 @@ function isAncestor(potentialAncestorId, nodeId) {
 
 function handleColumnDragOver(e) {
     e.preventDefault();
-    if (e.target.classList.contains('bookmark-column')) {
-        e.target.classList.add('column-drag-over');
-    }
+    // this 是 closest 到的列，不依赖 e.target 精确命中
+    this.classList.add('column-drag-over');
 }
 
 function handleColumnDragLeave(e) {
-    if (e.target.classList.contains('bookmark-column')) {
-        e.target.classList.remove('column-drag-over');
+    // 只在真正离开列时才移除（子元素间移动不触发）
+    if (!this.contains(e.relatedTarget)) {
+        this.classList.remove('column-drag-over');
     }
 }
 
