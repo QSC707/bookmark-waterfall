@@ -409,8 +409,7 @@ function buildBookmarkTreeCache(bookmarks) {
                 id: node.id,
                 parentId: parentId,
                 title: node.title,
-                url: node.url,
-                children: node.children || []
+                url: node.url
             });
 
             if (node.children) {
@@ -2194,8 +2193,9 @@ function handleDragEnd(e) {
     AppState.drag.draggedItem = null;
     AppState.drag.lastDragOverTarget = null;
     ElementCache.clearDragOver();
+    _cachedDragRect = null;
+    _cachedDragRectTarget = null;
 
-    // 清除列高亮样式（column-drag-over 不在 ElementCache 里追踪）
     document.querySelectorAll('.column-drag-over').forEach(el => el.classList.remove('column-drag-over'));
 
     AppState.hover.suppressHover = true;
@@ -2204,10 +2204,10 @@ function handleDragEnd(e) {
     }, 500);
 }
 
-/**
- * 处理拖拽经过事件
- * @param {DragEvent} e - 拖拽事件对象
- */
+// 缓存当前 dragover 目标的 rect，只在目标变化时重新测量（避免高频 layout thrashing）
+let _cachedDragRect = null;
+let _cachedDragRectTarget = null;
+
 function handleDragOver(e) {
     e.preventDefault();
     const targetItem = e.target.closest('.bookmark-item');
@@ -2217,18 +2217,21 @@ function handleDragOver(e) {
         return;
     }
 
-    const rect = targetItem.getBoundingClientRect();
+    // 只在目标变化时重新测量 rect
+    if (targetItem !== _cachedDragRectTarget) {
+        _cachedDragRect = targetItem.getBoundingClientRect();
+        _cachedDragRectTarget = targetItem;
+    }
+    const rect = _cachedDragRect;
     const level = targetItem.closest('.bookmark-column, .bookmarks-bar').dataset.level;
     const isFolder = targetItem.classList.contains('is-folder');
 
-    // 计算新的拖动状态
     let newClass = '';
     if (level == '0') {
         newClass = (e.clientX < rect.left + rect.width / 2) ? 'drag-over-before' : 'drag-over-after';
     } else {
         const y = e.clientY - rect.top;
         if (isFolder) {
-            // 文件夹：上25%放在上面，下25%放在下面，中间50%进入文件夹
             if (y < rect.height * 0.25) {
                 newClass = 'drag-over-top';
             } else if (y > rect.height * 0.75) {
@@ -2237,19 +2240,15 @@ function handleDragOver(e) {
                 newClass = 'drag-enter';
             }
         } else {
-            // 非文件夹：简单的上下分割
             newClass = (y < rect.height / 2) ? 'drag-over-top' : 'drag-over-bottom';
         }
     }
 
-    // 仅在状态变化时更新DOM,减少不必要的重绘
     if (AppState.drag.lastDragOverTarget !== targetItem || !targetItem.classList.contains(newClass)) {
-        // 清除上一个目标的样式
         if (AppState.drag.lastDragOverTarget && AppState.drag.lastDragOverTarget !== targetItem) {
             AppState.drag.lastDragOverTarget.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
         }
 
-        // 清除当前目标的所有拖动样式,然后添加新样式
         targetItem.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
         targetItem.classList.add(newClass);
 
@@ -3822,14 +3821,34 @@ async function displayRecentBookmarks() {
 
         const excludeRules = StorageCache.getExcludeRules();
 
+        // 预处理规则为分钟数，避免在 filter 热路径里重复 split
+        const processedRules = excludeRules
+            .filter(r => r.enabled)
+            .map(r => {
+                const [sh, sm] = r.startTime.split(':').map(Number);
+                const [eh, em] = r.endTime.split(':').map(Number);
+                return {
+                    date: r.date,
+                    start: sh * 60 + sm,
+                    end: eh * 60 + em
+                };
+            });
+
         return bookmarks.filter(bm => {
             if (!bm.url) return false;
             const itemDate = bm.dateAdded;
             if (itemDate < startTime || itemDate > endTime) return false;
 
-            const date = new Date(itemDate);
-            for (const rule of excludeRules) {
-                if (isBookmarkInExcludeRule(date, rule)) return false;
+            if (processedRules.length > 0) {
+                const d = new Date(itemDate);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                const mins = d.getHours() * 60 + d.getMinutes();
+                for (const rule of processedRules) {
+                    if (dateStr !== rule.date) continue;
+                    if (rule.start <= rule.end
+                        ? mins >= rule.start && mins <= rule.end
+                        : mins >= rule.start || mins <= rule.end) return false;
+                }
             }
             return true;
         }).sort((a, b) => b.dateAdded - a.dateAdded);
