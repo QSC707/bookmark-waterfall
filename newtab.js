@@ -836,7 +836,7 @@ function selectRange(startId, endId, column) {
 
 // 书签渲染与刷新
 function clearBookmarksBars(header) {
-    clearBookmarksBars(header);
+    header.querySelectorAll('.bookmarks-bar').forEach(col => col.remove());
 }
 /**
  * ✅ 优化 #11: 显示书签栏的书签
