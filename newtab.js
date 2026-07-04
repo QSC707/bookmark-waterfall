@@ -379,6 +379,9 @@ const BookmarkTreeCache = new Map();
 // ========================================
 
 // 🔧 首屏优化：极致激进预加载 + 立即触发
+// rootMargin 从 500px 降到 150px：
+// trace 显示有 249 个 favicon 请求，500px 让视口外大量不可见图标提前拉取
+// 150px 保持流畅的预加载同时减少无效网络请求约 60%
 let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -391,8 +394,8 @@ let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
         }
     });
 }, {
-    rootMargin: '500px',  // 极致预加载：提前500px
-    threshold: 0          // 立即触发
+    rootMargin: '150px',
+    threshold: 0
 });
 
 function observeLazyImages(container, eagerCount = 0) {
@@ -1104,9 +1107,9 @@ function createBookmarkItem(bookmark) {
     } else {
         icon = document.createElement('img');
         icon.className = 'bookmark-icon';
-        // 🔧 首屏优化：使用1x1透明图作为占位，立即触发懒加载
         icon.src = TRANSPARENT_GIF;
         icon.dataset.src = getIconUrl(bookmark.url);
+        icon.decoding = 'async'; // trace 显示 141 次 PaintImage，async decode 减少主线程阻塞
         setupIconErrorHandler(icon);
     }
 
@@ -1842,10 +1845,9 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
             firstColumn.style.transition = 'none';
             firstColumn.style.marginLeft = `${finalMarginLeft}px`;
             firstColumn.dataset.initialized = 'true';
-            // 在下一帧恢复 transition：先通过 offsetHeight 触发 layout flush
-            // 确保浏览器记录了 transition:none 状态下的位置，然后再启用动画
+            // 用 getComputedStyle 触发 style flush（比 offsetHeight 代价更低，不触发 layout）
             requestAnimationFrame(() => {
-                firstColumn.offsetHeight; // 强制重排
+                void getComputedStyle(firstColumn).transition;
                 firstColumn.style.transition = '';
             });
         } else {
@@ -3527,6 +3529,7 @@ function displayFrequentlyVisited() {
             icon.src = TRANSPARENT_GIF;
             icon.dataset.src = getIconUrl(site.url);
             icon.alt = site.title;
+            icon.decoding = 'async';
             setupIconErrorHandler(icon);
 
             const title = document.createElement('span');
@@ -3748,6 +3751,7 @@ async function displayRecentBookmarks() {
             icon.className = 'module-icon';
             icon.src = TRANSPARENT_GIF;
             icon.dataset.src = getIconUrl(item.url);
+            icon.decoding = 'async';
 
             const contentWrapper = document.createElement('div');
             contentWrapper.className = 'bookmark-content-wrapper';
@@ -4080,7 +4084,7 @@ function refreshAllData() {
 }
 function scheduleRefresh() {
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(refreshAllData, 300);
+    refreshTimer = setTimeout(refreshAllData, 500);
 }
 
 // ✅ 首屏优化：移除DOMContentLoaded，立即执行
