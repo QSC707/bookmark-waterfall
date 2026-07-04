@@ -1368,11 +1368,21 @@ body.is-resizing .resize-indicator {
     padding: 4px 5px;
     cursor: pointer;
     border-radius: 6px;
-    /* ✅ 性能优化：移除 transition，使用即时切换 */
+    position: relative;
 }
 
-.breadcrumb-item:hover {
+.breadcrumb-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
     background-color: var(--hover-bg);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.breadcrumb-item:hover::before {
+    opacity: 1;
 }
 
 .breadcrumb-separator {
