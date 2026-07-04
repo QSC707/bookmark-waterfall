@@ -5,8 +5,9 @@
 /* --- 1. 变量与色彩体系 (macOS 风格) --- */
 :root {
     color-scheme: dark;
-    --bg-color: #1E1E1E;                 
-    --header-bg: #2d2d2d;                
+    --bg-color: #1E1E1E;
+    --text-color: rgba(255, 255, 255, 0.85);
+    --header-bg: #2d2d2d;
     --header-border: rgba(255, 255, 255, 0.1);
     --card-bg: #282828;                  
     --highlighted-bg: rgba(255, 255, 255, 0.08);
@@ -15,6 +16,7 @@
     --dialog-primary-bg: #3772ff;
     --dialog-delete-bg: #f44336;
     --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
+    --module-header-color: rgba(255, 255, 255, 0.6);
     --module-header-border-color: rgba(255, 255, 255, 0.15);
     --context-menu-icon-filter: none;
     --input-bg: rgba(0, 0, 0, 0.2);
@@ -296,19 +298,13 @@ body {
     height: 2px;
     background-color: var(--dialog-primary-bg);
     z-index: 1;
-    /* ✅ 性能优化：使用 GPU 加速的 transform 动画 */
+    transform-origin: left;
     animation: drag-indicator-appear 0.15s ease forwards;
 }
 
 @keyframes drag-indicator-appear {
-    from {
-        transform: scaleX(0) translateZ(0);
-        transform-origin: left;
-    }
-    to {
-        transform: scaleX(1) translateZ(0);
-        transform-origin: left;
-    }
+    from { transform: scaleX(0) translateZ(0); }
+    to   { transform: scaleX(1); }
 }
 
 .bookmark-item.drag-over-top::before {
@@ -325,10 +321,8 @@ body {
 
 .bookmark-item.drag-enter {
     background-color: var(--highlighted-bg);
-    /* ✅ 性能优化：移除 outline 动画，使用静态 outline */
     outline: 2px solid var(--dialog-primary-bg);
     outline-offset: -2px;
-    position: relative;
 }
 
 /* 拖入文件夹时的图标提示 */
@@ -343,10 +337,6 @@ body {
     pointer-events: none;
     opacity: 0.8;
 }
-
-/* ✅ 性能优化：已删除不再使用的拖拽动画 */
-/* @keyframes drag-enter-icon - 已移除 */
-/* @keyframes drag-enter-pulse - 已移除 */
 
 /* ✅ 性能优化：使用简单类选择器 */
 .bookmarks-bar-item.drag-over-before {
@@ -779,7 +769,6 @@ input:checked+.slider:before {
     overflow-y: auto;
 }
 
-/* 删除确认对话框中的项目名称样式 */
 .confirm-dialog.delete-confirm .confirm-message {
     font-family: 'Consolas', 'Monaco', monospace;
 }
@@ -811,7 +800,6 @@ input:checked+.slider:before {
     font-size: 14px;
     border-radius: 6px;
     margin: 0 4px;
-    align-items: center;
 }
 
 /* 新增的SVG图标样式 */
@@ -847,8 +835,6 @@ input:checked+.slider:before {
 .context-menu ul li[data-action="delete"]:hover {
     background-color: rgba(244, 67, 54, 0.1);
 }
-
-/* ✅ P0修复：已移除重复的 .menu-icon 定义 (完整定义在 line 836-847) */
 
 .empty-folder-message {
     padding: 16px;
@@ -1393,21 +1379,19 @@ body.is-resizing .resize-indicator {
 }
 
 /* --- 18. 经常访问悬浮面板样式（极简高性能版）--- */
+.frequently-visited-panel,
+.frequently-visited-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .frequently-visited-panel {
     position: fixed;
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
     z-index: 999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.frequently-visited-content {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
 }
 
 /* 隐藏状态：圆形，图标绝对居中 */
@@ -1444,15 +1428,15 @@ body.is-resizing .resize-indicator {
     transform: translate(-50%, -50%);
     width: 18px;
     height: 18px;
-    opacity: 0.2;                            /* ✅ 降低不透明度：0.3 → 0.2，更低调 */
-    filter: grayscale(30%);                  /* ✅ 降低饱和度，减少鲜艳感 */
+    opacity: 0.2;
+    filter: grayscale(30%);
 }
 
 .frequently-visited-panel.expanded .top-site-item .module-icon {
     position: static;
     transform: none;
-    opacity: 0.85;                           /* ✅ 展开时也降低一点：1 → 0.85 */
-    filter: grayscale(15%);                  /* ✅ 展开时轻微降低饱和度 */
+    opacity: 0.85;
+    filter: grayscale(15%);
     flex-shrink: 0;
 }
 
