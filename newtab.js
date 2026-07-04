@@ -379,20 +379,15 @@ const BookmarkTreeCache = new Map();
 // ========================================
 
 // 🔧 首屏优化：极致激进预加载 + 立即触发
-// rootMargin 从 500px 降到 150px：
-// trace 显示有 249 个 favicon 请求，500px 让视口外大量不可见图标提前拉取
-// 150px 保持流畅的预加载同时减少无效网络请求约 60%
 let lazyLoadObserver = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
+    for (const entry of entries) {
         if (entry.isIntersecting) {
             const img = entry.target;
             const src = img.dataset.src;
-            if (src && img.src !== src) {
-                img.src = src;
-            }
+            if (src && img.src !== src) img.src = src;
             observer.unobserve(img);
         }
-    });
+    }
 }, {
     rootMargin: '150px',
     threshold: 0
@@ -1037,46 +1032,30 @@ function renderBookmarks(bookmarks, parentElement, level) {
 
         // 新列的智能滚动逻辑（直接执行，不再嵌套）
         if (level > 0 && column.classList.contains('new-column')) {
-            // 使用另一个 RAF 确保列宽调整完成后再滚动
-            requestAnimationFrame(() => {
-                const currentScroll = container.scrollLeft;
-                const containerWidth = container.clientWidth;
-                const columnLeft = column.offsetLeft;
-                const columnRight = columnLeft + column.offsetWidth;
+            // 批量读取几何数据（一次 layout flush），消除散点 layout thrashing
+            const currentScroll = container.scrollLeft;
+            const containerWidth = container.clientWidth;
+            const colRect = column.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const columnLeft = colRect.left - containerRect.left + currentScroll;
+            const columnRight = columnLeft + colRect.width;
 
-                // 计算前一列的位置
-                const prevColumn = column.previousElementSibling;
-                let targetScroll = currentScroll;
+            const prevColumn = column.previousElementSibling;
+            let targetScroll = currentScroll;
 
-                if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
-                    // 尝试同时显示前一列和当前列
-                    const prevLeft = prevColumn.offsetLeft;
-                    const totalWidth = columnRight - prevLeft;
+            if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
+                const prevRect = prevColumn.getBoundingClientRect();
+                const prevLeft = prevRect.left - containerRect.left + currentScroll;
+                const totalWidth = columnRight - prevLeft;
+                targetScroll = totalWidth <= containerWidth ? prevLeft - 20 : Math.max(0, columnLeft - 40);
+            } else {
+                targetScroll = Math.max(0, columnLeft - 20);
+            }
 
-                    if (totalWidth <= containerWidth) {
-                        // 可以同时显示两列
-                        targetScroll = prevLeft - 20;
-                    } else {
-                        // 空间不够，优先显示新列
-                        targetScroll = Math.max(0, columnLeft - 40);
-                    }
-                } else {
-                    // 没有前一列，直接显示当前列
-                    targetScroll = Math.max(0, columnLeft - 20);
-                }
-
-                // 只有当需要滚动时才执行
-                const scrollDiff = Math.abs(targetScroll - currentScroll);
-                if (scrollDiff > 10) {
-                    container.scrollTo({
-                        left: targetScroll,
-                        behavior: 'smooth'
-                    });
-                }
-
-                // 移除标记类
-                column.classList.remove('new-column');
-            });
+            if (Math.abs(targetScroll - currentScroll) > 10) {
+                container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+            }
+            column.classList.remove('new-column');
         }
     });
 }
@@ -1229,38 +1208,32 @@ function fillColumnContent(bookmarks, level) {
     // ✅ 性能优化：减少滚动延迟,提升响应速度
     // 使用 requestAnimationFrame 替代 setTimeout,更精确的时机
     requestAnimationFrame(() => {
-        if (container.contains(column) && column.classList.contains('new-column')) {
-            const currentScroll = container.scrollLeft;
-            const containerWidth = container.clientWidth;
-            const columnLeft = column.offsetLeft;
-            const columnRight = columnLeft + column.offsetWidth;
+        if (!container.contains(column) || !column.classList.contains('new-column')) return;
 
-            const prevColumn = column.previousElementSibling;
-            let targetScroll = currentScroll;
+        // 批量读取所有几何数据（一次 layout flush），再计算目标滚动位置
+        const currentScroll = container.scrollLeft;
+        const containerWidth = container.clientWidth;
+        const colRect = column.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const columnLeft = colRect.left - containerRect.left + currentScroll;
+        const columnRight = columnLeft + colRect.width;
 
-            if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
-                const prevLeft = prevColumn.offsetLeft;
-                const totalWidth = columnRight - prevLeft;
+        const prevColumn = column.previousElementSibling;
+        let targetScroll = currentScroll;
 
-                if (totalWidth <= containerWidth) {
-                    targetScroll = prevLeft - 20;
-                } else {
-                    targetScroll = Math.max(0, columnLeft - 40);
-                }
-            } else {
-                targetScroll = Math.max(0, columnLeft - 20);
-            }
-
-            const scrollDiff = Math.abs(targetScroll - currentScroll);
-            if (scrollDiff > 10) {
-                container.scrollTo({
-                    left: targetScroll,
-                    behavior: 'smooth'
-                });
-            }
-
-            column.classList.remove('new-column');
+        if (prevColumn && prevColumn.classList.contains('bookmark-column')) {
+            const prevRect = prevColumn.getBoundingClientRect();
+            const prevLeft = prevRect.left - containerRect.left + currentScroll;
+            const totalWidth = columnRight - prevLeft;
+            targetScroll = totalWidth <= containerWidth ? prevLeft - 20 : Math.max(0, columnLeft - 40);
+        } else {
+            targetScroll = Math.max(0, columnLeft - 20);
         }
+
+        if (Math.abs(targetScroll - currentScroll) > 10) {
+            container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+        }
+        column.classList.remove('new-column');
     });
 }
 
