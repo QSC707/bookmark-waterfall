@@ -228,11 +228,10 @@ let cachedBookmarkTree = null;
 let bookmarkCacheDirty = true;
 
 function getBookmarkTree() {
+    if (!bookmarkCacheDirty && cachedBookmarkTree) {
+        return Promise.resolve(cachedBookmarkTree);
+    }
     return new Promise(resolve => {
-        if (!bookmarkCacheDirty && cachedBookmarkTree) {
-            resolve(cachedBookmarkTree);
-            return;
-        }
         chrome.bookmarks.getTree(tree => {
             cachedBookmarkTree = tree;
             bookmarkCacheDirty = false;
@@ -1158,19 +1157,13 @@ function createBookmarkItem(bookmark) {
     item.appendChild(icon);
     item.appendChild(title);
 
+    const isGithub = !!(bookmark.url && bookmark.url.includes('github.com'));
+    item.className = 'bookmark-item' + (isFolder ? ' is-folder' : '') + (isGithub ? ' is-github-link' : '');
+
     if (isFolder) {
-        item.classList.add('is-folder');
-        // ✅ 修复 #5: 文件夹ARIA属性
         item.setAttribute('aria-expanded', 'false');
         item.setAttribute('aria-haspopup', 'true');
     }
-
-    if (bookmark.url && bookmark.url.includes('github.com')) {
-        item.classList.add('is-github-link');
-    }
-
-    // P1优化：不再为每个项目添加事件监听器
-    // 使用事件委托，监听器在容器级别统一处理
 
     return item;
 }
@@ -1183,23 +1176,15 @@ function createBookmarkItem(bookmark) {
 function createEmptyColumn(level) {
     const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
 
-    // ✅ 性能优化：批量移除旧列,减少重排次数
-    const nextColumns = container.querySelectorAll(`.bookmark-column`);
-    const columnsToRemove = [];
-    nextColumns.forEach(col => {
-        if (parseInt(col.dataset.level, 10) >= level) {
-            columnsToRemove.push(col);
-        }
-    });
-
-    // ✅ 性能优化：使用 DocumentFragment 批量移除，只触发一次重排
-    if (columnsToRemove.length > 0) {
-        // 先从 DOM 中分离，避免多次重排
-        columnsToRemove.forEach(col => col.remove());
+    // 精确循环移除 >= level 的列，避免全量 querySelectorAll + filter
+    let willRemoveLevel1 = false;
+    for (let lv = level; ; lv++) {
+        const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
+        if (!col) break;
+        if (lv === 1) willRemoveLevel1 = true;
+        col.remove();
     }
 
-    // 检查是否要移除列1
-    const willRemoveLevel1 = level === 1 && columnsToRemove.some(col => col.dataset.level === '1');
     if (willRemoveLevel1) {
         resetLayoutState();
     }
@@ -1781,15 +1766,13 @@ function calculateFirstColumnMargin(params) {
     return marginLeft;
 }
 
-/**
- * 收缩列宽以适应容器
- * @param {Array} resizableColumns - 可调整大小的列
- * @param {number} overflowWidth - 溢出宽度
- * @param {number} minWidth - 最小列宽
- * @returns {Map} - 新的样式映射
- */
+// 列宽计算的模块级复用 Map，避免 resize 时反复分配
+const _colStylesMap = new Map();
+const _colActualChanges = new Map();
+const _colWidthByEl = new Map();
+
 function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
-    const newStyles = new Map();
+    _colStylesMap.clear();
     const sortedResizable = [...resizableColumns].sort((a, b) => b.currentWidth - a.currentWidth);
     
     const totalShrinkableSpace = sortedResizable.reduce((sum, data) => {
@@ -1802,18 +1785,18 @@ function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
             if (shrinkableAmount > 0) {
                 const proportion = shrinkableAmount / totalShrinkableSpace;
                 const newWidth = Math.max(minWidth, data.currentWidth - overflowWidth * proportion);
-                newStyles.set(data.el, `${newWidth}px`);
+                _colStylesMap.set(data.el, `${newWidth}px`);
             }
         }
     } else {
         for (const data of sortedResizable) {
             if (data.currentWidth > minWidth) {
-                newStyles.set(data.el, `${minWidth}px`);
+                _colStylesMap.set(data.el, `${minWidth}px`);
             }
         }
     }
     
-    return newStyles;
+    return _colStylesMap;
 }
 
 /**
@@ -1824,7 +1807,7 @@ function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
  * @returns {Map} - 新的样式映射
  */
 function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
-    const newStyles = new Map();
+    _colStylesMap.clear();
     const columnsToEnlarge = resizableColumns.filter(data => data.currentWidth < idealWidth);
     
     if (columnsToEnlarge.length > 0 && availableSpace > 0) {
@@ -1835,30 +1818,31 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
         if (totalEnlargePotential > 0) {
             if (totalEnlargePotential <= availableSpace) {
                 for (const data of columnsToEnlarge) {
-                    newStyles.set(data.el, `${idealWidth}px`);
+                    _colStylesMap.set(data.el, `${idealWidth}px`);
                 }
             } else {
                 for (const data of columnsToEnlarge) {
                     const potential = idealWidth - data.currentWidth;
                     const newWidth = data.currentWidth + availableSpace * (potential / totalEnlargePotential);
-                    newStyles.set(data.el, `${newWidth}px`);
+                    _colStylesMap.set(data.el, `${newWidth}px`);
                 }
             }
         }
     }
     
-    return newStyles;
+    return _colStylesMap;
 }
 
 /**
  * 应用列宽样式变化
- * @param {Map} newStyles - 新的样式映射
+ * @param {Map} _colStylesMap - 新的样式映射
  * @param {Array} columnData - 列数据（用于判断变化大小）
  */
-function applyColumnWidthStyles(newStyles, columnData) {
-    const actualChanges = new Map();
+function applyColumnWidthStyles(_colStylesMap, columnData) {
+    _colActualChanges.clear();
+    const actualChanges = _colActualChanges;
 
-    newStyles.forEach((widthStr, el) => {
+    _colStylesMap.forEach((widthStr, el) => {
         const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
         const newWidth = parseFloat(widthStr);
         if (Math.abs(currentWidth - newWidth) > 1) {
@@ -1868,7 +1852,9 @@ function applyColumnWidthStyles(newStyles, columnData) {
 
     if (actualChanges.size === 0) return;
 
-    const widthByEl = new Map(columnData.map(d => [d.el, d.currentWidth]));
+    _colWidthByEl.clear();
+    columnData.forEach(d => _colWidthByEl.set(d.el, d.currentWidth));
+    const widthByEl = _colWidthByEl;
     const hasLargeChanges = Array.from(actualChanges).some(([el, widthStr]) => {
         const cur = widthByEl.get(el) ?? el.offsetWidth;
         return Math.abs(cur - parseFloat(widthStr)) > 50;
@@ -2026,15 +2012,14 @@ function adjustColumnWidths(container) {
         const marginRight = CONSTANTS.LAYOUT.COLUMN_GAP;
         const firstColumn = columns[0];
 
-        const widths = columns.map(col => col.offsetWidth);
-        const userResizedFlags = columns.map(col => col.dataset.userResized === 'true');
-
-        const columnData = columns.map((col, i) => ({
-            el: col,
-            currentWidth: widths[i],
-            userResized: userResizedFlags[i],
-            canResize: !userResizedFlags[i]
-        }));
+        // 单次遍历：先批量读取 offsetWidth（触发一次 layout flush），再构建数据
+        const columnData = new Array(columns.length);
+        for (let i = 0; i < columns.length; i++) {
+            const col = columns[i];
+            const currentWidth = col.offsetWidth;
+            const userResized = col.dataset.userResized === 'true';
+            columnData[i] = { el: col, currentWidth, userResized, canResize: !userResized };
+        }
 
         const newColumnCount = columns.length;
         const columnsChanged = newColumnCount !== AppState.layout.currentColumnCount;
@@ -2052,16 +2037,16 @@ function adjustColumnWidths(container) {
         const totalUsedWidth = marginLeft + columnsWidth + gapsWidth + marginRight;
         const resizableColumns = columnData.filter(data => data.canResize);
 
-        let newStyles;
+        let _colStylesMap;
         if (totalUsedWidth > availableWidth) {
             const overflowWidth = totalUsedWidth - availableWidth;
-            newStyles = shrinkColumnsToFit(resizableColumns, overflowWidth, MIN_COL_WIDTH);
+            _colStylesMap = shrinkColumnsToFit(resizableColumns, overflowWidth, MIN_COL_WIDTH);
         } else {
             const availableSpace = availableWidth - totalUsedWidth;
-            newStyles = enlargeColumnsToFill(resizableColumns, availableSpace, DEFAULT_COL_WIDTH);
+            _colStylesMap = enlargeColumnsToFill(resizableColumns, availableSpace, DEFAULT_COL_WIDTH);
         }
 
-        applyColumnWidthStyles(newStyles, columnData);
+        applyColumnWidthStyles(_colStylesMap, columnData);
         applyFirstColumnMargin(firstColumn, marginLeft);
 
         performSmartScroll(container, {
@@ -2140,7 +2125,9 @@ function handleDragEnd(e) {
     _cachedDragRect = null;
     _cachedDragRectTarget = null;
 
-    document.querySelectorAll('.column-drag-over').forEach(el => el.classList.remove('column-drag-over'));
+    // 用 Set 清理列高亮，避免全局 querySelectorAll
+    _dragOverColumns.forEach(el => el.classList.remove('column-drag-over'));
+    _dragOverColumns.clear();
 
     AppState.hover.suppressHover = true;
     clearTimeout(AppState.hover.suppressTimer);
@@ -2149,7 +2136,10 @@ function handleDragEnd(e) {
     }, 500);
 }
 
-// 缓存当前 dragover 目标的 rect，只在目标变化时重新测量（避免高频 layout thrashing）
+// 追踪列高亮，避免 handleDragEnd 时全局 querySelectorAll
+const _dragOverColumns = new Set();
+
+// 缓存当前 dragover 目标的 rect，只在目标变化时重新测量
 let _cachedDragRect = null;
 let _cachedDragRectTarget = null;
 
@@ -2551,7 +2541,6 @@ function isAncestor(potentialAncestorId, nodeId) {
 
 function handleColumnDragOver(e) {
     e.preventDefault();
-    // 鼠标移到列空白处，清除书签上的残留 drag class
     if (AppState.drag.lastDragOverTarget) {
         AppState.drag.lastDragOverTarget.classList.remove(
             'drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter'
@@ -2559,12 +2548,13 @@ function handleColumnDragOver(e) {
         AppState.drag.lastDragOverTarget = null;
     }
     this.classList.add('column-drag-over');
+    _dragOverColumns.add(this);
 }
 
 function handleColumnDragLeave(e) {
-    // 只在真正离开列时才移除（子元素间移动不触发）
     if (!this.contains(e.relatedTarget)) {
         this.classList.remove('column-drag-over');
+        _dragOverColumns.delete(this);
     }
 }
 
@@ -2597,6 +2587,7 @@ function handleColumnDrop(e) {
     // this 是由事件委托 .call(column, e) 传入的列元素，始终有效
     const column = this;
     column.classList.remove('column-drag-over');
+    _dragOverColumns.delete(column);
 
     let parentId = null;
     const level = parseInt(column.dataset.level, 10);
@@ -3674,11 +3665,7 @@ function _refreshTodayCache() {
 _refreshTodayCache();
 
 function getRelativeDateString(ts) {
-    // 如果日期已变（跨天），重新计算
-    const nowDate = new Date();
-    nowDate.setHours(0, 0, 0, 0);
-    if (nowDate.getTime() !== _todayStartMs) _refreshTodayCache();
-
+    if (Date.now() >= _todayStartMs + 86400000) _refreshTodayCache();
     const d = new Date(ts);
     const checkMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     if (checkMs === _todayStartMs) return '今天';
@@ -4657,7 +4644,7 @@ let scrollTimer = null;
             hideContextMenu();
         }
 
-        const inDialog = target.closest('.move-dialog') || target.closest('.edit-dialog') || target.closest('.confirm-dialog');
+        const inDialog = inMoveDialog?.closest('.move-dialog') || inEditDialog?.closest('.edit-dialog') || target.closest('.confirm-dialog');
         if (isModuleVisible && !verticalModules.contains(target) && !toggleVerticalBtn.contains(target) && !inContextMenu && !inDialog) {
             hideModules();
         }
