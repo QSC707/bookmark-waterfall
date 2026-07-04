@@ -1623,12 +1623,6 @@ function makeColumnResizable(column) {
 
 let resizing = false;
 
-
-
-
-
-/* 文件: newtab.js */
-
 /**
  * 调整书签栏的对齐方式
  * - 如果内容宽度小于容器宽度：居中显示
@@ -3853,7 +3847,7 @@ async function displayRecentBookmarks() {
         const thisRequest = { cancelled: false, startTime, endTime };
         AppState.requests.pendingRecentBookmarks = thisRequest;
 
-        container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">加载中...</div>';
+        container.textContent = '加载中...';
 
         // 使用新的获取方法，不限制数量
         const filteredBookmarks = await getAllRecentBookmarks(startTime, endTime);
@@ -3864,7 +3858,7 @@ async function displayRecentBookmarks() {
         }
 
         if (filteredBookmarks.length === 0) {
-            container.innerHTML = '<div class="empty-folder-message" style="padding: 10px;">该时段无书签</div>';
+            container.textContent = '该时段无书签';
             // ✅ P0修复：清除请求标记
             if (AppState.requests.pendingRecentBookmarks === thisRequest) {
                 AppState.requests.pendingRecentBookmarks = null;
@@ -4135,7 +4129,7 @@ function initExcludeRulesDialog() {
         }
 
         if (rules.length === 0) {
-            excludeRulesList.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 13px;">暂无排除规则</div>';
+            excludeRulesList.textContent = '暂无排除规则';
             return;
         }
 
