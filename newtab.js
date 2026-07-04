@@ -137,12 +137,10 @@ const AppState = {
         }
     },
 
-    // 拖拽状态
     drag: {
-        isDragging: false,          // 是否正在拖拽
-        draggedItem: null,          // 被拖拽的项目
-        dragOverTimeout: null,      // 拖拽悬停计时器
-        lastDragOverTarget: null    // 上次拖拽经过的目标
+        isDragging: false,
+        draggedItem: null,
+        lastDragOverTarget: null
     },
 
     // 选择状态
@@ -164,13 +162,11 @@ const AppState = {
         pendingParentRefresh: new Map() // 父文件夹刷新请求映射 (parentId -> request)
     },
 
-    // 布局状态
     layout: {
-        initialMarginLeft: null,    // 第一列的初始左边距
-        savedMarginLeft: null,      // 保存的居中调整后边距
-        marginWindowWidth: null,    // 计算边距时的窗口宽度
-        currentColumnCount: 0,      // 当前显示的列数
-        needsRecenter: false        // 标记是否需要重新居中
+        initialMarginLeft: null,
+        savedMarginLeft: null,
+        marginWindowWidth: null,
+        currentColumnCount: 0
     },
 
     // 书签数据缓存
@@ -264,14 +260,9 @@ function invalidateBookmarkCache() {
     cachedBookmarkTree = null;
 }
 
-// ✅ 性能优化: 缓存窗口类型检测，避免每次点击都检查
-let isInPopupWindow = false;
+// 同步检测窗口类型：background.js 创建弹窗时 URL 带 ?popup=true
+const isInPopupWindow = new URLSearchParams(location.search).has('popup');
 const isInIframe = window.self !== window.top;
-
-// 异步检测窗口类型（使用 chrome.windows API 准确判断）
-chrome.windows.getCurrent((win) => {
-    isInPopupWindow = win.type === 'popup';
-});
 
 // ========================================
 // P1性能优化：DOM元素缓存
@@ -1532,7 +1523,6 @@ function resetLayoutState() {
     AppState.layout.savedMarginLeft = null;
     AppState.layout.marginWindowWidth = null;
     AppState.layout.currentColumnCount = 0;
-    AppState.layout.needsRecenter = false;
 }
 
 /**
@@ -2015,10 +2005,6 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
         return;
     }
 
-    if (AppState.layout.needsRecenter) {
-        AppState.layout.needsRecenter = false;
-    }
-
     const currentMargin = parseFloat(firstColumn.style.marginLeft) || 0;
     const marginDiff = Math.abs(finalMarginLeft - currentMargin);
 
@@ -2257,7 +2243,6 @@ function handleDragEnd(e) {
     AppState.drag.isDragging = false;
 
     // 清理拖拽相关状态
-    clearTimeout(AppState.drag.dragOverTimeout);
 
     // 清理所有拖拽相关的样式
     ElementCache.clearDragging();
@@ -2424,7 +2409,6 @@ function highlightBookmarkItems(itemIds, delay = 50) {
 }
 
 function handleDragLeave(e) {
-    clearTimeout(AppState.drag.dragOverTimeout);
     const targetItem = e.target.closest('.bookmark-item');
     if (targetItem) {
         targetItem.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter');
@@ -2440,7 +2424,6 @@ function handleDragLeave(e) {
 function handleDrop(e) {
     e.preventDefault();
     e.stopPropagation();
-    clearTimeout(AppState.drag.dragOverTimeout);
 
     // 🔧 修复：检查是否是有效的拖拽操作
     if (!AppState.drag.isDragging) {
@@ -5056,7 +5039,6 @@ window.addEventListener('beforeunload', () => {
     if (scrollTimer) clearTimeout(scrollTimer);
     if (adjustRAF) cancelAnimationFrame(adjustRAF);
     if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
-    if (AppState.drag.dragOverTimeout) clearTimeout(AppState.drag.dragOverTimeout);
 
     // 断开 Observer
     if (lazyLoadObserver) lazyLoadObserver.disconnect();
