@@ -1037,7 +1037,7 @@ function renderBookmarks(bookmarks, parentElement, level) {
 
         const nextColumns = container.querySelectorAll(`.bookmark-column`);
         nextColumns.forEach(col => {
-            if (parseInt(col.dataset.level) >= level) col.remove();
+            if (parseInt(col.dataset.level, 10) >= level) col.remove();
         });
 
         // 🔧 修复：如果移除了列1，重置布局状态，让下次打开列1时重新计算margin
@@ -1214,7 +1214,7 @@ function createEmptyColumn(level) {
     const nextColumns = container.querySelectorAll(`.bookmark-column`);
     const columnsToRemove = [];
     nextColumns.forEach(col => {
-        if (parseInt(col.dataset.level) >= level) {
+        if (parseInt(col.dataset.level, 10) >= level) {
             columnsToRemove.push(col);
         }
     });
@@ -1414,54 +1414,37 @@ function handleFolderClick(folderItem, bookmarkId) {
         AppState.requests.pendingFolder = thisRequest;
 
         chrome.bookmarks.getChildren(bookmarkId, (freshChildren) => {
-            // ✅ 修复 #3: 检查 Chrome API 错误
+            const abortLoad = (msg) => {
+                if (AppState.requests.pendingFolder === thisRequest) {
+                    AppState.requests.pendingFolder = null;
+                }
+                folderItem.classList.remove('highlighted');
+                folderItem.setAttribute('aria-expanded', 'false');
+                if (container) {
+                    const emptyCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
+                    if (emptyCol) emptyCol.remove();
+                }
+                if (msg) showToast(msg, CONSTANTS.TIMING.TOAST_NORMAL, 'error');
+            };
+
             if (chrome.runtime.lastError) {
                 console.error('getChildren failed:', chrome.runtime.lastError);
-                // 清除请求标记
-                if (AppState.requests.pendingFolder === thisRequest) {
-                    AppState.requests.pendingFolder = null;
-                }
-                // 移除高亮状态
-                folderItem.classList.remove('highlighted');
-                // ✅ 修复 #5: 更新ARIA状态
-                folderItem.setAttribute('aria-expanded', 'false');
-                // 移除空列
-                if (container) {
-                    const emptyCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
-                    if (emptyCol) emptyCol.remove();
-                }
-                showToast('加载文件夹失败', CONSTANTS.TIMING.TOAST_NORMAL, 'error');
+                abortLoad('加载文件夹失败');
                 return;
             }
 
-            // 检查此请求是否已被取消
-            if (thisRequest.cancelled) {
-                return;
-            }
+            if (thisRequest.cancelled) return;
 
-            // ✅ 修复 #3: 验证返回数据有效性
             if (!Array.isArray(freshChildren)) {
                 console.error('Invalid children data:', freshChildren);
-                if (AppState.requests.pendingFolder === thisRequest) {
-                    AppState.requests.pendingFolder = null;
-                }
-                folderItem.classList.remove('highlighted');
-                // ✅ 修复 #5: 更新ARIA状态
-                folderItem.setAttribute('aria-expanded', 'false');
-                // 移除空列
-                if (container) {
-                    const emptyCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
-                    if (emptyCol) emptyCol.remove();
-                }
+                abortLoad(null);
                 return;
             }
 
-            // 清除请求标记
             if (AppState.requests.pendingFolder === thisRequest) {
                 AppState.requests.pendingFolder = null;
             }
 
-            // ✅ 性能优化：直接填充内容到已存在的列
             if (container) {
                 fillColumnContent(freshChildren, level + 1);
             }
@@ -1472,7 +1455,7 @@ function handleFolderClick(folderItem, bookmarkId) {
         
         const nextColumns = container.querySelectorAll(`.bookmark-column`);
         nextColumns.forEach(col => {
-            if (parseInt(col.dataset.level) > level) col.remove();
+            if (parseInt(col.dataset.level, 10) > level) col.remove();
         });
         
         // 如果关闭后没有列了，重置布局状态
@@ -4812,7 +4795,10 @@ let scrollTimer = null;
             () => {
                 const container = document.getElementById('bookmarkContainer');
                 if (container) {
-                    container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">书签栏加载失败</div>';
+                    const msg = document.createElement('div');
+                    msg.style.cssText = 'text-align:center;padding:20px;color:var(--text-secondary);';
+                    msg.textContent = '书签栏加载失败';
+                    container.appendChild(msg);
                 }
             }
         );
