@@ -175,6 +175,9 @@ const AppState = {
 const selectedElements = new Set();
 const previewHighlightElements = new Set();
 
+// 1x1 透明 GIF 占位图（模块常量，避免重复硬编码长字符串）
+const TRANSPARENT_GIF = TRANSPARENT_GIF;
+
 // ✅ 性能优化：onMoved 局部刷新缓存（5秒TTL）
 const childrenCache = new Map(); // folderId -> {children, timestamp}
 const CHILDREN_CACHE_TTL = 5000; // 5秒缓存
@@ -566,47 +569,33 @@ function showToast(message, duration = 2000, type = 'info') {
  * @param {Function} options.fallback - 失败时的回退函数
  * @returns {Promise} - 包装后的 Promise
  */
+const _chromeErrorHints = [
+    [['permission', 'denied'], '，请检查扩展权限设置'],
+    [['not found', 'no node'], '，该项目可能已被删除'],
+    [['network', 'connection'], '，请检查网络连接'],
+    [['cannot modify'], '，该项目不可修改'],
+];
+
 async function handleChromeAPIError(apiCall, options = {}) {
     const { operation = '操作', silent = false, fallback = null } = options;
-    
+
     try {
         const result = await apiCall;
-        
-        // 检查 Chrome runtime 错误
-        if (chrome.runtime.lastError) {
-            throw new Error(chrome.runtime.lastError.message);
-        }
-        
+        if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
         return result;
     } catch (error) {
         console.error(`${operation}失败:`, error);
 
         if (!silent) {
-            // ✅ 修复 #9: 根据错误类型提供用户友好的提示和解决方案
-            let userMessage = `${operation}失败`;
-            let suggestion = '';
             const errorMsg = error.message?.toLowerCase() || '';
-
-            if (errorMsg.includes('permission') || errorMsg.includes('denied')) {
-                suggestion = '，请检查扩展权限设置';
-            } else if (errorMsg.includes('not found') || errorMsg.includes('no node')) {
-                suggestion = '，该项目可能已被删除';
-            } else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
-                suggestion = '，请检查网络连接';
-            } else if (errorMsg.includes('cannot modify')) {
-                suggestion = '，该项目不可修改';
-            } else {
-                suggestion = '，请稍后重试或刷新页面';
+            let suggestion = '，请稍后重试或刷新页面';
+            for (const [keys, hint] of _chromeErrorHints) {
+                if (keys.some(k => errorMsg.includes(k))) { suggestion = hint; break; }
             }
-
-            showToast(userMessage + suggestion, CONSTANTS.TIMING.TOAST_LONG, 'error');
+            showToast(`${operation}失败${suggestion}`, CONSTANTS.TIMING.TOAST_LONG, 'error');
         }
 
-        if (fallback && typeof fallback === 'function') {
-            return fallback();
-        }
-
-        return null;
+        return typeof fallback === 'function' ? fallback() : null;
     }
 }
 
@@ -705,12 +694,17 @@ function openBookmark(url, event = null) {
  * @param {string} [className='bookmark-icon'] - CSS类名
  * @returns {SVGSVGElement} SVG图标元素
  */
-function createSvgIcon(iconId, className = 'bookmark-icon') {
+// 预建 SVG 模板，克隆比 createElementNS x2 快
+const _svgTemplate = (() => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'use'));
+    return svg;
+})();
+
+function createSvgIcon(iconId, className = 'bookmark-icon') {
+    const svg = _svgTemplate.cloneNode(true);
     svg.setAttribute('class', className);
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttributeNS(null, 'href', `#${iconId}`);
-    svg.appendChild(use);
+    svg.firstChild.setAttributeNS(null, 'href', `#${iconId}`);
     return svg;
 }
 
@@ -985,14 +979,11 @@ function renderBookmarks(bookmarks, parentElement, level) {
     } else {
         const willRemoveLevel1 = level === 1 && container.querySelector('.bookmark-column[data-level="1"]');
 
-        // 只查询 >= level 的列，避免全量 querySelectorAll 再 filter
-        const colsToRemove = [];
         for (let lv = level; ; lv++) {
             const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
             if (!col) break;
-            colsToRemove.push(col);
+            col.remove();
         }
-        colsToRemove.forEach(col => col.remove());
 
         // 🔧 修复：如果移除了列1，重置布局状态，让下次打开列1时重新计算margin
         if (willRemoveLevel1) {
@@ -1126,7 +1117,7 @@ function createBookmarkItem(bookmark) {
         icon = document.createElement('img');
         icon.className = 'bookmark-icon';
         // 🔧 首屏优化：使用1x1透明图作为占位，立即触发懒加载
-        icon.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        icon.src = TRANSPARENT_GIF;
         icon.dataset.src = getIconUrl(bookmark.url);
         setupIconErrorHandler(icon);
     }
@@ -3559,7 +3550,7 @@ function displayFrequentlyVisited() {
             // P3优化：使用统一的图标处理
             const icon = document.createElement('img');
             icon.className = 'module-icon';
-            icon.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            icon.src = TRANSPARENT_GIF;
             icon.dataset.src = getIconUrl(site.url);
             icon.alt = site.title;
             setupIconErrorHandler(icon);
@@ -3779,7 +3770,7 @@ async function displayRecentBookmarks() {
 
             const icon = document.createElement('img');
             icon.className = 'module-icon';
-            icon.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            icon.src = TRANSPARENT_GIF;
             icon.dataset.src = getIconUrl(item.url);
 
             const contentWrapper = document.createElement('div');
