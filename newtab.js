@@ -5031,25 +5031,6 @@ function safeInitializeModule(initFn, moduleName, fallback = null) {
     }
 }
 
-// 捕获未处理的运行时错误
-window.addEventListener('error', (event) => {
-    console.error('全局错误捕获:', event.message, 'at', event.filename + ':' + event.lineno + ':' + event.colno);
-});
-
-// 捕获未处理的Promise拒绝
-window.addEventListener('unhandledrejection', (event) => {
-    console.error('未处理的Promise拒绝:', {
-        reason: event.reason,
-        promise: event.promise
-    });
-
-    // 显示用户友好的错误提示
-    showToast('操作失败，请稍后重试', CONSTANTS.TIMING.TOAST_LONG, 'error');
-
-    // 阻止错误继续传播（可选）
-    // event.preventDefault();
-});
-
 document.addEventListener('keydown', handleSpacebarPreview);
 
 // ========================================
