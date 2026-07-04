@@ -383,6 +383,14 @@ body {
     box-shadow: 2px 0 0 0 var(--dialog-primary-bg);
 }
 
+/* 拖到列空白处的视觉反馈 */
+.bookmark-column.column-drag-over,
+.bookmarks-bar.column-drag-over {
+    outline: 2px dashed var(--dialog-primary-bg);
+    outline-offset: -2px;
+    background-color: rgba(55, 114, 255, 0.06);
+}
+
 .bookmark-item.selected,
 .vertical-modules a.selected {
     background-color: rgba(79, 192, 141, 0.15) !important;

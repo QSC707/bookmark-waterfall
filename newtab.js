@@ -2713,14 +2713,12 @@ function handleColumnDrop(e) {
     }
 
     if (!idsToMove || idsToMove.length === 0) {
-        return; // 静默返回，没有要移动的书签
+        return;
     }
 
-    const column = e.target.closest('.bookmark-column, .bookmarks-bar');
-
-    if (column) {
-        column.classList.remove('column-drag-over');
-    }
+    // this 是由事件委托 .call(column, e) 传入的列元素，始终有效
+    const column = this;
+    column.classList.remove('column-drag-over');
 
     let parentId = null;
     const level = parseInt(column.dataset.level, 10);
