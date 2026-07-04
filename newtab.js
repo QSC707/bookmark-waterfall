@@ -250,6 +250,7 @@ function getBookmarkTree() {
                 }
             };
             traverseAll(tree);
+            flat.sort((a, b) => b.dateAdded - a.dateAdded);
             AppState.data.allBookmarksFlat = flat;
             resolve(tree);
         });
@@ -1298,25 +1299,16 @@ function handleFolderClick(folderItem, bookmarkId) {
     
     const level = parseInt(column.dataset.level, 10);
 
-    // ✅ 修复：只清除同一列中的高亮,保留其他列的导航路径
-    // 这样用户可以看到完整的文件夹打开路径
-    const itemsToRemove = [];
-    ElementCache.highlighted.forEach(i => {
-        if (i.isConnected) {
-            const itemColumn = i.closest('.bookmark-column, .bookmarks-bar');
-            // 只移除同一列中的高亮
-            if (itemColumn && itemColumn.dataset.level === column.dataset.level) {
-                i.classList.remove('highlighted');
-                // ✅ 修复 #5: 更新ARIA状态
-                if (i.classList.contains('is-folder')) {
-                    i.setAttribute('aria-expanded', 'false');
-                }
-                itemsToRemove.push(i);
-            }
+    // 只清除同一列中的高亮，for...of 遍历 Set 时删除当前元素是安全的
+    for (const i of ElementCache.highlighted) {
+        if (!i.isConnected) { ElementCache.highlighted.delete(i); continue; }
+        const itemColumn = i.closest('.bookmark-column, .bookmarks-bar');
+        if (itemColumn && itemColumn.dataset.level === column.dataset.level) {
+            i.classList.remove('highlighted');
+            if (i.classList.contains('is-folder')) i.setAttribute('aria-expanded', 'false');
+            ElementCache.highlighted.delete(i);
         }
-    });
-    // 从缓存中移除已清除高亮的项目
-    itemsToRemove.forEach(i => ElementCache.highlighted.delete(i));
+    }
 
     if (!isHighlighted) {
         ElementCache.addHighlight(folderItem);
@@ -1745,14 +1737,13 @@ const _colWidthByEl = new Map();
 
 function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
     _colStylesMap.clear();
-    const sortedResizable = [...resizableColumns].sort((a, b) => b.currentWidth - a.currentWidth);
-    
-    const totalShrinkableSpace = sortedResizable.reduce((sum, data) => {
+    // 排序对比例收缩结果无影响，直接使用原数组
+    const totalShrinkableSpace = resizableColumns.reduce((sum, data) => {
         return sum + Math.max(0, data.currentWidth - minWidth);
     }, 0);
     
     if (totalShrinkableSpace >= overflowWidth) {
-        for (const data of sortedResizable) {
+        for (const data of resizableColumns) {
             const shrinkableAmount = Math.max(0, data.currentWidth - minWidth);
             if (shrinkableAmount > 0) {
                 const proportion = shrinkableAmount / totalShrinkableSpace;
@@ -1761,7 +1752,7 @@ function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
             }
         }
     } else {
-        for (const data of sortedResizable) {
+        for (const data of resizableColumns) {
             if (data.currentWidth > minWidth) {
                 _colStylesMap.set(data.el, `${minWidth}px`);
             }
@@ -2833,7 +2824,6 @@ function showContextMenu(e, bookmarkElement, column) {
         ul.appendChild(items.sortVisit);
     }
 
-    contextMenu.appendChild(ul);
     contextMenu.style.display = 'block';
 
     const { innerWidth: winWidth, innerHeight: winHeight } = window;
@@ -3652,6 +3642,8 @@ function getRelativeDateString(ts) {
  * @returns {Promise<void>}
  * 使用Chrome Bookmarks API的getRecent方法获取最近书签
  */
+let _recentBookmarksListenersAttached = false;
+
 async function displayRecentBookmarks() {
     // P1优化：使用缓存的container元素
     const container = getCachedElement('recentBookmarksContent', () => document.querySelector('#recentBookmarksModule .module-content'));
@@ -3697,7 +3689,7 @@ async function displayRecentBookmarks() {
                 }
             }
             return true;
-        }).sort((a, b) => b.dateAdded - a.dateAdded);
+        }); // allBookmarksFlat 已预排序（dateAdded 降序），无需再 sort
     };
 
     const renderList = async () => {
@@ -3824,7 +3816,7 @@ async function displayRecentBookmarks() {
         startDateInput.value = startDate.toISOString().split('T')[0];
         renderList();
     };
-    if (!startDateInput.dataset.initialized) {
+    if (!_recentBookmarksListenersAttached) {
         endDateInput.addEventListener('change', renderList);
         startDateInput.addEventListener('change', renderList);
         quickFiltersContainer.addEventListener('click', (e) => {
@@ -3843,7 +3835,7 @@ async function displayRecentBookmarks() {
             }
         });
         setDateRange(30);
-        startDateInput.dataset.initialized = 'true';
+        _recentBookmarksListenersAttached = true;
     } else {
         renderList();
     }
@@ -4113,6 +4105,8 @@ let scrollTimer = null;
 (function() {
     // P1优化：初始化DOM缓存
     DOMCache.init();
+    // ul 首次 append 进 contextMenu，后续 showContextMenu 无需重复 appendChild
+    DOMCache.get('contextMenu').appendChild(ContextMenuPool.ul);
 
     const settingsBtn = document.getElementById('settings-btn');
     const settingsPanel = document.getElementById('settings-panel');
@@ -4807,8 +4801,7 @@ window.addEventListener('beforeunload', () => {
     if (refreshTimer) clearTimeout(refreshTimer);
     if (scrollTimer) clearTimeout(scrollTimer);
     if (adjustRAF) cancelAnimationFrame(adjustRAF);
-    if (AppState.hover.intent.timer) clearTimeout(AppState.hover.intent.timer);
-    clearHoverIntent();
+    clearHoverIntent(); // 内部已有守卫，无需重复 clearTimeout
     AppState.selection.items.clear();
     if (lazyLoadObserver) lazyLoadObserver.disconnect();
 }, { once: true });
