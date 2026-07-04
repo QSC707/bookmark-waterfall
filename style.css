@@ -196,20 +196,38 @@ body {
     align-items: center;
     border-radius: 6px;
     position: relative;
-    /* contain:paint 让 :hover repaint 只影响这个元素的绘制层，不向上传播 */
     contain: paint;
 }
 
-.bookmark-item:hover {
+/* 用 ::before + opacity 实现 hover 高亮：
+   opacity 变化在合成线程处理，完全不占主线程，比 background-color 更快 */
+.bookmark-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
     background-color: var(--hover-bg);
+    opacity: 0;
+    pointer-events: none;
 }
 
-.bookmark-item.highlighted {
+.bookmark-item:hover::before {
+    opacity: 1;
+}
+
+.bookmark-item.highlighted::before {
     background-color: var(--highlighted-bg);
+    opacity: 1;
 }
 
-/* 拖动后的临时高亮效果，伪元素 opacity 动画使用 GPU 加速 */
-.bookmark-item.just-moved::before {
+/* 选中状态覆盖 */
+.bookmark-item.selected::before {
+    background-color: rgba(79, 192, 141, 0.15);
+    opacity: 1;
+}
+
+/* 拖动后的临时高亮效果，用 ::after 避免和 hover::before 冲突 */
+.bookmark-item.just-moved::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -217,7 +235,6 @@ body {
     border-radius: 6px;
     pointer-events: none;
     animation: fade-out 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    /* ✅ GPU 加速 */
     transform: translateZ(0);
 }
 
@@ -322,9 +339,14 @@ body {
 }
 
 .bookmark-item.drag-enter {
-    background-color: var(--highlighted-bg);
+    background-color: transparent;
     outline: 2px solid var(--dialog-primary-bg);
     outline-offset: -2px;
+}
+
+.bookmark-item.drag-enter::before {
+    background-color: var(--highlighted-bg);
+    opacity: 1;
 }
 
 /* 拖入文件夹时的图标提示 */
@@ -361,9 +383,13 @@ body {
 .vertical-modules a.selected,
 .top-site-item.selected {
     background-color: rgba(79, 192, 141, 0.15) !important;
-    /* ✅ 性能优化：移除 box-shadow，只保留 outline */
     outline: 2px solid rgba(79, 192, 141, 0.8);
     outline-offset: -2px;
+}
+
+/* bookmark-item 的选中背景由 ::before 处理，清掉 background-color 避免双层 */
+.bookmark-item.selected {
+    background-color: transparent !important;
 }
 
 .bookmark-item.selected .bookmark-title {
@@ -375,7 +401,15 @@ body {
 .vertical-modules a.preview-highlight,
 .top-site-item.preview-highlight {
     background-color: rgba(255, 159, 64, 0.12) !important;
-    /* ✅ 性能优化：移除 outline，只用背景色即可 */
+}
+
+.bookmark-item.preview-highlight::before {
+    background-color: rgba(255, 159, 64, 0.12);
+    opacity: 1;
+}
+
+.bookmark-item.preview-highlight {
+    background-color: transparent !important;
 }
 
 /* --- 7. UTILITY: 统一效果 --- */
