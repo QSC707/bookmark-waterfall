@@ -934,14 +934,11 @@ function renderBookmarks(bookmarks, parentElement, level) {
     const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
     const fragment = document.createDocumentFragment();
 
-    bookmarks.forEach((bookmark, index) => {
-        const item = createBookmarkItem(bookmark, index);
-        // ✅ 性能优化：为书签栏的书签项添加专用类名，避免复杂选择器
-        if (level === 0) {
-            item.classList.add('bookmarks-bar-item');
-        }
+    for (const bookmark of bookmarks) {
+        const item = createBookmarkItem(bookmark);
+        if (level === 0) item.classList.add('bookmarks-bar-item');
         fragment.appendChild(item);
-    });
+    }
 
     if (level === 0) {
         const header = getCachedElement('header', () => document.querySelector('.page-header'));
@@ -1067,28 +1064,31 @@ function renderBookmarks(bookmarks, parentElement, level) {
  */
 function createBookmarkItem(bookmark) {
     const item = document.createElement('div');
-    item.className = 'bookmark-item';
+    const isFolder = !bookmark.url;
+    const isGithub = !!(bookmark.url && bookmark.url.includes('github.com'));
+    // 一次性设置所有 class，避免后续再赋值
+    item.className = 'bookmark-item' + (isFolder ? ' is-folder' : '') + (isGithub ? ' is-github-link' : '');
     item.dataset.id = bookmark.id;
     item.dataset.url = bookmark.url || '';
     item.dataset.parentId = bookmark.parentId;
     item.dataset.title = bookmark.title || 'No Title';
     item.draggable = true;
 
-    // ✅ 修复 #5: 添加键盘导航和可访问性支持
-    const isFolder = !bookmark.url;
     item.setAttribute('tabindex', '0');
     item.setAttribute('role', isFolder ? 'button' : 'link');
     item.setAttribute('aria-label', bookmark.title || 'No Title');
-    let icon;
 
+    let icon;
     if (isFolder) {
         icon = createSvgIcon('icon-folder');
+        item.setAttribute('aria-expanded', 'false');
+        item.setAttribute('aria-haspopup', 'true');
     } else {
         icon = document.createElement('img');
         icon.className = 'bookmark-icon';
         icon.src = TRANSPARENT_GIF;
         icon.dataset.src = getIconUrl(bookmark.url);
-        icon.decoding = 'async'; // trace 显示 141 次 PaintImage，async decode 减少主线程阻塞
+        icon.decoding = 'async';
         setupIconErrorHandler(icon);
     }
 
@@ -1098,15 +1098,6 @@ function createBookmarkItem(bookmark) {
 
     item.appendChild(icon);
     item.appendChild(title);
-
-    const isGithub = !!(bookmark.url && bookmark.url.includes('github.com'));
-    item.className = 'bookmark-item' + (isFolder ? ' is-folder' : '') + (isGithub ? ' is-github-link' : '');
-
-    if (isFolder) {
-        item.setAttribute('aria-expanded', 'false');
-        item.setAttribute('aria-haspopup', 'true');
-    }
-
     return item;
 }
 
@@ -1260,7 +1251,7 @@ function handleFolderClick(folderItem, bookmarkId) {
         return;
     }
     
-    const level = parseInt(column.dataset.level, 10);
+    const level = +column.dataset.level;
 
     // 只清除同一列中的高亮，for...of 遍历 Set 时删除当前元素是安全的
     for (const i of ElementCache.highlighted) {
@@ -2392,7 +2383,7 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
         return;
     }
 
-    const level = parseInt(column.dataset.level, 10);
+    const level = +column.dataset.level;
     const parentColumn = document.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
 
     if (!parentColumn) {
@@ -2514,7 +2505,7 @@ function handleColumnDrop(e) {
     _dragOverColumns.delete(column);
 
     let parentId = null;
-    const level = parseInt(column.dataset.level, 10);
+    const level = +column.dataset.level;
 
     if (level === 0) {
         parentId = CONSTANTS.BOOKMARKS_BAR_ID;
@@ -2823,7 +2814,7 @@ function getParentIdFromContext(element, column) {
     } else if (element) {
         return element.dataset.parentId;
     } else {
-        const level = parseInt(column.dataset.level, 10);
+        const level = +column.dataset.level;
         if (level === 0) return CONSTANTS.BOOKMARKS_BAR_ID;
         // level-1 可能是书签栏(.bookmarks-bar)或普通列(.bookmark-column)
         return document.querySelector(
@@ -3375,7 +3366,7 @@ function findColumnForParentId(parentId) {
 
     const parentItem = document.querySelector(`.bookmark-item[data-id="${parentId}"]`);
     if (parentItem && parentItem.classList.contains('highlighted')) {
-        const level = parseInt(parentItem.closest('.bookmark-column, .bookmarks-bar').dataset.level, 10);
+        const level = +parentItem.closest('.bookmark-column, .bookmarks-bar').dataset.level;
         return document.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
     }
     return null;
@@ -3405,12 +3396,14 @@ function handleBookmarkRemoved(id, removeInfo) {
     if (itemToRemove) {
         const column = itemToRemove.closest('.bookmark-column, .bookmarks-bar');
         if (itemToRemove.classList.contains('highlighted')) {
-            const level = parseInt(column.dataset.level, 10);
-            document.querySelectorAll('.bookmark-column').forEach(col => {
-                if (parseInt(col.dataset.level, 10) > level) col.remove();
-            });
+            const level = +column.dataset.level;
+            // 精确循环删除子列，避免全量 querySelectorAll + parseInt 过滤
+            for (let lv = level + 1; ; lv++) {
+                const col = document.querySelector(`.bookmark-column[data-level="${lv}"]`);
+                if (!col) break;
+                col.remove();
+            }
         }
-        const parentWrapper = itemToRemove.parentElement;
         itemToRemove.remove();
     }
     // 不在这里调 displayRecentBookmarks，由外层 scheduleRefresh 统一处理
@@ -4267,7 +4260,7 @@ let scrollTimer = null;
                 if (focusedItem.classList.contains('highlighted')) {
                     const currentColumn = focusedItem.closest('.bookmark-column, .bookmarks-bar');
                     if (currentColumn) {
-                        const currentLevel = parseInt(currentColumn.dataset.level, 10);
+                        const currentLevel = +currentColumn.dataset.level;
                         const nextColumn = document.querySelector(`.bookmark-column[data-level="${currentLevel + 1}"]`);
                         if (nextColumn) {
                             const firstItem = nextColumn.querySelector('.bookmark-item');
@@ -4285,7 +4278,7 @@ let scrollTimer = null;
                 {
                     const currentColumn = focusedItem.closest('.bookmark-column, .bookmarks-bar');
                     if (currentColumn) {
-                        const currentLevel = parseInt(currentColumn.dataset.level, 10);
+                        const currentLevel = +currentColumn.dataset.level;
                         if (currentLevel > 0) {
                             const prevColumn = document.querySelector(`.bookmark-column[data-level="${currentLevel - 1}"]`);
                             if (prevColumn) {
@@ -4450,8 +4443,10 @@ let scrollTimer = null;
         // 如果都没有需要关闭的，不做任何操作
     });
 
+    // 缓存主题按钮列表，避免每次切主题都 querySelectorAll
+    const themeButtons = Array.from(themeOptionsContainer.querySelectorAll('.theme-option'));
     const updateThemeButtons = (active) => {
-        themeOptionsContainer.querySelectorAll('.theme-option').forEach(btn => btn.classList.toggle('active', btn.dataset.themeValue === active));
+        for (const btn of themeButtons) btn.classList.toggle('active', btn.dataset.themeValue === active);
     };
     const applyTheme = (theme) => {
         const root = document.documentElement;
@@ -4656,7 +4651,7 @@ let scrollTimer = null;
                     const column = parentItem.closest('.bookmark-column, .bookmarks-bar');
                     // P0修复：检查column是否存在
                     if (column && column.dataset.level) {
-                        const level = parseInt(column.dataset.level, 10);
+                        const level = +column.dataset.level;
                         targetColumn = document.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
                     }
                 }
