@@ -4832,13 +4832,13 @@ let scrollTimer = null;
 
         // 延迟加载次要模块，避免阻塞首屏
         requestIdleCallback(() => {
-            safeInitializeModule(() => displayFrequentlyVisited(), '常访问网站', null);
-            safeInitializeModule(() => setupFrequentlyVisitedHover(), '悬停预览', null);
+            displayFrequentlyVisited();
+            setupFrequentlyVisitedHover();
         }, { timeout: 1000 });
 
         requestIdleCallback(() => {
-            safeInitializeModule(() => displayRecentBookmarks(), '最近书签', null);
-            safeInitializeModule(() => initExcludeRulesDialog(), '排除规则对话框', null);
+            displayRecentBookmarks().catch(err => console.error('最近书签加载失败:', err));
+            initExcludeRulesDialog();
         }, { timeout: 2000 });
     };
 
