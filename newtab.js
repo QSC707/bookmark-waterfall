@@ -2534,7 +2534,7 @@ function handleDrop(e) {
     };
 
     // 执行顺序移动
-    moveBookmarksSequentially();
+    moveBookmarksSequentially().catch(err => console.error('[handleDrop] 移动失败:', err));
 }
 
 /**
@@ -2781,7 +2781,7 @@ function handleColumnDrop(e) {
             }
         };
 
-        moveBookmarksSequentially();
+        moveBookmarksSequentially().catch(err => console.error('[handleColumnDrop] 移动失败:', err));
     } else {
         console.error('[handleColumnDrop] 无法确定父文件夹ID');
         showToast('无法确定目标位置', 2000, 'error');
@@ -4967,7 +4967,10 @@ let scrollTimer = null;
             }
 
             // 同父级排序不影响"最近添加"，无需刷新侧边栏
-            // 如果涉及书签栏，刷新书签栏（书签栏已在上面重新渲染，跳过重复调用）
+            // 但若是书签栏内排序，需刷新书签栏显示
+            if (parentId === CONSTANTS.BOOKMARKS_BAR_ID) {
+                refreshBookmarksBar();
+            }
         } else {
             // 跨父级移动：从旧位置移除
             const movedItemElement = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
