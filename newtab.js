@@ -321,7 +321,6 @@ function getCachedElement(key, fallback) {
 const ElementCache = {
     highlighted: new Set(),
     dragging: new Set(),
-    dragOver: new Set(),
 
     addHighlight(item) {
         item.classList.add('highlighted');
@@ -330,9 +329,7 @@ const ElementCache = {
 
     clearHighlights() {
         this.highlighted.forEach(item => {
-            if (item.isConnected) {
-                item.classList.remove('highlighted');
-            }
+            if (item.isConnected) item.classList.remove('highlighted');
         });
         this.highlighted.clear();
     },
@@ -344,25 +341,9 @@ const ElementCache = {
 
     clearDragging() {
         this.dragging.forEach(item => {
-            if (item.isConnected) {
-                item.classList.remove('dragging');
-            }
+            if (item.isConnected) item.classList.remove('dragging');
         });
         this.dragging.clear();
-    },
-
-    addDragOver(item, ...classes) {
-        classes.forEach(cls => item.classList.add(cls));
-        this.dragOver.add(item);
-    },
-
-    clearDragOver() {
-        this.dragOver.forEach(item => {
-            if (item.isConnected) {
-                item.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-left', 'drag-over-right', 'drag-over');
-            }
-        });
-        this.dragOver.clear();
     }
 };
 
@@ -2121,7 +2102,6 @@ function handleDragEnd(e) {
     ElementCache.clearDragging();
     AppState.drag.draggedItem = null;
     AppState.drag.lastDragOverTarget = null;
-    ElementCache.clearDragOver();
     _cachedDragRect = null;
     _cachedDragRectTarget = null;
 
@@ -3079,17 +3059,19 @@ function handleContextMenuAction(action, element) {
     }
 }
 
+// 排序函数常量，避免每次调用 handleSortBookmarks 都重建对象
+const SORT_FUNCTIONS = {
+    sortDateNew: (a, b) => b.dateAdded - a.dateAdded,
+    sortDateOld: (a, b) => a.dateAdded - b.dateAdded,
+    sortAlphaAsc: (a, b) => a.title.localeCompare(b.title),
+    sortAlphaDesc: (a, b) => b.title.localeCompare(a.title)
+};
+
 async function handleSortBookmarks(parentId, sortType) {
     chrome.bookmarks.getChildren(parentId, async (children) => {
         if (!children || children.length < 2) return;
         showToast('正在排序...');
 
-        const sortFunctions = {
-            [CONSTANTS.SORT_TYPES.DATE_NEW]: (a, b) => b.dateAdded - a.dateAdded,
-            [CONSTANTS.SORT_TYPES.DATE_OLD]: (a, b) => a.dateAdded - b.dateAdded,
-            [CONSTANTS.SORT_TYPES.ALPHA_ASC]: (a, b) => a.title.localeCompare(b.title),
-            [CONSTANTS.SORT_TYPES.ALPHA_DESC]: (a, b) => b.title.localeCompare(a.title)
-        };
 
         let sortedChildren;
         if (sortType === CONSTANTS.SORT_TYPES.VISIT) {
@@ -3101,8 +3083,8 @@ async function handleSortBookmarks(parentId, sortType) {
                     : Promise.resolve({ ...child, lastVisitTime: 0 })
             ));
             sortedChildren = childrenWithVisitData.sort((a, b) => b.lastVisitTime - a.lastVisitTime);
-        } else if (sortFunctions[sortType]) {
-            sortedChildren = children.sort(sortFunctions[sortType]);
+        } else if (SORT_FUNCTIONS[sortType]) {
+            sortedChildren = children.sort(SORT_FUNCTIONS[sortType]);
         } else {
             return;
         }
@@ -4273,41 +4255,20 @@ let scrollTimer = null;
     // 🔧 P0-1优化：扩展全局事件委托，处理列级别的拖放
     document.body.addEventListener('dragover', (e) => {
         const item = e.target.closest('.bookmark-item');
-        if (item) {
-            handleDragOver.call(item, e);
-        } else {
-            // 如果不是书签项，检查是否是列
-            const column = e.target.closest('.bookmark-column, .bookmarks-bar');
-            if (column) {
-                handleColumnDragOver.call(column, e);
-            }
-        }
+        if (item) { handleDragOver.call(item, e); }
+        else { const col = e.target.closest('.bookmark-column, .bookmarks-bar'); if (col) handleColumnDragOver.call(col, e); }
     }, true);
 
     document.body.addEventListener('drop', (e) => {
         const item = e.target.closest('.bookmark-item');
-        if (item) {
-            handleDrop.call(item, e);
-        } else {
-            // 如果不是书签项，检查是否是列
-            const column = e.target.closest('.bookmark-column, .bookmarks-bar');
-            if (column) {
-                handleColumnDrop.call(column, e);
-            }
-        }
+        if (item) { handleDrop.call(item, e); }
+        else { const col = e.target.closest('.bookmark-column, .bookmarks-bar'); if (col) handleColumnDrop.call(col, e); }
     }, true);
 
     document.body.addEventListener('dragleave', (e) => {
         const item = e.target.closest('.bookmark-item');
-        if (item) {
-            handleDragLeave.call(item, e);
-        } else {
-            // 如果不是书签项，检查是否是列
-            const column = e.target.closest('.bookmark-column, .bookmarks-bar');
-            if (column) {
-                handleColumnDragLeave.call(column, e);
-            }
-        }
+        if (item) { handleDragLeave.call(item, e); }
+        else { const col = e.target.closest('.bookmark-column, .bookmarks-bar'); if (col) handleColumnDragLeave.call(col, e); }
     }, true);
 
     // ✅ 修复 #5: 键盘导航支持
