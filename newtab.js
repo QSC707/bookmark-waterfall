@@ -2689,7 +2689,13 @@ function isAncestor(potentialAncestorId, nodeId) {
 
 function handleColumnDragOver(e) {
     e.preventDefault();
-    // this 是 closest 到的列，不依赖 e.target 精确命中
+    // 鼠标移到列空白处，清除书签上的残留 drag class
+    if (AppState.drag.lastDragOverTarget) {
+        AppState.drag.lastDragOverTarget.classList.remove(
+            'drag-over-top', 'drag-over-bottom', 'drag-over-before', 'drag-over-after', 'drag-enter'
+        );
+        AppState.drag.lastDragOverTarget = null;
+    }
     this.classList.add('column-drag-over');
 }
 
