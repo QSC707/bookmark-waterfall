@@ -1767,22 +1767,15 @@ function calculateFirstColumnMargin(params) {
     
     if (columnsChanged) {
         if (newColumnCount === 0) {
-            // 场景1：所有列都关闭了，重置所有状态
             resetLayoutState();
         } else if (newColumnCount === 1 && AppState.layout.initialMarginLeft === null) {
-            // 场景2：首次打开第一个书签
             marginLeft = calculateCenteredMargin(availableWidth);
             marginLeft = applyCenteredMargin(marginLeft);
             AppState.layout.initialMarginLeft = marginLeft;
-        } else if (newColumnCount > AppState.layout.currentColumnCount) {
-            // 场景3：打开新书签
-            marginLeft = currentActualMargin > 0 
-                ? currentActualMargin 
-                : (AppState.layout.savedMarginLeft || AppState.layout.initialMarginLeft || calculateCenteredMargin(availableWidth));
-        } else if (newColumnCount < AppState.layout.currentColumnCount) {
-            // 场景4：关闭书签
-            marginLeft = currentActualMargin > 0 
-                ? currentActualMargin 
+        } else {
+            // 打开或关闭书签：保持当前边距
+            marginLeft = currentActualMargin > 0
+                ? currentActualMargin
                 : (AppState.layout.savedMarginLeft || AppState.layout.initialMarginLeft || calculateCenteredMargin(availableWidth));
         }
         AppState.layout.currentColumnCount = newColumnCount;
@@ -1828,21 +1821,18 @@ function shrinkColumnsToFit(resizableColumns, overflowWidth, minWidth) {
     }, 0);
     
     if (totalShrinkableSpace >= overflowWidth) {
-        // 使用权重收缩：较宽的列收缩更多
         for (const data of sortedResizable) {
             const shrinkableAmount = Math.max(0, data.currentWidth - minWidth);
             if (shrinkableAmount > 0) {
                 const proportion = shrinkableAmount / totalShrinkableSpace;
-                const reduction = overflowWidth * proportion;
-                const newWidth = Math.max(minWidth, data.currentWidth - reduction);
-                newStyles.set(data.el, { width: `${newWidth}px` });
+                const newWidth = Math.max(minWidth, data.currentWidth - overflowWidth * proportion);
+                newStyles.set(data.el, `${newWidth}px`);
             }
         }
     } else {
-        // 如果收缩空间不够，将所有可调整的列缩到最小
         for (const data of sortedResizable) {
             if (data.currentWidth > minWidth) {
-                newStyles.set(data.el, { width: `${minWidth}px` });
+                newStyles.set(data.el, `${minWidth}px`);
             }
         }
     }
@@ -1868,18 +1858,14 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
         
         if (totalEnlargePotential > 0) {
             if (totalEnlargePotential <= availableSpace) {
-                // 空间足够，全部扩展到 ideal 宽度
                 for (const data of columnsToEnlarge) {
-                    newStyles.set(data.el, { width: `${idealWidth}px` });
+                    newStyles.set(data.el, `${idealWidth}px`);
                 }
             } else {
-                // 空间不够，按比例扩展
                 for (const data of columnsToEnlarge) {
                     const potential = idealWidth - data.currentWidth;
-                    const proportion = potential / totalEnlargePotential;
-                    const enlargeAmount = availableSpace * proportion;
-                    const newWidth = data.currentWidth + enlargeAmount;
-                    newStyles.set(data.el, { width: `${newWidth}px` });
+                    const newWidth = data.currentWidth + availableSpace * (potential / totalEnlargePotential);
+                    newStyles.set(data.el, `${newWidth}px`);
                 }
             }
         }
@@ -1896,33 +1882,32 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
 function applyColumnWidthStyles(newStyles, columnData) {
     const actualChanges = new Map();
 
-    newStyles.forEach((style, el) => {
+    newStyles.forEach((widthStr, el) => {
         const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
-        const newWidth = parseFloat(style.width);
+        const newWidth = parseFloat(widthStr);
         if (Math.abs(currentWidth - newWidth) > 1) {
-            actualChanges.set(el, style);
+            actualChanges.set(el, widthStr);
         }
     });
 
     if (actualChanges.size === 0) return;
 
-    // 用 Map 预建宽度查找，消除内层 find() 的 O(n²)
     const widthByEl = new Map(columnData.map(d => [d.el, d.currentWidth]));
-    const hasLargeChanges = Array.from(actualChanges).some(([el, style]) => {
+    const hasLargeChanges = Array.from(actualChanges).some(([el, widthStr]) => {
         const cur = widthByEl.get(el) ?? el.offsetWidth;
-        return Math.abs(cur - parseFloat(style.width)) > 50;
+        return Math.abs(cur - parseFloat(widthStr)) > 50;
     });
 
     if (hasLargeChanges) {
-        actualChanges.forEach((style, el) => {
+        actualChanges.forEach((widthStr, el) => {
             el.style.transition = 'none';
-            el.style.width = style.width;
+            el.style.width = widthStr;
         });
         requestAnimationFrame(() => {
             actualChanges.forEach((_, el) => { el.style.transition = ''; });
         });
     } else {
-        actualChanges.forEach((style, el) => { el.style.width = style.width; });
+        actualChanges.forEach((widthStr, el) => { el.style.width = widthStr; });
     }
 }
 
@@ -3649,11 +3634,10 @@ function displayFrequentlyVisited() {
             }
 
         const fragment = document.createDocumentFragment();
-        
-        // 只显示前8个最常访问的网站
-        const topSites = sites.slice(0, 8);
-        
-        topSites.forEach((site, index) => {
+        const count = Math.min(8, sites.length);
+
+        for (let index = 0; index < count; index++) {
+            const site = sites[index];
             const item = document.createElement('div');
             item.className = 'top-site-item';
             item.dataset.url = site.url;
@@ -3681,7 +3665,7 @@ function displayFrequentlyVisited() {
             // 右键菜单支持 - 已由全局事件委托处理，这里移除避免重复
 
             fragment.appendChild(item);
-        });
+        }
 
         container.innerHTML = '';
         container.appendChild(fragment);
