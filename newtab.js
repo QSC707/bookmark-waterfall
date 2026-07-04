@@ -2816,9 +2816,11 @@ const ContextMenuPool = (() => {
     // 预先创建分隔符（需要多个）
     const separators = Array.from({ length: 5 }, () => createSeparator());
     let separatorIndex = 0;
+    const ul = document.createElement('ul');
 
     return {
         items,
+        ul,
         getSeparator() {
             const sep = separators[separatorIndex % separators.length];
             separatorIndex++;
@@ -2827,7 +2829,6 @@ const ContextMenuPool = (() => {
         resetSeparators() {
             separatorIndex = 0;
         },
-        // 更新菜单项文本
         updateText(itemKey, text) {
             const item = items[itemKey];
             if (item && item._textNode) {
@@ -2846,14 +2847,13 @@ const ContextMenuPool = (() => {
  * 根据点击位置和选中状态动态生成菜单项
  */
 function showContextMenu(e, bookmarkElement, column) {
-    // P1优化：使用缓存的contextMenu元素
     const contextMenu = getCachedElement('contextMenu', () => document.getElementById('contextMenu'));
-    contextMenu.innerHTML = ''; // 清空旧菜单
-    const ul = document.createElement('ul');
 
-    // ✅ 性能优化：重置分隔符索引
     ContextMenuPool.resetSeparators();
-    const { items, getSeparator, updateText } = ContextMenuPool;
+    const { items, getSeparator, updateText, ul } = ContextMenuPool;
+
+    // 清空 ul（复用，不重建）
+    while (ul.firstChild) ul.removeChild(ul.firstChild);
 
     const rightClickedId = bookmarkElement?.dataset.id;
     const isModuleItem = bookmarkElement?.closest('.vertical-modules');
@@ -3928,11 +3928,10 @@ async function displayRecentBookmarks() {
     };
 
     const setDateRange = (days) => {
-        const today = new Date();
-        const endDate = new Date(today);
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() - (days - 1));
-        endDateInput.value = endDate.toISOString().split('T')[0];
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1));
+        endDateInput.value = todayStr;
         startDateInput.value = startDate.toISOString().split('T')[0];
         renderList();
     };
@@ -3976,21 +3975,6 @@ async function displayRecentBookmarks() {
             if (link) {
                 e.preventDefault();
                 showContextMenu(e, link, link.closest('.vertical-modules'));
-            }
-        });
-
-        // 鼠标悬停事件
-        container.addEventListener('mouseover', (e) => {
-            const link = e.target.closest('a[data-id]');
-            if (link) {
-                AppState.hover.currentItem = link;
-            }
-        });
-
-        container.addEventListener('mouseout', (e) => {
-            const link = e.target.closest('a[data-id]');
-            if (link && !container.contains(e.relatedTarget?.closest('a[data-id]'))) {
-                AppState.hover.currentItem = null;
             }
         });
 
