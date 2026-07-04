@@ -817,11 +817,15 @@ function closeAllBookmarkColumns() {
     const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
     if (!container) return;
     
-    // === 1. 移除所有 level >= 1 的列（保留书签栏） ===
-    const columnsToRemove = container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
-    if (columnsToRemove.length === 0) return; // 如果没有列需要关闭，直接返回
-    
-    columnsToRemove.forEach(col => col.remove());
+    // 从 level=1 逐个精确查找并移除，比全量 querySelectorAll 快
+    let hasAny = false;
+    for (let lv = 1; ; lv++) {
+        const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
+        if (!col) break;
+        col.remove();
+        hasAny = true;
+    }
+    if (!hasAny) return;
     
     // === 2. 清除所有书签项的高亮状态 ===
     // ✅ P1-2优化：使用 ElementCache 替代 querySelectorAll
@@ -869,17 +873,21 @@ function toggleSelection(item) {
  * ✅ 优化 #4: 维护元素引用缓存
  */
 function selectRange(startId, endId, column) {
-    const items = Array.from(column.querySelectorAll('.bookmark-item'));
-    const startIndex = items.findIndex(i => i.dataset.id === startId);
-    const endIndex = items.findIndex(i => i.dataset.id === endId);
+    const nodeList = column.querySelectorAll('.bookmark-item');
+    let startIndex = -1, endIndex = -1;
+    for (let i = 0; i < nodeList.length; i++) {
+        if (nodeList[i].dataset.id === startId) startIndex = i;
+        if (nodeList[i].dataset.id === endId) endIndex = i;
+        if (startIndex !== -1 && endIndex !== -1) break;
+    }
     if (startIndex === -1 || endIndex === -1) return;
 
     const [min, max] = [Math.min(startIndex, endIndex), Math.max(startIndex, endIndex)];
     for (let i = min; i <= max; i++) {
-        const item = items[i];
+        const item = nodeList[i];
         if (!AppState.selection.items.has(item.dataset.id)) {
             AppState.selection.items.add(item.dataset.id);
-            selectedElements.add(item); // ✅ 优化：添加到缓存
+            selectedElements.add(item);
             item.classList.add('selected');
         }
     }
@@ -1418,14 +1426,16 @@ function handleFolderClick(folderItem, bookmarkId) {
         const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
         if (!container) return;
         
-        const nextColumns = container.querySelectorAll(`.bookmark-column`);
-        nextColumns.forEach(col => {
-            if (parseInt(col.dataset.level, 10) > level) col.remove();
-        });
-        
+        // 精确查询 > level 的列并移除，避免全量 querySelectorAll
+        for (let lv = level + 1; ; lv++) {
+            const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
+            if (!col) break;
+            col.remove();
+        }
+
         // 如果关闭后没有列了，重置布局状态
-        const remainingColumns = container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
-        if (remainingColumns.length === 0) {
+        const remainingColumns = container.querySelector('.bookmark-column[data-level]:not([data-level="0"])');
+        if (!remainingColumns) {
             resetLayoutState();
         }
     }
@@ -1922,8 +1932,7 @@ function performSmartScroll(container, params) {
     const { firstColumn, finalMarginLeft, gap, marginRight, availableWidth, columns } = params;
 
     let scrollTarget = 0;
-    // 🔧 性能优化：使用传入的 columns 数组，避免重复查询 DOM
-    const finalColumns = columns || Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
+    const finalColumns = columns;
 
     // 获取第一列的实际左边距
     const firstColumnMargin = firstColumn && firstColumn.dataset.level === "1"
@@ -2091,7 +2100,7 @@ function handleDragStart(e) {
         toggleSelection(AppState.drag.draggedItem);
     }
 
-    const idsToDrag = Array.from(AppState.selection.items);
+    const idsToDrag = [...AppState.selection.items];
     e.dataTransfer.setData('application/json', JSON.stringify(idsToDrag));
     e.dataTransfer.effectAllowed = 'move';
 
@@ -2976,7 +2985,7 @@ function handleDeleteBookmarks(selectedIds) {
  * 右键菜单动作处理
  */
 function handleContextMenuAction(action, element) {
-    const selectedIds = Array.from(AppState.selection.items);
+    const selectedIds = [...AppState.selection.items];
 
     if (Object.values(CONSTANTS.SORT_TYPES).includes(action)) {
         const column = AppState.contextMenu.column;
