@@ -3993,43 +3993,26 @@ let scrollTimer = null;
     
     const ITEM_SELECTOR = '.bookmark-item, .vertical-modules a, .top-site-item';
 
-    // 悬停意图检测：只处理文件夹的自动展开，视觉高亮完全由 CSS :hover 负责
-    // mouseover 用 closest 遍历 DOM 是高频开销，用 is-folder class 快速过滤
-    document.body.addEventListener('mouseover', (e) => {
-        const target = e.target;
-        // 快速路径：只有 .bookmark-item 内的元素才需要处理
-        const item = target.closest('.bookmark-item');
-        if (!item) {
-            // 更新 currentItem 用于 spacebar preview
-            AppState.hover.currentItem = target.closest(ITEM_SELECTOR);
-            return;
-        }
-
-        AppState.hover.currentItem = item;
-
-        // 只有文件夹才需要启动悬停意图（自动展开）
-        if (item.classList.contains('is-folder')) {
+    // 用 pointermove 替代 mouseover——只在鼠标真正停在文件夹上时才触发意图检测
+    // 避免 mouseover 的冒泡特性导致快速移动时频繁触发
+    let _lastPointerItem = null;
+    document.body.addEventListener('pointermove', (e) => {
+        if (e.pointerType !== 'mouse') return;
+        const item = e.target.closest('.bookmark-item');
+        if (item === _lastPointerItem) return; // 同一元素内移动直接跳过
+        _lastPointerItem = item;
+        AppState.hover.currentItem = item || e.target.closest(ITEM_SELECTOR);
+        if (item?.classList.contains('is-folder')) {
             startHoverIntent(item);
+        } else {
+            clearHoverIntent();
         }
     }, { passive: true });
 
-    document.body.addEventListener('mouseout', (e) => {
-        const item = e.target.closest('.bookmark-item');
-        if (!item) {
-            if (!e.relatedTarget || !e.relatedTarget.closest(ITEM_SELECTOR)) {
-                AppState.hover.currentItem = null;
-            }
-            return;
-        }
-
-        if (!e.relatedTarget || !item.contains(e.relatedTarget)) {
-            if (AppState.hover.currentItem === item) {
-                AppState.hover.currentItem = null;
-                if (item.classList.contains('is-folder')) {
-                    clearHoverIntent();
-                }
-            }
-        }
+    document.body.addEventListener('pointerleave', () => {
+        _lastPointerItem = null;
+        AppState.hover.currentItem = null;
+        clearHoverIntent();
     }, { passive: true });
     
     document.body.addEventListener('mousedown', (e) => {
