@@ -196,9 +196,9 @@ body {
     display: flex;
     align-items: center;
     border-radius: 6px;
-    /* ✅ 性能优化：移除 transition，使用即时切换，避免快速移动时的大量重绘 */
     position: relative;
-    contain: layout style; /* 性能优化：隔离布局计算 */
+    contain: style; /* layout containment 会让每次 hover 独立触发布局计算，去掉后更流畅 */
+    transition: background-color 60ms ease; /* 极短过渡让高亮切换更丝滑而不产生延迟感 */
 }
 
 .bookmark-item:hover {
@@ -698,6 +698,7 @@ body {
     padding: 6px 8px;
     cursor: pointer;
     border-radius: 6px;
+    transition: background-color 60ms ease;
 }
 
 .folder-content:hover {
@@ -1082,7 +1083,7 @@ body {
     border-radius: 8px;
     text-decoration: none;
     color: var(--text-color);
-    /* ✅ 性能优化：移除 transition，使用即时切换 */
+    transition: background-color 60ms ease;
 }
 
 .recent-item:hover {
