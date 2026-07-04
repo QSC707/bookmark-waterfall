@@ -261,6 +261,7 @@ function getBookmarkTree() {
 
 function invalidateBookmarkCache() {
     bookmarkCacheDirty = true;
+    cachedBookmarkTree = null;
 }
 
 // ✅ 性能优化: 缓存窗口类型检测，避免每次点击都检查
@@ -285,7 +286,6 @@ const DOMCache = {
     recentBookmarksContent: null,
     frequentlyVisitedContent: null,
     bookmarksBar: null,
-    firstColumn: null,
     resizingOverlay: null,
     resizeIndicator: null,
 
@@ -836,67 +836,7 @@ function setupIconErrorHandler(icon) {
     };
 }
 
-/**
- * P3优化：创建错误状态HTML
- * @param {string} message - 错误消息
- * @param {string} emoji - emoji图标
- * @param {string} retryFn - 重试函数名
- */
-function createErrorStateHTML(message, emoji = '😕', retryFn = '') {
-    const retryButton = retryFn 
-        ? `<button onclick="${retryFn}" style="margin-top: 8px; padding: 4px 12px; background: var(--card-bg); border: 1px solid var(--header-border); border-radius: 6px; color: var(--text-color); cursor: pointer; font-size: 11px;">重试</button>`
-        : '';
-    
-    return `
-        <div class="error-state" style="padding: 12px; text-align: center; color: var(--module-header-color); font-size: 12px;">
-            <div style="margin-bottom: 8px;">${emoji}</div>
-            <div>${message}</div>
-            ${retryButton}
-        </div>
-    `;
-}
 
-/**
- * P3优化：创建空状态HTML
- * @param {string} message - 空状态消息
- * @param {string} emoji - emoji图标
- */
-function createEmptyStateHTML(message, emoji = '📭') {
-    return `
-        <div class="empty-state" style="padding: 12px; text-align: center; color: var(--module-header-color); font-size: 12px;">
-            <div style="margin-bottom: 6px;">${emoji}</div>
-            <div>${message}</div>
-        </div>
-    `;
-}
-
-/**
- * P3优化：创建加载骨架屏
- * @param {number} count - 骨架数量
- * @param {string} shape - 形状：'circle' 或 'rect'
- */
-function createSkeletonLoader(count, shape = 'circle') {
-    const container = document.createElement('div');
-    container.className = 'loading-state';
-    container.style.cssText = 'display: flex; flex-direction: column; gap: 4px; padding: 8px 0;';
-    
-    for (let i = 0; i < count; i++) {
-        const skeleton = document.createElement('div');
-        skeleton.className = 'skeleton-item';
-        const borderRadius = shape === 'circle' ? '50%' : '6px';
-        skeleton.style.cssText = `width: 28px; height: 28px; border-radius: ${borderRadius}; background: var(--input-bg);`;
-        container.appendChild(skeleton);
-    }
-    
-    return container;
-}
-
-/**
- * 创建一个可复用的悬停意图监听器。
- * @param {function} callback - 延迟时间到达后要执行的回调函数。
- * @param {number} [delay=500] - 悬停的延迟时间 (毫秒)。
- * @returns {{handleMouseEnter: function, handleMouseLeave: function}} - 返回包含两个事件处理函数的对象。
- */
 function createHoverIntent(callback, delay = 500) {
     let hoverTimeout;
 
@@ -3738,17 +3678,27 @@ function displayFrequentlyVisited() {
     try {
         // 获取访问次数最多的网站
         chrome.topSites.get((sites) => {
-            // P0修复：检查API调用是否成功
             if (chrome.runtime.lastError) {
                 console.error('topSites API error:', chrome.runtime.lastError);
-                // P3优化：使用统一的错误状态生成函数
-                container.innerHTML = createErrorStateHTML('无法加载经常访问', '😕', 'displayFrequentlyVisited()');
+                container.textContent = '';
+                const msg = document.createElement('div');
+                msg.style.cssText = 'padding:12px;text-align:center;color:var(--module-header-color);font-size:12px;';
+                msg.textContent = '无法加载经常访问';
+                const btn = document.createElement('button');
+                btn.textContent = '重试';
+                btn.style.cssText = 'margin-top:8px;padding:4px 12px;background:var(--card-bg);border:1px solid var(--header-border);border-radius:6px;color:var(--text-color);cursor:pointer;font-size:11px;display:block;';
+                btn.onclick = displayFrequentlyVisited;
+                msg.appendChild(btn);
+                container.appendChild(msg);
                 return;
             }
-            
+
             if (!sites || sites.length === 0) {
-                // P3优化：使用统一的空状态生成函数
-                container.innerHTML = createEmptyStateHTML('暂无经常访问', '📭');
+                container.textContent = '';
+                const msg = document.createElement('div');
+                msg.style.cssText = 'padding:12px;text-align:center;color:var(--module-header-color);font-size:12px;';
+                msg.textContent = '暂无经常访问';
+                container.appendChild(msg);
                 return;
             }
 
@@ -3775,7 +3725,7 @@ function displayFrequentlyVisited() {
 
             const title = document.createElement('span');
             title.className = 'module-title';
-            title.textContent = site.title || new URL(site.url).hostname;
+            title.textContent = site.title || site.url.split('/')[2] || site.url;
 
             item.appendChild(icon);
             item.appendChild(title);
@@ -3792,10 +3742,9 @@ function displayFrequentlyVisited() {
         observeLazyImages(container);
         });
     } catch (error) {
-        // P3优化：使用统一的错误处理
         console.error('displayFrequentlyVisited error:', error);
         if (container) {
-            container.innerHTML = createErrorStateHTML('加载出错', '⚠️', 'displayFrequentlyVisited()');
+            container.textContent = '加载出错';
         }
     }
 }
