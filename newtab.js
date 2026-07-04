@@ -145,7 +145,7 @@ const AppState = {
 
     // 选择状态
     selection: {
-        items: new Set(),           // 选中的���目ID集合
+        items: new Set(),           // 选中的项目ID集合
         lastClickedId: null         // 最后点击的项目ID（用于 Shift 范围选择）
     },
 
@@ -827,9 +827,6 @@ function createHoverIntent(callback, delay = 500) {
     let hoverTimeout;
 
     const handleMouseEnter = () => {
-        // 统一在这里检查全局开关
-        if (!AppState.hover.enabled) return;
-
         clearTimeout(hoverTimeout);
         hoverTimeout = setTimeout(callback, delay);
     };
@@ -4782,27 +4779,27 @@ let scrollTimer = null;
     verticalModules.addEventListener('mouseenter', cancelShowModules); // 鼠标进入面板本身时也应该取消计时
 
     document.addEventListener('click', (e) => {
-        const isClickOutsideActiveAreas = !e.target.closest('.bookmark-item') &&
-            !e.target.closest('.context-menu') &&
-            !e.target.closest('.move-dialog-content') &&
-            !e.target.closest('.edit-dialog-content') &&
-            !e.target.closest('.vertical-modules a');
-        if (isClickOutsideActiveAreas) {
+        const target = e.target;
+        const inBookmarkItem = target.closest('.bookmark-item');
+        const inContextMenu = target.closest('.context-menu');
+        const inMoveDialog = target.closest('.move-dialog-content');
+        const inEditDialog = target.closest('.edit-dialog-content');
+        const inVerticalModulesLink = target.closest('.vertical-modules a');
+
+        if (!inBookmarkItem && !inContextMenu && !inMoveDialog && !inEditDialog && !inVerticalModulesLink) {
             clearSelection();
         }
 
-        if (settingsPanel.classList.contains('visible') && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+        if (settingsPanel.classList.contains('visible') && !settingsPanel.contains(target) && !settingsBtn.contains(target)) {
             settingsPanel.classList.remove('visible');
         }
 
-        if (!e.target.closest('.context-menu')) {
+        if (!inContextMenu) {
             hideContextMenu();
         }
 
-        const isClickOnDialog = e.target.closest('.move-dialog') ||
-            e.target.closest('.edit-dialog') ||
-            e.target.closest('.confirm-dialog');
-        if (isModuleVisible && !verticalModules.contains(e.target) && !toggleVerticalBtn.contains(e.target) && !e.target.closest('.context-menu') && !isClickOnDialog) {
+        const inDialog = target.closest('.move-dialog') || target.closest('.edit-dialog') || target.closest('.confirm-dialog');
+        if (isModuleVisible && !verticalModules.contains(target) && !toggleVerticalBtn.contains(target) && !inContextMenu && !inDialog) {
             hideModules();
         }
     });
