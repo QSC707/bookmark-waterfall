@@ -1149,12 +1149,11 @@ function renderBookmarks(bookmarks, parentElement, level) {
  * @param {number} index - 在父节点中的索引位置
  * @returns {HTMLDivElement} 书签项DOM元素
  */
-function createBookmarkItem(bookmark, index) {
+function createBookmarkItem(bookmark) {
     const item = document.createElement('div');
     item.className = 'bookmark-item';
     item.dataset.id = bookmark.id;
     item.dataset.url = bookmark.url || '';
-    item.dataset.index = index;
     item.dataset.parentId = bookmark.parentId;
     item.dataset.title = bookmark.title || 'No Title';
     item.draggable = true;
@@ -2414,10 +2413,16 @@ function handleDrop(e) {
         destination.index = 0;
     } else {
         destination.parentId = dropTarget.dataset.parentId;
-        let newIndex = parseInt(dropTarget.dataset.index, 10);
-        if (isDragAfter) {
-            newIndex++;
+        // 实时计算元素在父容器中的位置，不依赖 dataset.index（避免维护 reindex）
+        const wrapper = dropTarget.parentElement;
+        let newIndex = 0;
+        if (wrapper) {
+            const siblings = wrapper.querySelectorAll('.bookmark-item');
+            for (let i = 0; i < siblings.length; i++) {
+                if (siblings[i] === dropTarget) { newIndex = i; break; }
+            }
         }
+        if (isDragAfter) newIndex++;
         destination.index = newIndex;
     }
 
@@ -3365,20 +3370,24 @@ function showMoveDialog(bookmarkElement, idsToMove) {
                 renderTree(node.children, subFolderContainer, level + 1);
             }
 
-            content.onclick = () => {
-                if (item.classList.contains('is-disabled')) return;
-                document.querySelectorAll('.bookmark-tree-item.selected').forEach(el => el.classList.remove('selected'));
-                item.classList.add('selected');
-                selectedFolderId = node.id;
-                confirmBtn.disabled = false;
-            };
-
             parentElement.appendChild(item);
         });
     };
 
     dialog.style.display = 'flex';
     confirmBtn.disabled = true;
+
+    // 用事件委托替代每个 content.onclick 闭包
+    treeContainer.addEventListener('click', (e) => {
+        const content = e.target.closest('.folder-content');
+        if (!content) return;
+        const item = content.parentElement;
+        if (!item || item.classList.contains('is-disabled')) return;
+        treeContainer.querySelectorAll('.bookmark-tree-item.selected').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+        selectedFolderId = item.dataset.id;
+        confirmBtn.disabled = false;
+    });
 
     getBookmarkTree().then(tree => {
         const topLevelFolders = tree[0]?.children;
@@ -3515,17 +3524,6 @@ function findColumnForParentId(parentId) {
     return null;
 }
 
-function reindexColumnItems(column) {
-    if (!column) return;
-    // 核心修改：确保我们只选择直接子元素
-    const items = column.children;
-    for (let i = 0; i < items.length; i++) {
-        if (items[i].classList.contains('bookmark-item')) {
-            items[i].dataset.index = i;
-        }
-    }
-}
-
 function handleBookmarkCreated(id, bookmark) {
     childrenCache.delete(bookmark.parentId);
 
@@ -3539,7 +3537,6 @@ function handleBookmarkCreated(id, bookmark) {
         wrapper.insertBefore(newItem, targetChild);
 
         observeLazyImages(newItem);
-        reindexColumnItems(wrapper);
     }
     // 不在这里调 displayRecentBookmarks，由外层 scheduleRefresh 统一处理
 }
@@ -3558,7 +3555,6 @@ function handleBookmarkRemoved(id, removeInfo) {
         }
         const parentWrapper = itemToRemove.parentElement;
         itemToRemove.remove();
-        reindexColumnItems(parentWrapper);
     }
     // 不在这里调 displayRecentBookmarks，由外层 scheduleRefresh 统一处理
 }
