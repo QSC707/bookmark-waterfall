@@ -484,18 +484,20 @@ function clearContentWrapper(wrapper) {
  * @returns {string} 格式化后的日期字符串 (YYYY-MM-DD)
  */
 function formatDate(timestamp) {
-    const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const d = new Date(timestamp);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    return `${y}-${m < 10 ? '0' : ''}${m}-${day < 10 ? '0' : ''}${day}`;
 }
 
 function formatDateTime(timestamp) {
-    const date = new Date(timestamp);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${formatDate(timestamp)} ${hours}:${minutes}`;
+    const d = new Date(timestamp);
+    const h = d.getHours();
+    const min = d.getMinutes();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    return `${d.getFullYear()}-${m < 10 ? '0' : ''}${m}-${day < 10 ? '0' : ''}${day} ${h < 10 ? '0' : ''}${h}:${min < 10 ? '0' : ''}${min}`;
 }
 
 /**
@@ -518,10 +520,10 @@ function getBookmarkPath(bookmarkId) {
                 if (parentId === CONSTANTS.BOOKMARKS_BAR_ID) title = '书签栏';
                 else if (parentId === CONSTANTS.OTHER_BOOKMARKS_ID) title = '其他书签';
             }
-            if (title) path.unshift(title);
+            if (title) path.push(title);
             parentId = parent.parentId;
         }
-        return Promise.resolve(path.join(' / '));
+        return Promise.resolve(path.reverse().join(' / '));
     }
 
     // 回退路径：缓存未就绪时串行调用 API
@@ -3720,14 +3722,28 @@ function setupFrequentlyVisitedHover() {
 /**
  * 获取相对日期字符串（今天/昨天/日期）
  */
+// 缓存"今天零点"时间戳，按天更新
+let _todayStartMs = 0;
+let _todayDateStr = '';
+
+function _refreshTodayCache() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    _todayStartMs = d.getTime();
+    _todayDateStr = formatDate(_todayStartMs);
+}
+_refreshTodayCache();
+
 function getRelativeDateString(ts) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayMs = todayStart.getTime();
+    // 如果日期已变（跨天），重新计算
+    const nowDate = new Date();
+    nowDate.setHours(0, 0, 0, 0);
+    if (nowDate.getTime() !== _todayStartMs) _refreshTodayCache();
+
     const d = new Date(ts);
     const checkMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    if (checkMs === todayMs) return '今天';
-    if (checkMs === todayMs - 86400000) return '昨天';
+    if (checkMs === _todayStartMs) return '今天';
+    if (checkMs === _todayStartMs - 86400000) return '昨天';
     return formatDate(ts);
 }
 
