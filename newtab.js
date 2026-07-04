@@ -227,7 +227,6 @@ const StorageCache = {
 let cachedOpenInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN_CURRENT_TAB) === 'true';
 
 // 书签树内存缓存，避免重复调用 chrome.bookmarks.getTree()
-let cachedBookmarkTree = null;
 let bookmarkCacheDirty = true;
 
 function getBookmarkTree() {
@@ -259,7 +258,6 @@ function getBookmarkTree() {
 
 function invalidateBookmarkCache() {
     bookmarkCacheDirty = true;
-    cachedBookmarkTree = null;
 }
 
 // 同步检测窗口类型：background.js 创建弹窗时 URL 带 ?popup=true
@@ -587,24 +585,6 @@ async function handleChromeAPIError(apiCall, options = {}) {
     }
 }
 
-/**
- * 安全的书签 API 调用包装器
- */
-const SafeBookmarks = {
-    async update(id, changes) {
-        return handleChromeAPIError(
-            chrome.bookmarks.update(id, changes),
-            { operation: '更新书签' }
-        );
-    },
-
-    async create(bookmark) {
-        return handleChromeAPIError(
-            chrome.bookmarks.create(bookmark),
-            { operation: '创建书签' }
-        );
-    }
-};
 
 /**
  * 获取网站图标URL
@@ -855,6 +835,9 @@ function selectRange(startId, endId, column) {
 }
 
 // 书签渲染与刷新
+function clearBookmarksBars(header) {
+    clearBookmarksBars(header);
+}
 /**
  * ✅ 优化 #11: 显示书签栏的书签
  * @param {BookmarkNode[]} bookmarks - Chrome书签树根节点数组
@@ -867,7 +850,7 @@ function displayBookmarks(bookmarks) {
     bookmarkContainer.innerHTML = '';
 
     // ✅ 性能优化：清理所有旧的书签栏（防止累积）
-    header.querySelectorAll('.bookmarks-bar').forEach(col => col.remove());
+    clearBookmarksBars(header);
 
     // ✅ 修复 #5: 验证数据有效性
     if (!bookmarks || !Array.isArray(bookmarks) || bookmarks.length === 0) {
@@ -916,7 +899,7 @@ function refreshBookmarksBar() {
 
         // 3. 移除所有旧的书签栏DOM（防止累积）
         // ✅ 性能优化：使用类选择器清理所有可能累积的书签栏
-        header.querySelectorAll('.bookmarks-bar').forEach(col => col.remove());
+        clearBookmarksBars(header);
 
         // 4. 使用我们现有的 renderBookmarks 函数，只在 header 中渲染 level 0 的内容
         renderBookmarks(bookmarksBarItems, header, 0);
@@ -1101,63 +1084,6 @@ function createBookmarkItem(bookmark) {
     return item;
 }
 
-/**
- * ✅ 性能优化：创建空列（用于即时反馈）
- * @param {number} level - 列的层级
- * @returns {HTMLElement} 空列元素
- */
-function createEmptyColumn(level) {
-    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
-
-    // 精确循环移除 >= level 的列，避免全量 querySelectorAll + filter
-    let willRemoveLevel1 = false;
-    for (let lv = level; ; lv++) {
-        const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
-        if (!col) break;
-        if (lv === 1) willRemoveLevel1 = true;
-        col.remove();
-    }
-
-    if (willRemoveLevel1) {
-        resetLayoutState();
-    }
-
-    // 创建新列
-    const column = document.createElement('div');
-    column.className = 'bookmark-column new-column';
-    column.dataset.level = level;
-    column.setAttribute('role', 'navigation');
-    column.setAttribute('aria-label', `书签列 ${level}`);
-
-    // 如果是第一列，预先计算并应用边距
-    if (level === 1 && AppState.layout.initialMarginLeft === null) {
-        const availableWidth = container.clientWidth;
-        const baseMargin = calculateCenteredMargin(availableWidth);
-        const finalMargin = applyCenteredMargin(baseMargin);
-        AppState.layout.initialMarginLeft = finalMargin;
-        column.style.marginLeft = `${finalMargin}px`;
-        column.style.transition = 'none';
-    }
-
-    // ✅ 性能优化：禁用初始动画（大窗口）,减少渲染开销
-    if (level === 1 && window.innerWidth > 1600) {
-        column.style.animation = 'none';
-        column.style.opacity = '1'; // 直接设置为可见,不需要动画
-    }
-
-    // 创建内容包装器
-    const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'column-content-wrapper';
-    column.appendChild(contentWrapper);
-
-    // 🔧 P0-1优化：移除列级别的事件监听器，完全依赖全局事件委托
-    // column.addEventListener('dragover', handleColumnDragOver);
-    // column.addEventListener('dragleave', handleColumnDragLeave);
-    // column.addEventListener('drop', handleColumnDrop);
-
-    makeColumnResizable(column);
-
-    return column;
 }
 
 /**
@@ -2644,25 +2570,15 @@ const ContextMenuPool = (() => {
         removeTopSite: createMenuItem('removeTopSite', 'icon-delete', '移除'),
     };
 
-    // 分隔符每次新建，DOM节点不能同时存在于两处，循环复用会导致前一个消失
-    let separatorIndex = 0;
     const ul = document.createElement('ul');
 
     return {
         items,
         ul,
-        getSeparator() {
-            separatorIndex++;
-            return createSeparator();
-        },
-        resetSeparators() {
-            separatorIndex = 0;
-        },
+        getSeparator() { return createSeparator(); },
         updateText(itemKey, text) {
             const item = items[itemKey];
-            if (item && item._textNode) {
-                item._textNode.textContent = text;
-            }
+            if (item && item._textNode) item._textNode.textContent = text;
         }
     };
 })();
@@ -2678,7 +2594,6 @@ const ContextMenuPool = (() => {
 function showContextMenu(e, bookmarkElement, column) {
     const contextMenu = getCachedElement('contextMenu', () => document.getElementById('contextMenu'));
 
-    ContextMenuPool.resetSeparators();
     const { items, getSeparator, updateText, ul } = ContextMenuPool;
 
     // 清空 ul（复用，不重建）
@@ -2940,7 +2855,7 @@ function handleContextMenuAction(action, element) {
                 showEditDialog('重命名', element.dataset.title, null, async (newName) => {
                     if (newName) {
                         // ✅ P1修复：使用统一的错误处理
-                        await SafeBookmarks.update(element.dataset.id, { title: newName });
+                        await handleChromeAPIError(chrome.bookmarks.update(element.dataset.id, { title: newName }), { operation: '更新书签' });
                     }
                 });
             }
@@ -2950,7 +2865,7 @@ function handleContextMenuAction(action, element) {
                 showEditDialog('修改网址', element.dataset.url, isValidUrl, async (newUrl) => {
                     if (newUrl && newUrl !== element.dataset.url) {
                         // ✅ P1修复：使用统一的错误处理
-                        await SafeBookmarks.update(element.dataset.id, { url: newUrl });
+                        await handleChromeAPIError(chrome.bookmarks.update(element.dataset.id, { url: newUrl }), { operation: '更新书签' });
                     }
                 });
             }
@@ -2972,7 +2887,7 @@ function handleContextMenuAction(action, element) {
                 if (parentId) showEditDialog('新建文件夹', '', null, async (name) => {
                     if (name) {
                         // ✅ P1修复：使用统一的错误处理
-                        await SafeBookmarks.create({ parentId, title: name, index: 0 });
+                        await handleChromeAPIError(chrome.bookmarks.create({ parentId, title: name, index: 0 }), { operation: '创建书签' });
                     }
                 });
                 break;

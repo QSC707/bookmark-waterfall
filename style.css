@@ -459,7 +459,6 @@ body {
     z-index: 101;
 }
 
-.sidebar-toggle-btn,
 .settings-btn {
     position: fixed;
     z-index: 1002;
@@ -474,6 +473,14 @@ body {
 
 .sidebar-toggle-btn {
     position: static;
+    z-index: 1002;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
     transform: none;
     color: var(--text-color);
     opacity: 0.6;
@@ -1194,11 +1201,14 @@ input:checked+.slider:before {
     flex-grow: 1;
 }
 
-.bookmark-item-path,
-.bookmark-item-url {
+:is(.bookmark-item-path, .bookmark-item-url, .bookmark-item-date) {
     font-size: 12px;
     color: var(--module-header-color);
     white-space: nowrap;
+}
+
+.bookmark-item-path,
+.bookmark-item-url {
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -1208,9 +1218,6 @@ input:checked+.slider:before {
 }
 
 .bookmark-item-date {
-    font-size: 12px;
-    color: var(--module-header-color);
-    white-space: nowrap;
     flex-shrink: 0;
     padding-top: 1px;
 }
