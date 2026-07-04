@@ -1165,36 +1165,48 @@ function createEmptyColumn(level) {
  * @param {Array} bookmarks - 书签数组
  * @param {number} level - 列的层级
  */
-function fillColumnContent(bookmarks, level) {
-    const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
-    const column = container.querySelector(`.bookmark-column[data-level="${level}"]`);
+function fillColumnContent(bookmarks, level, existingContainer) {
+    const container = existingContainer || getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
+    let column = container.querySelector(`.bookmark-column[data-level="${level}"]`);
 
-    if (!column) return;
+    // 如果列不存在就新建（数据就绪时直接创建完整列，不经过空列中间状态）
+    const isNewColumn = !column;
+    if (isNewColumn) {
+        column = document.createElement('div');
+        column.className = 'bookmark-column new-column';
+        column.dataset.level = level;
+        column.setAttribute('role', 'navigation');
+        column.setAttribute('aria-label', `书签列 ${level}`);
+
+        if (level === 1 && AppState.layout.initialMarginLeft === null) {
+            const availableWidth = container.clientWidth;
+            AppState.layout.initialMarginLeft = applyCenteredMargin(calculateCenteredMargin(availableWidth));
+            column.style.marginLeft = `${AppState.layout.initialMarginLeft}px`;
+            column.style.transition = 'none';
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'column-content-wrapper';
+        column.appendChild(wrapper);
+        makeColumnResizable(column);
+        container.appendChild(column);
+        scheduleAdjustColumnWidths(container);
+    }
 
     const contentWrapper = column.querySelector('.column-content-wrapper');
     if (!contentWrapper) return;
 
-    // 先构建新内容，再原子替换——避免"先清空再填入"造成的闪烁帧
-    let newNodes;
-    if (bookmarks.length === 0) {
-        const emptyMsg = document.createElement('div');
-        emptyMsg.className = 'empty-folder-message';
-        emptyMsg.textContent = '这个文件夹是空的';
-        newNodes = [emptyMsg];
-    } else {
-        newNodes = bookmarks.map(bookmark => createBookmarkItem(bookmark));
-    }
+    // 构建内容节点，原子替换——无空白帧
+    const newNodes = bookmarks.length === 0
+        ? [Object.assign(document.createElement('div'), { className: 'empty-folder-message', textContent: '这个文件夹是空的' })]
+        : bookmarks.map(bookmark => createBookmarkItem(bookmark));
 
-    // 先 unobserve 旧图片（防止内存泄漏），再原子替换整个内容
     if (lazyLoadObserver) {
         contentWrapper.querySelectorAll('img[data-src]').forEach(img => lazyLoadObserver.unobserve(img));
     }
     contentWrapper.replaceChildren(...newNodes);
 
     if (bookmarks.length > 0) observeLazyImages(contentWrapper);
-
-    // ✅ 性能优化：移除不必要的动画恢复逻辑
-    // 大窗口下已经在 createEmptyColumn 中设置为直接可见,无需额外处理
 
     // ✅ 性能优化：减少滚动延迟,提升响应速度
     // 使用 requestAnimationFrame 替代 setTimeout,更精确的时机
@@ -1266,22 +1278,10 @@ function handleFolderClick(folderItem, bookmarkId) {
 
     if (!isHighlighted) {
         ElementCache.addHighlight(folderItem);
-        // ✅ 修复 #5: 更新ARIA状态
         folderItem.setAttribute('aria-expanded', 'true');
 
-        // ✅ 性能优化：立即创建空列,显示加载状态
         const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
-        if (container) {
-            // 先创建空列,给用户即时反馈
-            const emptyColumn = createEmptyColumn(level + 1);
-            container.appendChild(emptyColumn);
 
-            // ✅ 性能优化：延迟布局调整,优先显示空列
-            // 使用 RAF 防抖调整列宽
-            scheduleAdjustColumnWidths(container);
-        }
-
-        // ✅ P0修复：添加请求去重机制，防止快速连续点击导致的竞态条件
         if (AppState.requests.pendingFolder) {
             AppState.requests.pendingFolder.cancelled = true;
         }
@@ -1296,10 +1296,7 @@ function handleFolderClick(folderItem, bookmarkId) {
                 }
                 folderItem.classList.remove('highlighted');
                 folderItem.setAttribute('aria-expanded', 'false');
-                if (container) {
-                    const emptyCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
-                    if (emptyCol) emptyCol.remove();
-                }
+                // 数据未到就没插列，不需要移除
                 if (msg) showToast(msg, CONSTANTS.TIMING.TOAST_NORMAL, 'error');
             };
 
@@ -1322,7 +1319,18 @@ function handleFolderClick(folderItem, bookmarkId) {
             }
 
             if (container) {
-                fillColumnContent(freshChildren, level + 1);
+                // 数据就绪后一次性创建完整列，不再有"空列→内容"的过渡闪烁
+                // 先移除旧的同级及更深列
+                const existingCol = container.querySelector(`.bookmark-column[data-level="${level + 1}"]`);
+                if (existingCol) {
+                    for (let lv = level + 1; ; lv++) {
+                        const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
+                        if (!col) break;
+                        col.remove();
+                    }
+                    if (level + 1 === 1) resetLayoutState();
+                }
+                fillColumnContent(freshChildren, level + 1, container);
             }
         });
     } else {
