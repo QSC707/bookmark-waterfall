@@ -63,7 +63,6 @@ body {
     grid-template-rows: auto 1fr;
 }
 
-
 .page-header {
     position: relative;
     z-index: 100;
@@ -79,7 +78,6 @@ body {
     display: flex;
     flex: 1;
     overflow: hidden;
-    padding-right: 0;
     grid-column: 1;
     grid-row: 2;
 }
@@ -101,10 +99,7 @@ body {
 /* 性能优化：隔离布局计算 */
 .bookmark-column,
 .bookmarks-bar {
-    /* ✅ 性能优化：CSS Containment 隔离布局计算 */
     contain: layout style;
-    /* ✅ 性能优化：content-visibility 自动跳过不可见内容的渲染 */
-    /* 大量书签时渲染性能提升 15-25% */
     content-visibility: auto;
 }
 
@@ -126,7 +121,6 @@ body {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb-bg) transparent;
     border-radius: 6px;
-    /* ✅ 覆盖 .bookmark-column 的卡片样式 */
     border-left: 1px solid var(--header-border);
     border-right: 1px solid var(--header-border);
     width: 100%;
@@ -190,8 +184,6 @@ body {
 .bookmark-column[data-level="1"] {
     border-left: none;
 }
-
-
 
 .bookmark-item {
     cursor: pointer;
@@ -418,16 +410,12 @@ body {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
-    /* ✅ 低功耗优化：移除 will-change，减少内存占用 */
-    /* ✅ 性能优化：content-visibility 自动跳过不可见内容的渲染 */
-    content-visibility: auto;
 }
 
 .vertical-modules.visible {
     opacity: 1;
     visibility: visible;
-    /* ✅ GPU 加速：添加 translateZ(0) 触发硬件加速 */
-    transform: translate(-50%, -50%) scale(1) translateZ(0);
+    transform: translate(-50%, -50%) scale(1);
 }
 
 #sidebar-toggle-container {
@@ -663,7 +651,7 @@ input:checked+.slider:before {
 .theme-option.active {
     background-color: var(--highlighted-bg);
     color: var(--text-color);
-    font-weight: bold;
+    font-weight: 700;
 }
 
 /* --- 9. UTILITY: 对话框通用样式 --- */
@@ -947,17 +935,11 @@ input:checked+.slider:before {
     animation: subtle-appear 0.12s ease-out forwards;
 }
 
-/* 第一列（Level 1）的显示完全由JavaScript控制，不需要CSS动画 */
-.bookmark-container>.bookmark-column[data-level="1"] {
-    /* 不使用动画，让JavaScript完全控制首次渲染 */
-}
-
 .context-menu,
 .move-dialog-content,
 .edit-dialog-content {
     animation: subtle-appear 0.15s ease-out forwards;
 }
-
 
 /* --- 12. 特殊图标样式 --- */
 [data-theme="light"] .is-github-link .bookmark-icon {
@@ -1026,7 +1008,6 @@ input:checked+.slider:before {
 .date-input::-webkit-calendar-picker-indicator {
     filter: var(--context-menu-icon-filter);
 }
-
 
 .date-filter span {
     color: var(--module-header-color);
