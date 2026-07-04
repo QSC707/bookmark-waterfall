@@ -3051,7 +3051,10 @@ function getParentIdFromContext(element, column) {
     } else {
         const level = parseInt(column.dataset.level, 10);
         if (level === 0) return CONSTANTS.BOOKMARKS_BAR_ID;
-        return document.querySelector(`.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted`)?.dataset.id;
+        // level-1 可能是书签栏(.bookmarks-bar)或普通列(.bookmark-column)
+        return document.querySelector(
+            `.bookmark-column[data-level="${level - 1}"] .bookmark-item.highlighted, .bookmarks-bar[data-level="${level - 1}"] .bookmark-item.highlighted`
+        )?.dataset.id;
     }
 }
 
@@ -3475,7 +3478,7 @@ function showMoveDialog(bookmarkElement, idsToMove) {
         if (selectedFolderId) {
             const moves = idsToMove
                 .filter(id => id !== selectedFolderId)
-                .map(id => chrome.bookmarks.move(id, { parentId: selectedFolderId, index: 0 })
+                .map(id => chrome.bookmarks.move(id, { parentId: selectedFolderId })
                     .catch(err => {
                         console.error(`从对话框移动书签 ${id} 失败:`, err);
                         showToast('部分项目移动失败');
