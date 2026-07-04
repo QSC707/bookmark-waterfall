@@ -43,23 +43,6 @@
  */
 
 // ========================================
-// 🔧 P3-2优化：条件编译 console 调用
-// ========================================
-const DEBUG = false;
-
-const Logger = {
-    error(...args) {
-        if (DEBUG) console.error(...args);
-    },
-    warn(...args) {
-        if (DEBUG) console.warn(...args);
-    },
-    log(...args) {
-        if (DEBUG) console.log(...args);
-    }
-};
-
-// ========================================
 // 全局常量
 // ========================================
 const CONSTANTS = {
@@ -1012,13 +995,16 @@ function renderBookmarks(bookmarks, parentElement, level) {
         });
 
     } else {
-        // 🔧 修复：检查是否要移除列1，如果是则需要重置布局状态
         const willRemoveLevel1 = level === 1 && container.querySelector('.bookmark-column[data-level="1"]');
 
-        const nextColumns = container.querySelectorAll(`.bookmark-column`);
-        nextColumns.forEach(col => {
-            if (parseInt(col.dataset.level, 10) >= level) col.remove();
-        });
+        // 只查询 >= level 的列，避免全量 querySelectorAll 再 filter
+        const colsToRemove = [];
+        for (let lv = level; ; lv++) {
+            const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
+            if (!col) break;
+            colsToRemove.push(col);
+        }
+        colsToRemove.forEach(col => col.remove());
 
         // 🔧 修复：如果移除了列1，重置布局状态，让下次打开列1时重新计算margin
         if (willRemoveLevel1) {
@@ -2080,7 +2066,7 @@ function adjustColumnWidths(container) {
 
         resizing = false;
     } catch (error) {
-        Logger.error('Error in adjustColumnWidths:', error);
+        console.error('Error in adjustColumnWidths:', error);
         resizing = false;
     }
 }
@@ -2440,6 +2426,19 @@ async function moveBookmarksToDestination(idsToMove, destination) {
     return { successCount, errorCount };
 }
 
+// 将一批书签渲染到目标 wrapper（通用，三处调用方共用）
+function renderChildrenToWrapper(wrapper, children, isBookmarksBar) {
+    clearContentWrapper(wrapper);
+    const fragment = document.createDocumentFragment();
+    for (const child of children) {
+        const item = createBookmarkItem(child);
+        if (isBookmarksBar) item.classList.add('bookmarks-bar-item');
+        fragment.appendChild(item);
+    }
+    wrapper.appendChild(fragment);
+    observeLazyImages(wrapper);
+}
+
 /**
  * ✅ P2优化：提取公共函数 - 刷新父文件夹的显示列
  * ✅ P0优化：添加竞态条件保护
@@ -2500,22 +2499,7 @@ function refreshParentFolderColumn(parentId, parentLabel = '父文件夹') {
         }
 
         const contentWrapper = parentColumn.querySelector('.column-content-wrapper') || parentColumn;
-        // ✅ 性能优化：安全清空，防止内存泄漏
-        clearContentWrapper(contentWrapper);
-
-        // ✅ 性能优化：使用 DocumentFragment 批量插入，减少重排
-        const fragment = document.createDocumentFragment();
-        children.forEach((child, idx) => {
-            const item = createBookmarkItem(child, idx);
-            // ✅ 修复：为书签栏的书签项添加专用类名
-            if (isBookmarksBar) {
-                item.classList.add('bookmarks-bar-item');
-            }
-            fragment.appendChild(item);
-        });
-        contentWrapper.appendChild(fragment);
-
-        observeLazyImages(contentWrapper);
+        renderChildrenToWrapper(contentWrapper, children, isBookmarksBar);
 
         // ✅ 清除请求标记
         if (pendingRefreshMap.get(parentId) === thisRequest) {
@@ -4781,61 +4765,22 @@ let scrollTimer = null;
                 const isBookmarksBar = targetColumn.dataset.level === '0';
 
                 if (cached && now - cached.timestamp < CHILDREN_CACHE_TTL) {
-                    // 使用缓存数据直接渲染
                     const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
-                    // ✅ 性能优化：安全清空，防止内存泄漏
-                    clearContentWrapper(contentWrapper);
-
-                    // ✅ 性能优化：使用 DocumentFragment 批量插入，减少重排
-                    const fragment = document.createDocumentFragment();
-                    cached.children.forEach((child, idx) => {
-                        const item = createBookmarkItem(child, idx);
-                        // ✅ 修复：为书签栏的书签项添加专用类名
-                        if (isBookmarksBar) {
-                            item.classList.add('bookmarks-bar-item');
-                        }
-                        fragment.appendChild(item);
-                    });
-                    contentWrapper.appendChild(fragment);
-
-                    observeLazyImages(contentWrapper);
+                    renderChildrenToWrapper(contentWrapper, cached.children, isBookmarksBar);
                 } else {
-                    // 缓存过期或不存在，重新获取
                     chrome.bookmarks.getChildren(parentId, (children) => {
-                        // ✅ 修复 #3: 检查 Chrome API 错误
                         if (chrome.runtime.lastError) {
                             console.error('[onMoved] getChildren失败:', chrome.runtime.lastError);
                             return;
                         }
-
-                        // ✅ 修复 #3: 验证返回数据有效性
                         if (!Array.isArray(children)) {
                             console.error('[onMoved] 无效的children数据');
                             return;
                         }
-
-                        // ✅ 性能优化：更新缓存
                         childrenCache.set(parentId, {children, timestamp: now});
-                        // 到期自动清理，防止大文件夹数据常驻内存
                         setTimeout(() => childrenCache.delete(parentId), CHILDREN_CACHE_TTL);
-
                         const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
-                        // ✅ 性能优化：安全清空，防止内存泄漏
-                        clearContentWrapper(contentWrapper);
-
-                        // ✅ 性能优化：使用 DocumentFragment 批量插入，减少重排
-                        const fragment = document.createDocumentFragment();
-                        children.forEach((child, idx) => {
-                            const item = createBookmarkItem(child, idx);
-                            // ✅ 修复：为书签栏的书签项添加专用类名
-                            if (isBookmarksBar) {
-                                item.classList.add('bookmarks-bar-item');
-                            }
-                            fragment.appendChild(item);
-                        });
-                        contentWrapper.appendChild(fragment);
-
-                        observeLazyImages(contentWrapper);
+                        renderChildrenToWrapper(contentWrapper, children, isBookmarksBar);
                     });
                 }
             }
