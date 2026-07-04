@@ -3197,7 +3197,10 @@ function handleContextMenuAction(action, element) {
                 break;
             }
         case 'properties':
-            showPropertiesDialog(element);
+            showPropertiesDialog(element).catch(err => {
+                console.error('显示属性失败:', err);
+                showToast('无法获取书签属性', 2000, 'error');
+            });
             break;
         case 'removeTopSite':
             if (element && element.dataset.url) {
@@ -3515,7 +3518,9 @@ async function showPropertiesDialog(element) {
     const bookmarkId = element.dataset.id;
     if (!bookmarkId) return;
 
-    const [bookmarkDetails] = await new Promise(resolve => chrome.bookmarks.get(bookmarkId, resolve));
+    const nodes = await new Promise(resolve => chrome.bookmarks.get(bookmarkId, resolve));
+    const bookmarkDetails = nodes?.[0];
+    if (!bookmarkDetails) return;
     const bookmarkPath = await getBookmarkPath(bookmarkId);
 
     const properties = [
