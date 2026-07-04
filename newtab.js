@@ -4146,7 +4146,7 @@ function initExcludeRulesDialog() {
         StorageCache.invalidate();
 
         // 刷新最近添加书签列表
-        displayRecentBookmarks();
+        displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
 
         showToast('规则已添加', 2000, 'success');
     });
@@ -4186,7 +4186,7 @@ function initExcludeRulesDialog() {
                 rule.enabled = e.target.checked;
                 localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
                 StorageCache.invalidate();
-                displayRecentBookmarks();
+                displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
                 showToast(rule.enabled ? '规则已启用' : '规则已禁用', 1500);
             });
 
@@ -4211,7 +4211,7 @@ function initExcludeRulesDialog() {
                     rules.splice(index, 1);
                     localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
                     renderExcludeRulesList();
-                    displayRecentBookmarks(); // 刷新列表
+                    displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
                     showToast('规则已删除', 2000, 'success');
                 }
             });
