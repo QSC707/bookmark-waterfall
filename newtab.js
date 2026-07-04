@@ -1169,17 +1169,16 @@ function renderBookmarks(bookmarks, parentElement, level) {
             column.style.transition = 'none';
         }
 
-        // 如果是第一列且窗口很大，用 RAF 做淡入
+        container.appendChild(column);
+
+        // 如果是第一列且窗口很大，插入后立即 RAF 做淡入
         if (level === 1 && window.innerWidth > 1600) {
-            column.style.animation = 'none';
             column.style.opacity = '0';
             requestAnimationFrame(() => {
                 column.style.transition = 'opacity 0.2s ease-out';
                 column.style.opacity = '1';
             });
         }
-
-        container.appendChild(column);
 
         const contentWrapper = document.createElement('div');
         contentWrapper.className = 'column-content-wrapper';
@@ -3535,14 +3534,17 @@ function showMoveDialog(bookmarkElement, idsToMove) {
 
     confirmBtn.onclick = () => {
         if (selectedFolderId) {
-            idsToMove.forEach(id => {
-                if (id !== selectedFolderId) {
-                    chrome.bookmarks.move(id, { parentId: selectedFolderId, index: 0 })
-                        .catch(err => {
-                            console.error(`从对话框移动书签 ${id} 失败:`, err);
-                            showToast('部分项目移动失败');
-                        });
-                }
+            const moves = idsToMove
+                .filter(id => id !== selectedFolderId)
+                .map(id => chrome.bookmarks.move(id, { parentId: selectedFolderId, index: 0 })
+                    .catch(err => {
+                        console.error(`从对话框移动书签 ${id} 失败:`, err);
+                        showToast('部分项目移动失败');
+                    })
+                );
+            Promise.all(moves).then(() => {
+                refreshParentFolderColumn(selectedFolderId, '目标文件夹');
+                scheduleRefresh();
             });
         }
         close();
@@ -5018,32 +5020,24 @@ function scheduleRefresh() {
                 }
             }
 
-            // 如果涉及书签栏，刷新书签栏
-            if (parentId === CONSTANTS.BOOKMARKS_BAR_ID) {
-                refreshBookmarksBar();
-            }
+            // 同父级排序不影响"最近添加"，无需刷新侧边栏
+            // 如果涉及书签栏，刷新书签栏（书签栏已在上面重新渲染，跳过重复调用）
         } else {
-            // 🔧 修复：跨父级移动 - 改进UI更新逻辑
-
-            // === 步骤1：从旧位置移除书签 ===
+            // 跨父级移动：从旧位置移除
             const movedItemElement = document.querySelector(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`);
             if (movedItemElement) {
                 movedItemElement.remove();
             }
 
-            // === 步骤2：刷新旧父文件夹的显示（如果它当前是打开的）===
             refreshParentFolderColumn(oldParentId, '旧父文件夹');
-
-            // === 步骤3：刷新新父文件夹的显示（如果它当前是打开的）===
             refreshParentFolderColumn(parentId, '新父文件夹');
 
-            // 如果移动涉及到了书签栏，则只调用专用函数刷新书签栏
             if (parentId === CONSTANTS.BOOKMARKS_BAR_ID || oldParentId === CONSTANTS.BOOKMARKS_BAR_ID) {
                 refreshBookmarksBar();
             }
+            // 跨父级移动才需要刷新最近书签侧边栏
+            scheduleRefresh();
         }
-
-        refreshAllData();
     });
 
     chrome.windows.onRemoved.addListener((id) => {
