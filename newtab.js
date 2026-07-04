@@ -294,10 +294,6 @@ const DOMCache = {
         this.bookmarksBar = document.querySelector('.bookmarks-bar');
         this.resizingOverlay = document.querySelector('.resizing-overlay');
         this.resizeIndicator = document.querySelector('.resize-indicator');
-    },
-
-    get(key) {
-        return this[key];
     }
 };
 
@@ -311,7 +307,7 @@ const DOMCache = {
  * @returns {HTMLElement|null} DOM 元素
  */
 function getCachedElement(key, fallback) {
-    const cached = DOMCache.get(key);
+    const cached = DOMCache[key];
     if (cached && cached.isConnected) return cached;
 
     const fresh = fallback();
@@ -845,7 +841,6 @@ function toggleSelection(item) {
  * @param {string} startId - 起始书签ID
  * @param {string} endId - 结束书签ID
  * @param {HTMLElement} column - 所在列的DOM元素
- * ✅ 优化 #4: 维护元素引用缓存
  */
 function selectRange(startId, endId, column) {
     const nodeList = column.querySelectorAll('.bookmark-item');
@@ -1481,8 +1476,8 @@ function makeColumnResizable(column) {
     handle.className = 'resize-handle';
     column.appendChild(handle);
 
-    const overlay = DOMCache.get('resizingOverlay') || document.querySelector('.resizing-overlay');
-    const indicator = DOMCache.get('resizeIndicator') || document.querySelector('.resize-indicator');
+    const overlay = DOMCache.resizingOverlay || document.querySelector('.resizing-overlay');
+    const indicator = DOMCache.resizeIndicator || document.querySelector('.resize-indicator');
     const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
 
     handle.addEventListener('mousedown', (e) => {
@@ -1803,36 +1798,35 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
  */
 function applyColumnWidthStyles(_colStylesMap, columnData) {
     _colActualChanges.clear();
-    const actualChanges = _colActualChanges;
 
     _colStylesMap.forEach((widthStr, el) => {
         const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
-        const newWidth = parseFloat(widthStr);
-        if (Math.abs(currentWidth - newWidth) > 1) {
-            actualChanges.set(el, widthStr);
+        if (Math.abs(currentWidth - parseFloat(widthStr)) > 1) {
+            _colActualChanges.set(el, widthStr);
         }
     });
 
-    if (actualChanges.size === 0) return;
+    if (_colActualChanges.size === 0) return;
 
     _colWidthByEl.clear();
     columnData.forEach(d => _colWidthByEl.set(d.el, d.currentWidth));
-    const widthByEl = _colWidthByEl;
-    const hasLargeChanges = Array.from(actualChanges).some(([el, widthStr]) => {
-        const cur = widthByEl.get(el) ?? el.offsetWidth;
+    const hasLargeChanges = Array.from(_colActualChanges).some(([el, widthStr]) => {
+        const cur = _colWidthByEl.get(el) ?? el.offsetWidth;
         return Math.abs(cur - parseFloat(widthStr)) > 50;
     });
 
     if (hasLargeChanges) {
-        actualChanges.forEach((widthStr, el) => {
+        _colActualChanges.forEach((widthStr, el) => {
             el.style.transition = 'none';
             el.style.width = widthStr;
         });
+        // 快照 entries，防止 RAF 触发前 _colActualChanges 被下一次 adjustColumnWidths 清空
+        const snapshot = [..._colActualChanges.keys()];
         requestAnimationFrame(() => {
-            actualChanges.forEach((_, el) => { el.style.transition = ''; });
+            snapshot.forEach(el => { el.style.transition = ''; });
         });
     } else {
-        actualChanges.forEach((widthStr, el) => { el.style.width = widthStr; });
+        _colActualChanges.forEach((widthStr, el) => { el.style.width = widthStr; });
     }
 }
 
@@ -1856,7 +1850,8 @@ function applyFirstColumnMargin(firstColumn, finalMarginLeft) {
             firstColumn.style.transition = 'none';
             firstColumn.style.marginLeft = `${finalMarginLeft}px`;
             firstColumn.dataset.initialized = 'true';
-            // ✅ P3-1优化：使用 requestAnimationFrame 优化重排
+            // 在下一帧恢复 transition：先通过 offsetHeight 触发 layout flush
+            // 确保浏览器记录了 transition:none 状态下的位置，然后再启用动画
             requestAnimationFrame(() => {
                 firstColumn.offsetHeight; // 强制重排
                 firstColumn.style.transition = '';
@@ -3894,7 +3889,7 @@ function initExcludeRulesDialog() {
     const excludeStartTime = document.getElementById('excludeStartTime');
     const excludeEndTime = document.getElementById('excludeEndTime');
     const excludeRulesList = document.getElementById('excludeRulesList');
-    const pageOverlay = DOMCache.get('pageOverlay');
+    const pageOverlay = DOMCache.pageOverlay;
 
     if (!excludeRulesBtn || !excludeRulesDialog) return;
 
@@ -4106,7 +4101,7 @@ let scrollTimer = null;
     // P1优化：初始化DOM缓存
     DOMCache.init();
     // ul 首次 append 进 contextMenu，后续 showContextMenu 无需重复 appendChild
-    DOMCache.get('contextMenu').appendChild(ContextMenuPool.ul);
+    DOMCache.contextMenu.appendChild(ContextMenuPool.ul);
 
     const settingsBtn = document.getElementById('settings-btn');
     const settingsPanel = document.getElementById('settings-panel');
@@ -4114,8 +4109,8 @@ let scrollTimer = null;
     const hoverToggle = document.getElementById('hover-toggle-switch');
     const verticalModules = document.querySelector('.vertical-modules');
     const toggleVerticalBtn = document.getElementById('sidebar-toggle-btn');
-    const contextMenu = DOMCache.get('contextMenu');
-    const pageOverlay = DOMCache.get('pageOverlay');
+    const contextMenu = DOMCache.contextMenu;
+    const pageOverlay = DOMCache.pageOverlay;
     const hoverDelaySettingItem = document.getElementById('hover-delay-setting-item');
     const hoverDelayInput = document.getElementById('hover-delay-input');
     const openInCurrentTabToggle = document.getElementById('open-in-current-tab-toggle');
@@ -4428,7 +4423,7 @@ let scrollTimer = null;
     const debouncedResize = debounce(() => {
         hideContextMenu();
         // 🔧 P1-2优化：使用缓存的 bookmarksBar，避免重复查询
-        const bookmarksBar = DOMCache.get('bookmarksBar');
+        const bookmarksBar = DOMCache.bookmarksBar;
         if (bookmarksBar) {
             adjustBookmarksBarAlignment(bookmarksBar);
         }
@@ -4719,8 +4714,11 @@ let scrollTimer = null;
                             console.error('[onMoved] 无效的children数据');
                             return;
                         }
-                        childrenCache.set(parentId, {children, timestamp: now});
-                        setTimeout(() => childrenCache.delete(parentId), CHILDREN_CACHE_TTL);
+                        // 先清旧 timer 再设新的，防止多次触发积累无效 timer
+                        const prev = childrenCache.get(parentId);
+                        if (prev?._timer) clearTimeout(prev._timer);
+                        const _timer = setTimeout(() => childrenCache.delete(parentId), CHILDREN_CACHE_TTL);
+                        childrenCache.set(parentId, {children, timestamp: now, _timer});
                         const contentWrapper = targetColumn.querySelector('.column-content-wrapper') || targetColumn;
                         renderChildrenToWrapper(contentWrapper, children, isBookmarksBar);
                     });
