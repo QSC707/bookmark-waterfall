@@ -3099,12 +3099,15 @@ function handleDeleteBookmarks(selectedIds) {
         ).join('\n')}`;
 
     showConfirmDialog(`删除 ${itemsToDelete.length} 个项目`, message, () => {
-        itemsToDelete.forEach(({ id, title, isFolder }) => {
+        const promises = itemsToDelete.map(({ id, title, isFolder }) => {
             const promise = isFolder ? chrome.bookmarks.removeTree(id) : chrome.bookmarks.remove(id);
-            promise.catch(err => {
+            return promise.catch(err => {
                 console.error(`删除项目 ${id} 失败:`, err);
-                showToast(`项目 "${title}" 删除失败`);
+                showToast(`项目 "${title}" 删除失败`, 2000, 'error');
             });
+        });
+        Promise.all(promises).then(() => {
+            showToast(`已删除 ${itemsToDelete.length} 个项目`, 2000, 'success');
         });
     }, true);
 }
@@ -3146,7 +3149,9 @@ function handleContextMenuAction(action, element) {
             break;
         case 'copyUrl':
             if (element && element.dataset.url) {
-                navigator.clipboard.writeText(element.dataset.url).then(() => showToast('网址已复制'));
+                navigator.clipboard.writeText(element.dataset.url)
+                    .then(() => showToast('网址已复制'))
+                    .catch(() => showToast('复制失败，请手动复制', 2000, 'error'));
             }
             break;
         case 'rename':
@@ -3483,7 +3488,8 @@ function showMoveDialog(bookmarkElement, idsToMove) {
             Promise.all(moves).then(() => {
                 refreshParentFolderColumn(selectedFolderId, '目标文件夹');
                 scheduleRefresh();
-            });
+                showToast('移动完成', 2000, 'success');
+            }).catch(err => console.error('[showMoveDialog] 移动失败:', err));
         }
         close();
     };
