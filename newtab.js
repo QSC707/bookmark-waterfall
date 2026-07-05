@@ -2546,6 +2546,8 @@ const ContextMenuPool = (() => {
         openNew: createMenuItem('openNew', 'icon-open-new', '新窗口打开'),
         openIncognito: createMenuItem('openIncognito', 'icon-open-incognito', '在隐身模式中打开'),
         openAll: createMenuItem('openAll', 'icon-open-all', '打开文件夹内所有书签'),
+        openAllNew: createMenuItem('openAllNew', 'icon-open-new', '新窗口打开全部'),
+        openAllIncognito: createMenuItem('openAllIncognito', 'icon-open-incognito', '隐身模式打开全部'),
 
         // 编辑相关
         rename: createMenuItem('rename', 'icon-rename', '重命名'),
@@ -2651,6 +2653,8 @@ function showContextMenu(e, bookmarkElement, column) {
             const isFolder = bookmarkElement && bookmarkElement.classList.contains('is-folder');
             if (isFolder) {
                 ul.appendChild(items.openAll);
+                ul.appendChild(items.openAllNew);
+                ul.appendChild(items.openAllIncognito);
                 ul.appendChild(getSeparator());
             } else {
                 // 恢复单个书签的文本
@@ -2828,12 +2832,22 @@ function handleContextMenuAction(action, element) {
             openBookmarks(selectedIds, action);
             break;
         case 'openAll':
+        case 'openAllNew':
+        case 'openAllIncognito':
             if (element?.dataset.id) {
                 chrome.bookmarks.getChildren(element.dataset.id, (children) => {
                     if (chrome.runtime.lastError || !children) return;
-                    children.forEach(child => {
-                        if (child.url) chrome.tabs.create({ url: child.url, active: true });
-                    });
+                    const urls = children.filter(c => c.url).map(c => c.url);
+                    if (urls.length === 0) { showToast('文件夹内没有书签'); return; }
+                    if (action === 'openAllNew') {
+                        chrome.windows.create({ url: urls }).catch(e => console.error('新窗口打开失败:', e));
+                    } else if (action === 'openAllIncognito') {
+                        chrome.windows.create({ url: urls, incognito: true })
+                            .catch(() => showToast('无法打开隐身模式', 2000, 'error'));
+                    } else {
+                        urls.forEach(url => chrome.tabs.create({ url, active: false }));
+                        showToast(`已在后台打开 ${urls.length} 个书签`);
+                    }
                 });
             }
             break;

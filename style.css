@@ -1095,6 +1095,8 @@ body {
 
 #excludeRulesBtn svg {
     stroke: currentColor;
+    width: 14px;
+    height: 14px;
 }
 
 #excludeRulesBtn:hover {
@@ -1262,6 +1264,7 @@ body {
 }
 
 .resizing-overlay {
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -1532,3 +1535,46 @@ body.is-resizing .resize-indicator {
 }
 
 /* 选中状态 */
+
+.svg-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.exclude-rules-content {
+    max-width: 600px;
+    max-height: 80vh;
+}
+
+.exclude-rules-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.exclude-rules-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.exclude-rules-form .input-base {
+    flex: 1;
+}
+
+.exclude-rules-form > span {
+    color: var(--text-secondary);
+}
+
+.exclude-rules-form .dialog-button {
+    white-space: nowrap;
+}
+
+.exclude-rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
