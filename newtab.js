@@ -228,6 +228,7 @@ let cachedOpenInCurrentTab = localStorage.getItem(CONSTANTS.STORAGE_KEYS.OPEN_IN
 
 // 书签树内存缓存，避免重复调用 chrome.bookmarks.getTree()
 let bookmarkCacheDirty = true;
+let cachedBookmarkTree = null;
 
 function getBookmarkTree() {
     if (!bookmarkCacheDirty && cachedBookmarkTree) {
@@ -258,6 +259,9 @@ function getBookmarkTree() {
 
 function invalidateBookmarkCache() {
     bookmarkCacheDirty = true;
+    cachedBookmarkTree = null;
+    childrenCache.forEach(entry => { if (entry._timer) clearTimeout(entry._timer); });
+    childrenCache.clear();
 }
 
 // 同步检测窗口类型：background.js 创建弹窗时 URL 带 ?popup=true
@@ -416,7 +420,7 @@ function clearContentWrapper(wrapper) {
             lazyLoadObserver.unobserve(img);
         });
     }
-    wrapper.innerHTML = '';
+    wrapper.replaceChildren();
 }
 
 // ========================================
@@ -1685,8 +1689,12 @@ function enlargeColumnsToFill(resizableColumns, availableSpace, idealWidth) {
 function applyColumnWidthStyles(_colStylesMap, columnData) {
     _colActualChanges.clear();
 
+    // 先建 Map，用批量预读的 currentWidth 代替 offsetWidth
+    _colWidthByEl.clear();
+    columnData.forEach(d => _colWidthByEl.set(d.el, d.currentWidth));
+
     _colStylesMap.forEach((widthStr, el) => {
-        const currentWidth = parseFloat(el.style.width) || el.offsetWidth;
+        const currentWidth = _colWidthByEl.get(el) ?? parseFloat(el.style.width) ?? 0;
         if (Math.abs(currentWidth - parseFloat(widthStr)) > 1) {
             _colActualChanges.set(el, widthStr);
         }
@@ -1694,10 +1702,8 @@ function applyColumnWidthStyles(_colStylesMap, columnData) {
 
     if (_colActualChanges.size === 0) return;
 
-    _colWidthByEl.clear();
-    columnData.forEach(d => _colWidthByEl.set(d.el, d.currentWidth));
     const hasLargeChanges = Array.from(_colActualChanges).some(([el, widthStr]) => {
-        const cur = _colWidthByEl.get(el) ?? el.offsetWidth;
+        const cur = _colWidthByEl.get(el) ?? 0;
         return Math.abs(cur - parseFloat(widthStr)) > 50;
     });
 
@@ -2703,10 +2709,13 @@ function showContextMenu(e, bookmarkElement, column) {
         ul.appendChild(items.sortVisit);
     }
 
-    // 先读尺寸（display=none 时用上次缓存值，避免写后立读触发强制同步布局）
-    const { offsetWidth: menuWidth, offsetHeight: menuHeight } = contextMenu;
+    // display=block 后读真实尺寸（菜单内容每次可能不同，必须在可见状态下量）
+    // 先移到屏幕外避免闪烁，再定位到正确位置
+    contextMenu.style.left = '-9999px';
+    contextMenu.style.top = '-9999px';
     contextMenu.style.display = 'block';
 
+    const { width: menuWidth, height: menuHeight } = contextMenu.getBoundingClientRect();
     const { innerWidth: winWidth, innerHeight: winHeight } = window;
     let left = e.clientX, top = e.clientY;
 
@@ -2939,37 +2948,60 @@ const SORT_FUNCTIONS = {
 };
 
 async function handleSortBookmarks(parentId, sortType) {
-    chrome.bookmarks.getChildren(parentId, async (children) => {
-        if (!children || children.length < 2) return;
-        showToast('正在排序...');
+    let children;
+    try {
+        children = await new Promise((resolve, reject) =>
+            chrome.bookmarks.getChildren(parentId, (result) => {
+                if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                else resolve(result);
+            })
+        );
+    } catch (err) {
+        console.error('排序：获取子项失败', err);
+        return;
+    }
 
+    if (!children || children.length < 2) return;
+    showToast('正在排序...');
 
-        let sortedChildren;
-        if (sortType === CONSTANTS.SORT_TYPES.VISIT) {
-            const childrenWithVisitData = await Promise.all(children.map(child =>
-                child.url
-                    ? new Promise(resolve => chrome.history.getVisits({ url: child.url }, visits =>
-                        resolve({ ...child, lastVisitTime: visits.length > 0 ? visits[visits.length - 1].visitTime : 0 })
-                    ))
-                    : Promise.resolve({ ...child, lastVisitTime: 0 })
-            ));
-            sortedChildren = childrenWithVisitData.sort((a, b) => b.lastVisitTime - a.lastVisitTime);
-        } else if (SORT_FUNCTIONS[sortType]) {
-            sortedChildren = children.sort(SORT_FUNCTIONS[sortType]);
-        } else {
-            return;
-        }
+    let sortedChildren;
+    if (sortType === CONSTANTS.SORT_TYPES.VISIT) {
+        const visitMap = new Map();
+        await Promise.all(children.map(child => {
+            if (!child.url) return Promise.resolve();
+            return new Promise(resolve =>
+                chrome.history.getVisits({ url: child.url }, visits => {
+                    visitMap.set(child.id, visits.length > 0 ? visits[visits.length - 1].visitTime : 0);
+                    resolve();
+                })
+            );
+        }));
+        sortedChildren = [...children].sort((a, b) => (visitMap.get(b.id) ?? 0) - (visitMap.get(a.id) ?? 0));
+    } else if (SORT_FUNCTIONS[sortType]) {
+        sortedChildren = [...children].sort(SORT_FUNCTIONS[sortType]);
+    } else {
+        return;
+    }
 
-        // 只移动 index 真正需要变化的项，按顺序串行保证 index 语义正确
+    try {
         const needsMove = sortedChildren.filter((c, i) => c.index !== i);
         const sortedIndexMap = new Map(sortedChildren.map((c, i) => [c, i]));
         for (const child of needsMove) {
-            await new Promise(resolve => chrome.bookmarks.move(child.id, { parentId, index: sortedIndexMap.get(child) }, resolve));
+            await new Promise((resolve, reject) =>
+                chrome.bookmarks.move(child.id, { parentId, index: sortedIndexMap.get(child) }, () => {
+                    if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                    else resolve();
+                })
+            );
         }
+    } catch (err) {
+        console.error('排序：移动书签失败', err);
+        showToast('排序失败', 2000, 'error');
+        return;
+    }
 
-        scheduleRefresh();
-        showToast('排序完成');
-    });
+    scheduleRefresh();
+    showToast('排序完成');
 }
 
 // 弹窗对话框 (Dialogs)
@@ -3540,6 +3572,7 @@ function getRelativeDateString(ts) {
  * 使用Chrome Bookmarks API的getRecent方法获取最近书签
  */
 let _recentBookmarksListenersAttached = false;
+const _attachedContainers = new WeakSet();
 
 async function displayRecentBookmarks() {
     // P1优化：使用缓存的container元素
@@ -3722,7 +3755,7 @@ async function displayRecentBookmarks() {
     }
 
     // ✅ P1-1优化：事件委托 - 只添加一次容器级事件监听器
-    if (!container.dataset.eventsAttached) {
+    if (!_attachedContainers.has(container)) {
         // 点击事件 - 阻止默认跳转
         container.addEventListener('click', (e) => {
             const link = e.target.closest('a[data-id]');
@@ -3755,7 +3788,7 @@ async function displayRecentBookmarks() {
             }
         });
 
-        container.dataset.eventsAttached = 'true';
+        _attachedContainers.add(container);
     }
 }
 
@@ -3878,13 +3911,7 @@ function initExcludeRulesDialog() {
             const toggleInput = document.createElement('input');
             toggleInput.type = 'checkbox';
             toggleInput.checked = rule.enabled;
-            toggleInput.addEventListener('change', (e) => {
-                rule.enabled = e.target.checked;
-                localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
-                StorageCache.invalidate();
-                displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
-                showToast(rule.enabled ? '规则已启用' : '规则已禁用', 1500);
-            });
+            toggleInput.dataset.toggleId = rule.id;
 
             const slider = document.createElement('span');
             slider.className = 'slider';
@@ -3906,7 +3933,7 @@ function initExcludeRulesDialog() {
         excludeRulesList.replaceChildren(frag);
     }
 
-    // 委托删除点击：只注册一次，通过重新读取 localStorage 保证数据新鲜
+    // 委托删除点击 + toggle change：只注册一次，从 localStorage 读最新数据，无闭包快照
     excludeRulesList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-delete-id]');
         if (!btn) return;
@@ -3926,6 +3953,24 @@ function initExcludeRulesDialog() {
             }
             displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
             showToast('规则已删除', 2000, 'success');
+        }
+    });
+
+    excludeRulesList.addEventListener('change', (e) => {
+        const input = e.target.closest('[data-toggle-id]');
+        if (!input) return;
+        const toggleId = input.dataset.toggleId;
+        let rules = [];
+        try {
+            rules = JSON.parse(localStorage.getItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES) || '[]');
+        } catch { rules = []; }
+        const rule = rules.find(r => r.id === toggleId);
+        if (rule) {
+            rule.enabled = input.checked;
+            localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
+            StorageCache.invalidate();
+            displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
+            showToast(rule.enabled ? '规则已启用' : '规则已禁用', 1500);
         }
     });
 }
