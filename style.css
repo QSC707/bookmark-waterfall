@@ -1578,3 +1578,29 @@ body.is-resizing .resize-indicator {
     flex-direction: column;
     gap: 6px;
 }
+
+.exclude-rules-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.exclude-rules-item .toggle-switch {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.exclude-rules-item-text {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.exclude-rules-item .dialog-button {
+    padding: 4px 10px;
+    font-size: 12px;
+    flex-shrink: 0;
+}

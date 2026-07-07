@@ -172,7 +172,7 @@ const AppState = {
 // 移除了 20 个全局变量别名，减少内存占用 ~1-2KB
 
 // ✅ 优化 #4: 缓存选中和预览高亮的DOM元素引用，避免频繁查询DOM
-const selectedElements = new Set();
+const selectedElements = new Map(); // id -> element
 const previewHighlightElements = new Set();
 
 // 1x1 透明 GIF 占位图（模块常量，避免重复硬编码长字符串）
@@ -728,7 +728,7 @@ function clearSelection() {
 
     // ✅ 优化：只遍历已缓存的选中元素，而不是查询整个DOM
     selectedElements.forEach(el => {
-        if (el.isConnected) { // 检查元素是否仍在DOM中
+        if (el.isConnected) {
             el.classList.remove('selected');
         }
     });
@@ -758,17 +758,11 @@ function clearPreviewHighlight() {
 function closeAllBookmarkColumns() {
     const container = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
     if (!container) return;
-    
-    // 从 level=1 逐个精确查找并移除，比全量 querySelectorAll 快
-    let hasAny = false;
-    for (let lv = 1; ; lv++) {
-        const col = container.querySelector(`.bookmark-column[data-level="${lv}"]`);
-        if (!col) break;
-        col.remove();
-        hasAny = true;
-    }
-    if (!hasAny) return;
-    
+
+    const cols = container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])');
+    if (cols.length === 0) return;
+    cols.forEach(col => col.remove());
+
     // === 2. 清除所有书签项的高亮状态 ===
     // ✅ P1-2优化：使用 ElementCache 替代 querySelectorAll
     ElementCache.clearHighlights();
@@ -797,11 +791,11 @@ function toggleSelection(item) {
     const id = item.dataset.id;
     if (AppState.selection.items.has(id)) {
         AppState.selection.items.delete(id);
-        selectedElements.delete(item); // ✅ 优化：从缓存中移除
+        selectedElements.delete(id); // ✅ 优化：从缓存中移除
         item.classList.remove('selected');
     } else {
         AppState.selection.items.add(id);
-        selectedElements.add(item); // ✅ 优化：添加到缓存
+        selectedElements.set(id, item); // ✅ 优化：添加到缓存
         item.classList.add('selected');
     }
     AppState.selection.lastClickedId = id;
@@ -828,7 +822,7 @@ function selectRange(startId, endId, column) {
         const item = nodeList[i];
         if (!AppState.selection.items.has(item.dataset.id)) {
             AppState.selection.items.add(item.dataset.id);
-            selectedElements.add(item);
+            selectedElements.set(item.dataset.id, item);
             item.classList.add('selected');
         }
     }
@@ -1949,7 +1943,6 @@ function handleDragStart(e) {
         setTimeout(() => dragImage.remove(), 0);
     }
 
-    // 直接遍历 selectedElements（已有元素引用），省掉 O(N) 次 querySelector
     queueMicrotask(() => {
         selectedElements.forEach(el => {
             if (el.isConnected) ElementCache.addDragging(el);
@@ -2052,10 +2045,12 @@ function highlightBookmarkItems(itemIds, delay = 50) {
 
     let observer = null;
     let timeoutId = null;
+    let animationTimer = null;
 
     const cleanup = () => {
         if (observer) { observer.disconnect(); observer = null; }
         if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+        if (animationTimer) { clearTimeout(animationTimer); animationTimer = null; }
     };
 
     const applyHighlight = (items) => {
@@ -2063,9 +2058,10 @@ function highlightBookmarkItems(itemIds, delay = 50) {
         requestAnimationFrame(() => {
             items.forEach(item => { if (item?.classList) item.classList.add('just-moved'); });
             if (items[0]) items[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            setTimeout(() => {
+            animationTimer = setTimeout(() => {
+                animationTimer = null;
                 requestAnimationFrame(() => {
-                    items.forEach(item => { if (item?.classList) item.classList.remove('just-moved'); });
+                    items.forEach(item => { if (item?.isConnected) item.classList.remove('just-moved'); });
                 });
             }, 1200);
         });
@@ -2612,7 +2608,7 @@ function showContextMenu(e, bookmarkElement, column) {
         clearSelection();
         if (isTopSiteItem) {
             AppState.selection.items.add(rightClickedId);
-            selectedElements.add(bookmarkElement);
+            selectedElements.set(rightClickedId, bookmarkElement);
             bookmarkElement.classList.add('selected');
         } else {
             toggleSelection(bookmarkElement);
@@ -2624,7 +2620,7 @@ function showContextMenu(e, bookmarkElement, column) {
     const selectionSize = AppState.selection.items.size;
     // 用已缓存的 selectedElements 直接判断，无需再查 DOM
     let hasBookmarkInSelection = false;
-    for (const el of selectedElements) {
+    for (const el of selectedElements.values()) {
         if (!el.classList.contains('is-folder')) { hasBookmarkInSelection = true; break; }
     }
 
@@ -2764,7 +2760,7 @@ function openBookmarks(selectedIds, openMode) {
     };
 
     selectedIds.forEach(id => {
-        const item = findBookmarkElement(id);
+        const item = selectedElements.get(id) || findBookmarkElement(id);
         if (item?.dataset.url && openActions[openMode]) {
             openActions[openMode](item.dataset.url);
         }
@@ -2958,10 +2954,11 @@ async function handleSortBookmarks(parentId, sortType) {
             return;
         }
 
-        for (let i = 0; i < sortedChildren.length; i++) {
-            if (sortedChildren[i].index !== i) {
-                await new Promise(resolve => chrome.bookmarks.move(sortedChildren[i].id, { parentId, index: i }, resolve));
-            }
+        // 只移动 index 真正需要变化的项，按顺序串行保证 index 语义正确
+        const needsMove = sortedChildren.filter((c, i) => c.index !== i);
+        for (const child of needsMove) {
+            const targetIndex = sortedChildren.indexOf(child);
+            await new Promise(resolve => chrome.bookmarks.move(child.id, { parentId, index: targetIndex }, resolve));
         }
 
         scheduleRefresh();
@@ -3164,6 +3161,16 @@ function showMoveDialog(bookmarkElement, idsToMove) {
 
     // 用事件委托替代每个 content.onclick 闭包，用 signal 统一管理生命周期
     treeContainer.addEventListener('click', (e) => {
+        const icon = e.target.closest('.expand-icon');
+        if (icon) {
+            e.stopPropagation();
+            const sub = icon.closest('.bookmark-tree-item')?.querySelector('.sub-folder');
+            if (sub) {
+                sub.classList.toggle('is-hidden');
+                icon.classList.toggle('expanded');
+            }
+            return;
+        }
         const content = e.target.closest('.folder-content');
         if (!content) return;
         const item = content.parentElement;
@@ -3185,11 +3192,6 @@ function showMoveDialog(bookmarkElement, idsToMove) {
                 icon = item.querySelector('.expand-icon');
             if (sub && sub.hasChildNodes()) {
                 icon.textContent = '⯈';
-                icon.onclick = (e) => {
-                    e.stopPropagation();
-                    sub.classList.toggle('is-hidden');
-                    icon.classList.toggle('expanded');
-                };
             }
         });
     });
@@ -3347,7 +3349,11 @@ function handleBookmarkRemoved(id, removeInfo) {
 }
 
 function handleBookmarkChanged(id, changeInfo) {
-    document.querySelectorAll(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`).forEach(item => {
+    const bookmarkContainer = getCachedElement('bookmarkContainer', () => document.getElementById('bookmarkContainer'));
+    const header = getCachedElement('header', () => document.querySelector('.page-header'));
+    const roots = [bookmarkContainer, header].filter(Boolean);
+    const items = roots.flatMap(root => [...root.querySelectorAll(`.bookmark-item[data-id="${id}"], a[data-id="${id}"]`)]);
+    items.forEach(item => {
         if (changeInfo.title) {
             item.dataset.title = changeInfo.title;
             const titleEl = item.querySelector('.bookmark-title') || item.querySelector('.module-title');
@@ -3859,16 +3865,15 @@ function initExcludeRulesDialog() {
             return;
         }
 
-        excludeRulesList.innerHTML = '';
+        const frag = document.createDocumentFragment();
 
         rules.forEach(rule => {
             const ruleItem = document.createElement('div');
-            ruleItem.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px;';
+            ruleItem.className = 'exclude-rules-item';
+            ruleItem.dataset.ruleId = rule.id;
 
-            // 开关
             const toggleLabel = document.createElement('label');
             toggleLabel.className = 'toggle-switch';
-            toggleLabel.style.cssText = 'margin: 0; flex-shrink: 0;';
 
             const toggleInput = document.createElement('input');
             toggleInput.type = 'checkbox';
@@ -3883,33 +3888,39 @@ function initExcludeRulesDialog() {
 
             const slider = document.createElement('span');
             slider.className = 'slider';
-
             toggleLabel.append(toggleInput, slider);
 
-            // 规则文本
             const ruleText = document.createElement('span');
-            ruleText.style.cssText = 'flex: 1; color: var(--text-primary);';
+            ruleText.className = 'exclude-rules-item-text';
             ruleText.textContent = `${rule.date}  ${rule.startTime} - ${rule.endTime}`;
 
-            // 删除按钮
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'dialog-button';
             deleteBtn.textContent = '删除';
-            deleteBtn.style.cssText = 'padding: 4px 10px; font-size: 12px; flex-shrink: 0;';
-            deleteBtn.addEventListener('click', () => {
-                const index = rules.findIndex(r => r.id === rule.id);
-                if (index > -1) {
-                    rules.splice(index, 1);
-                    localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
-                    renderExcludeRulesList();
-                    displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
-                    showToast('规则已删除', 2000, 'success');
-                }
-            });
+            deleteBtn.dataset.deleteId = rule.id;
 
             ruleItem.append(toggleLabel, ruleText, deleteBtn);
-            excludeRulesList.appendChild(ruleItem);
+            frag.appendChild(ruleItem);
         });
+
+        excludeRulesList.replaceChildren(frag);
+
+        excludeRulesList.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-delete-id]');
+            if (!btn) return;
+            const id = btn.dataset.deleteId;
+            const index = rules.findIndex(r => r.id === id);
+            if (index > -1) {
+                rules.splice(index, 1);
+                localStorage.setItem(CONSTANTS.STORAGE_KEYS.EXCLUDE_RULES, JSON.stringify(rules));
+                btn.closest('.exclude-rules-item').remove();
+                if (excludeRulesList.children.length === 0) {
+                    excludeRulesList.textContent = '暂无排除规则';
+                }
+                displayRecentBookmarks().catch(err => console.error("刷新最近书签失败:", err));
+                showToast('规则已删除', 2000, 'success');
+            }
+        }, { once: false });
     }
 }
 
