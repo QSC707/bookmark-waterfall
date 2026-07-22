@@ -2045,7 +2045,7 @@ function handleDragOver(e) {
     const isFolder = targetItem.classList.contains('is-folder');
 
     let newClass = '';
-    if (level == '0') {
+    if (level === '0') {
         newClass = (e.clientX < rect.left + rect.width / 2) ? 'drag-over-before' : 'drag-over-after';
     } else {
         const y = e.clientY - rect.top;
