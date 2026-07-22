@@ -56,10 +56,16 @@
 #### 3. 预连接和DNS预解析 ⭐⭐⭐
 **收益**: 加速图标加载 (50-100ms)
 
+**注意**: ❌ 本扩展使用 Chrome 内置的 `_favicon` API，图标请求是本地的，无需预连接。
+此优化不适用于本项目。
+
 ```html
-<link rel="dns-prefetch" href="https://www.google.com">
-<link rel="preconnect" href="https://www.google.com" crossorigin>
+<!-- ❌ 不需要：图标是本地 API -->
+<!-- <link rel="dns-prefetch" href="https://www.google.com"> -->
+<!-- <link rel="preconnect" href="https://www.google.com" crossorigin> -->
 ```
+
+如果未来使用外部图标服务（如 Google S2 Converter），可以考虑添加预连接。
 
 ---
 
