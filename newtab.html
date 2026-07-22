@@ -6,11 +6,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark light">
     <title>主页</title>
+
+    <!-- ✅ 首屏优化：预连接到图标服务 -->
+    <link rel="dns-prefetch" href="https://www.google.com">
+    <link rel="preconnect" href="https://www.google.com" crossorigin>
+
     <link rel="stylesheet" href="style.css">
     <script src="newtab.js" defer></script>
 </head>
 
 <body>
+    <!-- ✅ 骨架屏：零感知加载体验 -->
+    <div id="skeleton-screen" class="skeleton-screen">
+        <div class="skeleton-header"></div>
+        <div class="skeleton-bookmarks-bar"></div>
+        <div class="skeleton-content">
+            <div class="skeleton-column">
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+            </div>
+        </div>
+    </div>
+
     <svg width="0" height="0" class="svg-sprite" aria-hidden="true">
         <symbol id="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>

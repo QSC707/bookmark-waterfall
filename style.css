@@ -2,6 +2,83 @@
 /* --- 最终修复与美化版样式 (Final Corrected Version 3.0) --- */
 /* ================================================================== */
 
+/* --- 0. 骨架屏（首屏加载优化）--- */
+.skeleton-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-color, #1E1E1E);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+}
+
+.skeleton-screen.hidden {
+    display: none;
+}
+
+.skeleton-header {
+    height: 25px;
+    background: linear-gradient(90deg, #2d2d2d 25%, #333 50%, #2d2d2d 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-bookmarks-bar {
+    height: 40px;
+    background: #2d2d2d;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+}
+
+.skeleton-bookmarks-bar::before,
+.skeleton-bookmarks-bar::after {
+    content: '';
+    width: 80px;
+    height: 20px;
+    background: linear-gradient(90deg, #383838 25%, #444 50%, #383838 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+.skeleton-content {
+    flex: 1;
+    display: flex;
+    padding: 16px;
+    overflow: hidden;
+}
+
+.skeleton-column {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.skeleton-item {
+    height: 32px;
+    background: linear-gradient(90deg, #282828 25%, #333 50%, #282828 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+.skeleton-item:nth-child(2) { animation-delay: 0.1s; }
+.skeleton-item:nth-child(3) { animation-delay: 0.2s; }
+.skeleton-item:nth-child(4) { animation-delay: 0.3s; }
+.skeleton-item:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 /* --- 1. 变量与色彩体系 (macOS 风格) --- */
 :root {
     color-scheme: dark;

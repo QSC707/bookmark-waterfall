@@ -4097,6 +4097,16 @@ function scheduleRefresh() {
 let scrollTimer = null;
 
 (function() {
+    // ✅ 极致首屏优化：隐藏骨架屏的辅助函数
+    function hideSkeleton() {
+        const skeleton = document.getElementById('skeleton-screen');
+        if (skeleton) {
+            skeleton.classList.add('hidden');
+            // 延迟移除，确保过渡完成
+            setTimeout(() => skeleton.remove(), 300);
+        }
+    }
+
     // P1优化：初始化DOM缓存
     DOMCache.init();
     // ul 首次 append 进 contextMenu，后续 showContextMenu 无需重复 appendChild
@@ -4591,7 +4601,11 @@ let scrollTimer = null;
     const initializeApp = (bookmarks) => {
         // 🔧 首屏优化：优先渲染书签栏，延迟加载其他模块
         safeInitializeModule(
-            () => displayBookmarks(bookmarks),
+            () => {
+                displayBookmarks(bookmarks);
+                // ✅ 极致首屏优化：书签栏渲染完成后立即隐藏骨架屏
+                hideSkeleton();
+            },
             '书签栏',
             () => {
                 const container = document.getElementById('bookmarkContainer');
@@ -4601,6 +4615,8 @@ let scrollTimer = null;
                     msg.textContent = '书签栏加载失败';
                     container.appendChild(msg);
                 }
+                // 即使失败也隐藏骨架屏
+                hideSkeleton();
             }
         );
 
