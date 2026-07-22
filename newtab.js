@@ -241,12 +241,31 @@ function getBookmarkTree() {
             // 合并两次遍历为一次：同时建 TreeCache 和 flat 列表
             BookmarkTreeCache.clear();
             const flat = [];
-            const traverseAll = (nodes, parentId = null) => {
-                if (!nodes) return;
-                for (const node of nodes) {
-                    BookmarkTreeCache.set(node.id, { id: node.id, parentId, title: node.title, url: node.url });
+            // ✅ 性能优化：使用迭代替代递归，避免深层嵌套时的调用栈开销
+            const traverseAll = (rootNodes) => {
+                const stack = [];
+                for (let i = rootNodes.length - 1; i >= 0; i--) {
+                    stack.push({ node: rootNodes[i], parentId: null });
+                }
+
+                while (stack.length > 0) {
+                    const { node, parentId } = stack.pop();
+
+                    BookmarkTreeCache.set(node.id, {
+                        id: node.id,
+                        parentId,
+                        title: node.title,
+                        url: node.url
+                    });
+
                     if (node.url) flat.push(node);
-                    if (node.children) traverseAll(node.children, node.id);
+
+                    if (node.children) {
+                        // 反向推入保持原始顺序
+                        for (let i = node.children.length - 1; i >= 0; i--) {
+                            stack.push({ node: node.children[i], parentId: node.id });
+                        }
+                    }
                 }
             };
             traverseAll(tree);
@@ -1848,7 +1867,7 @@ function adjustColumnWidths(container) {
     resizing = true;
 
     try {
-        const columns = Array.from(container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])'));
+        const columns = [...container.querySelectorAll('.bookmark-column[data-level]:not([data-level="0"])')];
         if (columns.length === 0) {
             resizing = false;
             return;
@@ -3664,18 +3683,22 @@ async function displayRecentBookmarks() {
         const fragment = document.createDocumentFragment();
         let lastDateString = '';
 
-        // 按 parentId 记忆化路径查询：同一文件夹的书签共享一次路径计算
+        // ✅ 性能优化：批量计算路径，避免重复计算相同父文件夹
         const pathCache = new Map();
-        const getPathMemoized = (item) => {
-            if (pathCache.has(item.parentId)) {
-                return Promise.resolve(pathCache.get(item.parentId));
+        // 获取所有唯一的 parentId
+        const uniqueParentIds = [...new Set(filteredBookmarks.map(b => b.parentId))];
+
+        // 批量预计算所有父文件夹的路径
+        await Promise.all(uniqueParentIds.map(async parentId => {
+            const bookmark = filteredBookmarks.find(b => b.parentId === parentId);
+            if (bookmark) {
+                const path = await getBookmarkPath(bookmark.id);
+                pathCache.set(parentId, path);
             }
-            return getBookmarkPath(item.id).then(p => {
-                pathCache.set(item.parentId, p);
-                return p;
-            });
-        };
-        const paths = await Promise.all(filteredBookmarks.map(getPathMemoized));
+        }));
+
+        // 直接从缓存读取路径（同步操作，无需再 await）
+        const paths = filteredBookmarks.map(item => pathCache.get(item.parentId) || '');
 
         for (let i = 0; i < filteredBookmarks.length; i++) {
             const item = filteredBookmarks[i];
@@ -4406,7 +4429,7 @@ let scrollTimer = null;
     });
 
     // 缓存主题按钮列表，避免每次切主题都 querySelectorAll
-    const themeButtons = Array.from(themeOptionsContainer.querySelectorAll('.theme-option'));
+    const themeButtons = [...themeOptionsContainer.querySelectorAll('.theme-option')];
     const updateThemeButtons = (active) => {
         for (const btn of themeButtons) btn.classList.toggle('active', btn.dataset.themeValue === active);
     };
